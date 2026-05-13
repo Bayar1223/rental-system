@@ -2,95 +2,47 @@ const mongoose = require("mongoose");
 
 const propertySchema = new mongoose.Schema(
   {
-    title: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-
-    description: {
-      type: String,
-      required: true,
-    },
+    title: { type: String, required: true },
+    description: { type: String, required: true },
 
     location: {
-      city: {
-        type: String,
-        required: true,
-        default: "Улаанбаатар",
-      },
-      district: {
-        type: String,
-        required: true,
-      },
-      address: {
-        type: String,
-        required: true,
-      },
+      city: { type: String, required: true },
+      district: { type: String, required: true },
+      address: { type: String, required: true },
     },
 
-    monthlyRent: {
-      type: Number,
-      required: true,
-    },
+    monthlyRent: { type: Number, required: true },
+    depositAmount: { type: Number, default: 0 },
 
-    depositAmount: {
-      type: Number,
-      required: true,
-    },
+    paymentCondition: { type: String, default: "monthly" },
+    paymentConditionText: { type: String, default: "" },
+    minLeaseMonths: { type: Number, default: 6 },
 
-    paymentCondition: {
-      type: String,
-      enum: ["monthly", "quarterly", "half_year", "yearly"],
-      default: "monthly",
-    },
+    rooms: { type: Number, required: true },
+    area: { type: Number, required: true },
+    propertyType: { type: String, default: "apartment" },
 
-    minLeaseMonths: {
-      type: Number,
-      required: true,
-      default: 6,
-    },
+    floorMaterial: { type: String, default: "" },
+    doorType: { type: String, default: "" },
+    balconyCount: { type: Number, default: 0 },
+    builtYear: { type: Number },
+    garageInfo: { type: String, default: "" },
+    hasGarage: { type: Boolean, default: false },
 
-    rooms: {
-      type: Number,
-      required: true,
-    },
+    windowType: { type: String, default: "" },
+    windowCount: { type: Number, default: 0 },
+    floorNumber: { type: Number },
+    totalFloors: { type: Number },
 
-    area: {
-      type: Number,
-      required: true,
-    },
+    isFurnished: { type: Boolean, default: false },
+    hasOutdoorParking: { type: Boolean, default: false },
 
-    propertyType: {
-      type: String,
-      enum: ["apartment", "house", "studio", "office"],
-      default: "apartment",
-    },
+    contactName: { type: String, default: "" },
+    contactPhone: { type: String, default: "" },
+    contactEmail: { type: String, default: "" },
 
-    hasOutdoorParking: {
-      type: Boolean,
-      default: false,
-    },
-
-    hasGarage: {
-      type: Boolean,
-      default: false,
-    },
-
-    isFurnished: {
-      type: Boolean,
-      default: false,
-    },
-
-    images: [
-      {
-        type: String,
-      },
-    ],
-
-    virtualTourUrl: {
-      type: String,
-    },
+    details: { type: String, default: "" },
+    images: [{ type: String }],
 
     status: {
       type: String,
@@ -104,9 +56,7 @@ const propertySchema = new mongoose.Schema(
       required: true,
     },
   },
-  {
-    timestamps: true,
-  }
+  { timestamps: true }
 );
 
 module.exports = mongoose.model("Property", propertySchema);
