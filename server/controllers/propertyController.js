@@ -1,40 +1,56 @@
 const Property = require("../models/Property");
 
+// Тоон утгыг аюулгүй хөрвүүлэх — хоосон байвал undefined буцаана
+const toNum = (val) => {
+  if (val === undefined || val === null || val === "") return undefined;
+  const n = Number(val);
+  return isNaN(n) ? undefined : n;
+};
+
 exports.getProperties = async (req, res) => {
   try {
-    const properties = await Property.find().populate(
-      "owner",
-      "firstName lastName email phone role"
-    );
+    const { city, district, minRent, maxRent, rooms, search } = req.query;
+    const filter = {};
+
+    if (city) filter["location.city"] = city;
+    if (district) filter["location.district"] = district;
+
+    if (minRent || maxRent) {
+      filter.monthlyRent = {};
+      if (minRent) filter.monthlyRent.$gte = Number(minRent);
+      if (maxRent) filter.monthlyRent.$lte = Number(maxRent);
+    }
+
+    if (rooms) filter.rooms = Number(rooms);
+
+    if (search) {
+      filter.$or = [
+        { title: { $regex: search, $options: "i" } },
+        { "location.city": { $regex: search, $options: "i" } },
+        { "location.district": { $regex: search, $options: "i" } },
+        { "location.address": { $regex: search, $options: "i" } },
+      ];
+    }
+
+    const properties = await Property.find(filter)
+      .populate("owner", "firstName lastName email phone role")
+      .sort({ createdAt: -1 });
 
     res.status(200).json(properties);
   } catch (error) {
-    res.status(500).json({
-      message: "Орон сууцнуудыг авахад алдаа гарлаа",
-      error: error.message,
-    });
+    res.status(500).json({ message: "Орон сууцнуудыг авахад алдаа гарлаа", error: error.message });
   }
 };
 
 exports.getPropertyById = async (req, res) => {
   try {
     const property = await Property.findById(req.params.id).populate(
-      "owner",
-      "firstName lastName email phone role"
+      "owner", "firstName lastName email phone role"
     );
-
-    if (!property) {
-      return res.status(404).json({
-        message: "Орон сууц олдсонгүй",
-      });
-    }
-
+    if (!property) return res.status(404).json({ message: "Орон сууц олдсонгүй" });
     res.status(200).json(property);
   } catch (error) {
-    res.status(500).json({
-      message: "Орон сууцны дэлгэрэнгүй авахад алдаа гарлаа",
-      error: error.message,
-    });
+    res.status(500).json({ message: "Орон сууцны дэлгэрэнгүй авахад алдаа гарлаа", error: error.message });
   }
 };
 
@@ -44,105 +60,115 @@ exports.createProperty = async (req, res) => {
 
     const property = await Property.create({
       ...req.body,
-
-      monthlyRent: Number(req.body.monthlyRent),
-      depositAmount: Number(req.body.depositAmount || 0),
-      minLeaseMonths: Number(req.body.minLeaseMonths || 6),
-      rooms: Number(req.body.rooms),
-      area: Number(req.body.area),
-      balconyCount: Number(req.body.balconyCount || 0),
-      builtYear: Number(req.body.builtYear || 0),
-      windowCount: Number(req.body.windowCount || 0),
-      floorNumber: Number(req.body.floorNumber || 0),
-      totalFloors: Number(req.body.totalFloors || 0),
-
-      hasGarage: req.body.hasGarage === "true" || req.body.hasGarage === true,
-      isFurnished:
-        req.body.isFurnished === "true" || req.body.isFurnished === true,
-      hasOutdoorParking:
-        req.body.hasOutdoorParking === "true" ||
-        req.body.hasOutdoorParking === true,
-
-      images: imageUrls,
-      owner: req.user.id,
+      location: {
+        city:     req.body["location[city]"]     || req.body.location?.city     || "Улаанбаатар",
+        district: req.body["location[district]"] || req.body.location?.district || "",
+        address:  req.body["location[address]"]  || req.body.location?.address  || "",
+      },
+      monthlyRent:       toNum(req.body.monthlyRent),
+      depositAmount:     toNum(req.body.depositAmount)  ?? 0,
+      minLeaseMonths:    toNum(req.body.minLeaseMonths) ?? 6,
+      rooms:             toNum(req.body.rooms),
+      area:              toNum(req.body.area),
+      balconyCount:      toNum(req.body.balconyCount),
+      builtYear:         toNum(req.body.builtYear),
+      windowCount:       toNum(req.body.windowCount),
+      floorNumber:       toNum(req.body.floorNumber),
+      totalFloors:       toNum(req.body.totalFloors),
+      hasGarage:         req.body.hasGarage        === "true",
+      isFurnished:       req.body.isFurnished       === "true",
+      hasOutdoorParking: req.body.hasOutdoorParking === "true",
+      images:            imageUrls,
+      owner:             req.user._id || req.user.id,
     });
 
-    res.status(201).json({
-      message: "Орон сууц амжилттай нэмэгдлээ",
-      property,
-    });
+    res.status(201).json({ message: "Орон сууц амжилттай нэмэгдлээ", property });
   } catch (error) {
-    console.log(error);
-
-    res.status(500).json({
-      message: "Орон сууц нэмэхэд алдаа гарлаа",
-      error: error.message,
-    });
+    res.status(500).json({ message: "Орон сууц нэмэхэд алдаа гарлаа", error: error.message });
   }
 };
 
 exports.updateProperty = async (req, res) => {
   try {
     const property = await Property.findById(req.params.id);
+    if (!property) return res.status(404).json({ message: "Орон сууц олдсонгүй" });
 
-    if (!property) {
-      return res.status(404).json({
-        message: "Орон сууц олдсонгүй",
-      });
+    const userId = req.user._id || req.user.id;
+    if (property.owner.toString() !== userId.toString()) {
+      return res.status(403).json({ message: "Та энэ байрыг засах эрхгүй" });
     }
 
-    if (property.owner.toString() !== req.user.id) {
-      return res.status(403).json({
-        message: "Та энэ байрыг засах эрхгүй",
-      });
-    }
+    // FormData-аас location зөв авах
+    const location = {
+      city:     req.body["location[city]"]     || property.location?.city,
+      district: req.body["location[district]"] || property.location?.district,
+      address:  req.body["location[address]"]  || property.location?.address,
+    };
+
+    // Зургууд: хуучин + шинэ
+    const existingImages = req.body.existingImages
+      ? Array.isArray(req.body.existingImages)
+        ? req.body.existingImages
+        : [req.body.existingImages]
+      : [];
+    const newImageUrls = req.files ? req.files.map((f) => f.path) : [];
+    const allImages = [...existingImages, ...newImageUrls];
+
+    // Тоон утгыг аюулгүй авах — хоосон бол хуучин утгыг хадгална
+    const numOrOld = (val, old) => toNum(val) ?? old;
+
+    const updateData = {
+      title:                req.body.title               || property.title,
+      details:              req.body.details             || property.details,
+      location,
+      monthlyRent:          numOrOld(req.body.monthlyRent,   property.monthlyRent),
+      paymentConditionText: req.body.paymentConditionText || property.paymentConditionText,
+      rooms:                numOrOld(req.body.rooms,         property.rooms),
+      area:                 numOrOld(req.body.area,          property.area),
+      balconyCount:         numOrOld(req.body.balconyCount,  property.balconyCount),
+      builtYear:            numOrOld(req.body.builtYear,     property.builtYear),
+      windowCount:          numOrOld(req.body.windowCount,   property.windowCount),
+      floorNumber:          numOrOld(req.body.floorNumber,   property.floorNumber),
+      totalFloors:          numOrOld(req.body.totalFloors,   property.totalFloors),
+      floorMaterial:        req.body.floorMaterial  || property.floorMaterial,
+      doorType:             req.body.doorType        || property.doorType,
+      windowType:           req.body.windowType      || property.windowType,
+      garageInfo:           req.body.garageInfo      || property.garageInfo,
+      hasGarage:            req.body.hasGarage         === "true",
+      isFurnished:          req.body.isFurnished        === "true",
+      hasOutdoorParking:    req.body.hasOutdoorParking  === "true",
+      contactName:          req.body.contactName   || property.contactName,
+      contactPhone:         req.body.contactPhone  || property.contactPhone,
+      contactEmail:         req.body.contactEmail  || property.contactEmail,
+      images:               allImages.length > 0 ? allImages : property.images,
+    };
 
     const updatedProperty = await Property.findByIdAndUpdate(
       req.params.id,
-      req.body,
-      {
-        new: true,
-        runValidators: true,
-      }
+      { $set: updateData },
+      { returnDocument: "after" }
     ).populate("owner", "firstName lastName email phone role");
 
-    res.status(200).json({
-      message: "Орон сууц амжилттай шинэчлэгдлээ",
-      property: updatedProperty,
-    });
+    res.status(200).json({ message: "Орон сууц амжилттай шинэчлэгдлээ", property: updatedProperty });
   } catch (error) {
-    res.status(500).json({
-      message: "Орон сууц шинэчлэхэд алдаа гарлаа",
-      error: error.message,
-    });
+    console.error("updateProperty error:", error);
+    res.status(500).json({ message: "Орон сууц шинэчлэхэд алдаа гарлаа", error: error.message });
   }
 };
 
 exports.deleteProperty = async (req, res) => {
   try {
     const property = await Property.findById(req.params.id);
+    if (!property) return res.status(404).json({ message: "Орон сууц олдсонгүй" });
 
-    if (!property) {
-      return res.status(404).json({
-        message: "Орон сууц олдсонгүй",
-      });
-    }
-
-    if (property.owner.toString() !== req.user.id) {
-      return res.status(403).json({
-        message: "Та энэ байрыг устгах эрхгүй",
-      });
+    const userId = req.user._id || req.user.id;
+    if (property.owner.toString() !== userId.toString()) {
+      return res.status(403).json({ message: "Та энэ байрыг устгах эрхгүй" });
     }
 
     await Property.findByIdAndDelete(req.params.id);
-
-    res.status(200).json({
-      message: "Орон сууц амжилттай устгагдлаа",
-    });
+    res.status(200).json({ message: "Орон сууц амжилттай устгагдлаа" });
   } catch (error) {
-    res.status(500).json({
-      message: "Орон сууц устгахад алдаа гарлаа",
-      error: error.message,
-    });
+    res.status(500).json({ message: "Орон сууц устгахад алдаа гарлаа", error: error.message });
   }
 };

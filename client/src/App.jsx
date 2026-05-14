@@ -6,35 +6,24 @@ import PropertyDetail from "./pages/PropertyDetail";
 import MyApplications from "./pages/MyApplications";
 import AddProperty from "./pages/AddProperty";
 import LandlordApplications from "./pages/LandlordApplications";
+import MyProperties from "./pages/MyProperties";
+import Contract from "./pages/Contract";
+import EditProperty from "./pages/EditProperty";
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Home />} />
-
         <Route path="/login" element={<Login />} />
-
-        <Route
-          path="/register"
-          element={<Register />}
-        />
-        <Route
-  path="/properties/:id"
-  element={<PropertyDetail />}
-/>
-      <Route
-  path="/my-applications"
-  element={<MyApplications />}
-/>
-<Route
-  path="/add-property"
-  element={<AddProperty />}
-/>
-<Route
-  path="/landlord-applications"
-  element={<LandlordApplications />}
-/>
+        <Route path="/register" element={<Register />} />
+        <Route path="/properties/:id" element={<PropertyDetail />} />
+        <Route path="/my-applications" element={<MyApplications />} />
+        <Route path="/add-property" element={<AddProperty />} />
+        <Route path="/landlord-applications" element={<LandlordApplications />} />
+        <Route path="/my-properties" element={<MyProperties />} />
+        <Route path="/contract/:id" element={<Contract />} />
+        <Route path="/edit-property/:id" element={<EditProperty />} />
       </Routes>
     </BrowserRouter>
   );
