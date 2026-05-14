@@ -20,6 +20,7 @@ app.get("/", (req, res) => {
 app.use("/api/auth", require("./routes/authRoutes"));
 app.use("/api/properties", require("./routes/propertyRoutes"));
 app.use("/api/applications", require("./routes/applicationRoutes"));
+app.use("/api/notifications", require("./routes/notificationRoutes"));
 
 app.get("/api/test", protect, (req, res) => {
   res.json({

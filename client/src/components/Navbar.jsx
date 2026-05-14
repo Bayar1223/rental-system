@@ -1,8 +1,90 @@
 import { Link, useNavigate } from "react-router-dom";
+import { useState, useEffect, useRef } from "react";
+import axios from "axios";
+
+const API = "https://rental-system-api.onrender.com";
+
+const timeAgo = (date) => {
+  const d = new Date(date).getTime();
+  const diff = (Date.now() - d) / 1000;
+  if (diff < 60) return "Дөнгөж сая";
+  if (diff < 3600) return `${Math.floor(diff / 60)} минутын өмнө`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)} цагийн өмнө`;
+  return `${Math.floor(diff / 86400)} өдрийн өмнө`;
+};
+
+const typeIcon = (type) => {
+  if (type === "application_received") return "📨";
+  if (type === "application_approved") return "✅";
+  if (type === "application_rejected") return "❌";
+  return "🔔";
+};
 
 function Navbar() {
   const navigate = useNavigate();
   const user = JSON.parse(localStorage.getItem("user"));
+  const token = localStorage.getItem("token");
+
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [notifications, setNotifications] = useState([]);
+  const [showNotif, setShowNotif] = useState(false);
+  const notifRef = useRef(null);
+
+  // Мэдэгдлийн тоог 30 секунд тутамд шинэчлэх
+  useEffect(() => {
+    if (!user || !token) return;
+
+    const load = async () => {
+      try {
+        const res = await axios.get(`${API}/api/notifications/unread-count`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setUnreadCount(res.data.count);
+      } catch { /* silent */ }
+    };
+
+    load();
+    const interval = setInterval(load, 30000);
+    return () => clearInterval(interval);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Dropdown хаах
+  useEffect(() => {
+    const handleClick = (e) => {
+      if (notifRef.current && !notifRef.current.contains(e.target)) {
+        setShowNotif(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  const handleBellClick = async () => {
+    if (!showNotif) {
+      try {
+        const res = await axios.get(`${API}/api/notifications`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setNotifications(res.data);
+      } catch { /* silent */ }
+
+      if (unreadCount > 0) {
+        try {
+          await axios.put(`${API}/api/notifications/mark-all-read`, {}, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          setUnreadCount(0);
+        } catch { /* silent */ }
+      }
+    }
+    setShowNotif((prev) => !prev);
+  };
+
+  const handleNotifClick = (notif) => {
+    setShowNotif(false);
+    if (notif.link) navigate(notif.link);
+  };
 
   const handleLogout = () => {
     localStorage.removeItem("token");
@@ -35,6 +117,61 @@ function Navbar() {
               Ирсэн хүсэлтүүд
             </Link>
           </>
+        )}
+
+        {user && (
+          <div className="relative" ref={notifRef}>
+            <button
+              onClick={handleBellClick}
+              className="relative w-9 h-9 flex items-center justify-center rounded-xl hover:bg-gray-100 transition"
+            >
+              <span className="text-xl">🔔</span>
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
+                  {unreadCount > 9 ? "9+" : unreadCount}
+                </span>
+              )}
+            </button>
+
+            {showNotif && (
+              <div className="absolute right-0 top-12 w-80 bg-white rounded-2xl shadow-xl border border-gray-100 z-50 overflow-hidden">
+                <div className="px-4 py-3 border-b flex items-center justify-between">
+                  <h3 className="font-bold text-gray-800">Мэдэгдлүүд</h3>
+                  <span className="text-xs text-gray-400">{notifications.length} мэдэгдэл</span>
+                </div>
+                <div className="max-h-80 overflow-y-auto">
+                  {notifications.length === 0 ? (
+                    <div className="py-10 text-center text-gray-400">
+                      <div className="text-3xl mb-2">🔔</div>
+                      <p className="text-sm">Мэдэгдэл байхгүй байна</p>
+                    </div>
+                  ) : (
+                    notifications.map((n) => (
+                      <button
+                        key={n._id}
+                        onClick={() => handleNotifClick(n)}
+                        className={`w-full text-left px-4 py-3 hover:bg-gray-50 transition border-b border-gray-50 ${!n.isRead ? "bg-indigo-50/50" : ""}`}
+                      >
+                        <div className="flex gap-3">
+                          <span className="text-xl flex-shrink-0">{typeIcon(n.type)}</span>
+                          <div className="min-w-0">
+                            <p className={`text-sm font-semibold ${!n.isRead ? "text-indigo-700" : "text-gray-800"}`}>
+                              {n.title}
+                            </p>
+                            <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{n.message}</p>
+                            <p className="text-xs text-gray-400 mt-1">{timeAgo(n.createdAt)}</p>
+                          </div>
+                          {!n.isRead && (
+                            <span className="w-2 h-2 bg-indigo-500 rounded-full flex-shrink-0 mt-1" />
+                          )}
+                        </div>
+                      </button>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
         )}
 
         {user ? (
