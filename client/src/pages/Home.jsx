@@ -10,33 +10,44 @@ const districts = [
 
 function Home() {
   const [properties, setProperties] = useState([]);
+  const [pagination, setPagination] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  const [search, setSearch] = useState("");
+  const [search, setSearch]   = useState("");
   const [district, setDistrict] = useState("");
-  const [rooms, setRooms] = useState("");
+  const [rooms, setRooms]     = useState("");
   const [minRent, setMinRent] = useState("");
   const [maxRent, setMaxRent] = useState("");
   const [showFilter, setShowFilter] = useState(false);
+  const [page, setPage]       = useState(1);
 
   const fetchProperties = useCallback(async () => {
     setLoading(true);
     try {
-      const params = {};
-      if (search) params.search = search;
+      const params = { page, limit: 9 };
+      if (search)   params.search   = search;
       if (district) params.district = district;
-      if (rooms) params.rooms = rooms;
-      if (minRent) params.minRent = minRent;
-      if (maxRent) params.maxRent = maxRent;
+      if (rooms)    params.rooms    = rooms;
+      if (minRent)  params.minRent  = minRent;
+      if (maxRent)  params.maxRent  = maxRent;
 
-     const res = await api.get("/api/properties", { params });
-      setProperties(res.data);
+      const res = await api.get("/api/properties", { params });
+
+      // Pagination форматтай эсэхийг шалгах
+      if (res.data.properties) {
+        setProperties(res.data.properties);
+        setPagination(res.data.pagination);
+      } else {
+        // Хуучин формат (array)
+        setProperties(res.data);
+        setPagination(null);
+      }
     } catch (error) {
       console.log(error);
     } finally {
       setLoading(false);
     }
-  }, [search, district, rooms, minRent, maxRent]);
+  }, [search, district, rooms, minRent, maxRent, page]);
 
   useEffect(() => {
     const timeout = setTimeout(() => {
@@ -45,12 +56,19 @@ function Home() {
     return () => clearTimeout(timeout);
   }, [fetchProperties]);
 
+  // Шүүлт өөрчлөгдөхөд 1-р хуудас руу буцах
+  const handleFilterChange = (setter) => (e) => {
+    setter(e.target.value);
+    setPage(1);
+  };
+
   const handleReset = () => {
     setSearch("");
     setDistrict("");
     setRooms("");
     setMinRent("");
     setMaxRent("");
+    setPage(1);
   };
 
   const hasFilter = search || district || rooms || minRent || maxRent;
@@ -73,7 +91,7 @@ function Home() {
                 type="text"
                 placeholder="Байрны нэр, хаяг хайх..."
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) => { setSearch(e.target.value); setPage(1); }}
                 className="w-full pl-12 pr-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-400 text-base"
               />
             </div>
@@ -104,7 +122,7 @@ function Home() {
                   <label className="text-sm font-semibold text-gray-600 mb-1 block">Дүүрэг</label>
                   <select
                     value={district}
-                    onChange={(e) => setDistrict(e.target.value)}
+                    onChange={handleFilterChange(setDistrict)}
                     className="w-full border p-2.5 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
                   >
                     <option value="">Бүгд</option>
@@ -118,7 +136,7 @@ function Home() {
                   <label className="text-sm font-semibold text-gray-600 mb-1 block">Өрөөний тоо</label>
                   <select
                     value={rooms}
-                    onChange={(e) => setRooms(e.target.value)}
+                    onChange={handleFilterChange(setRooms)}
                     className="w-full border p-2.5 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
                   >
                     <option value="">Бүгд</option>
@@ -136,7 +154,7 @@ function Home() {
                     type="number"
                     placeholder="0"
                     value={minRent}
-                    onChange={(e) => setMinRent(e.target.value)}
+                    onChange={handleFilterChange(setMinRent)}
                     className="w-full border p-2.5 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
                   />
                 </div>
@@ -147,7 +165,7 @@ function Home() {
                     type="number"
                     placeholder="10,000,000"
                     value={maxRent}
-                    onChange={(e) => setMaxRent(e.target.value)}
+                    onChange={handleFilterChange(setMaxRent)}
                     className="w-full border p-2.5 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
                   />
                 </div>
@@ -167,15 +185,22 @@ function Home() {
       </div>
 
       <div className="max-w-5xl mx-auto px-8 py-8">
+        {/* Үр дүн тоо */}
         <div className="flex items-center justify-between mb-6">
           <p className="text-gray-600">
-            {loading ? "Хайж байна..." : `${properties.length} байр олдлоо`}
+            {loading
+              ? "Хайж байна..."
+              : pagination
+                ? `Нийт ${pagination.total} байр — ${pagination.page} / ${pagination.totalPages} хуудас`
+                : `${properties.length} байр олдлоо`
+            }
           </p>
         </div>
 
+        {/* Байрнуудын grid */}
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[1, 2, 3].map((i) => (
+            {[1, 2, 3, 4, 5, 6].map((i) => (
               <div key={i} className="bg-white rounded-2xl shadow animate-pulse">
                 <div className="h-48 bg-gray-200 rounded-t-2xl" />
                 <div className="p-5 space-y-3">
@@ -202,6 +227,55 @@ function Home() {
             {properties.map((property) => (
               <PropertyCard key={property._id} property={property} />
             ))}
+          </div>
+        )}
+
+        {/* Pagination */}
+        {pagination && pagination.totalPages > 1 && (
+          <div className="flex justify-center items-center gap-2 mt-10">
+            {/* Өмнөх */}
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className="px-4 py-2 rounded-xl border text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50 transition"
+            >
+              ← Өмнөх
+            </button>
+
+            {/* Хуудасны дугаарууд */}
+            {Array.from({ length: pagination.totalPages }, (_, i) => i + 1)
+              .filter((p) => p === 1 || p === pagination.totalPages || Math.abs(p - page) <= 1)
+              .reduce((acc, p, idx, arr) => {
+                if (idx > 0 && p - arr[idx - 1] > 1) acc.push("...");
+                acc.push(p);
+                return acc;
+              }, [])
+              .map((p, idx) =>
+                p === "..." ? (
+                  <span key={`dot-${idx}`} className="px-2 text-gray-400">...</span>
+                ) : (
+                  <button
+                    key={p}
+                    onClick={() => setPage(p)}
+                    className={`w-10 h-10 rounded-xl text-sm font-medium transition ${
+                      p === page
+                        ? "bg-indigo-600 text-white"
+                        : "border hover:bg-gray-50 text-gray-700"
+                    }`}
+                  >
+                    {p}
+                  </button>
+                )
+              )}
+
+            {/* Дараах */}
+            <button
+              onClick={() => setPage((p) => Math.min(pagination.totalPages, p + 1))}
+              disabled={page === pagination.totalPages}
+              className="px-4 py-2 rounded-xl border text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50 transition"
+            >
+              Дараах →
+            </button>
           </div>
         )}
       </div>

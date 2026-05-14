@@ -8,7 +8,11 @@ const toNum = (val) => {
 
 exports.getProperties = async (req, res) => {
   try {
-    const { city, district, minRent, maxRent, rooms, search } = req.query;
+    const {
+      city, district, minRent, maxRent, rooms, search,
+      page = 1, limit = 9,
+    } = req.query;
+
     const filter = {};
 
     if (city) filter["location.city"] = city;
@@ -31,13 +35,33 @@ exports.getProperties = async (req, res) => {
       ];
     }
 
-    const properties = await Property.find(filter)
-      .populate("owner", "firstName lastName email phone role")
-      .sort({ createdAt: -1 });
+    const pageNum  = Math.max(1, Number(page));
+    const limitNum = Math.min(50, Math.max(1, Number(limit)));
+    const skip     = (pageNum - 1) * limitNum;
 
-    res.status(200).json(properties);
+    const [properties, total] = await Promise.all([
+      Property.find(filter)
+        .populate("owner", "firstName lastName email phone role")
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limitNum),
+      Property.countDocuments(filter),
+    ]);
+
+    res.status(200).json({
+      properties,
+      pagination: {
+        total,
+        page:       pageNum,
+        limit:      limitNum,
+        totalPages: Math.ceil(total / limitNum),
+      },
+    });
   } catch (error) {
-    res.status(500).json({ message: "Орон сууцнуудыг авахад алдаа гарлаа", error: error.message });
+    res.status(500).json({
+      message: "Орон сууцнуудыг авахад алдаа гарлаа",
+      error: error.message,
+    });
   }
 };
 
@@ -90,17 +114,10 @@ exports.createProperty = async (req, res) => {
 
 exports.updateProperty = async (req, res) => {
   try {
-    console.log("=== UPDATE PROPERTY ===");
-    console.log("req.body:", req.body);
-    console.log("req.user:", req.user);
-
     const property = await Property.findById(req.params.id);
     if (!property) return res.status(404).json({ message: "Орон сууц олдсонгүй" });
 
     const userId = req.user._id || req.user.id;
-    console.log("property.owner:", property.owner.toString());
-    console.log("userId:", userId.toString());
-
     if (property.owner.toString() !== userId.toString()) {
       return res.status(403).json({ message: "Та энэ байрыг засах эрхгүй" });
     }
@@ -150,21 +167,14 @@ exports.updateProperty = async (req, res) => {
       images:               allImages.length > 0 ? allImages : property.images,
     };
 
-    console.log("updateData.title:", updateData.title);
-    console.log("updateData.monthlyRent:", updateData.monthlyRent);
-
     const updatedProperty = await Property.findByIdAndUpdate(
       req.params.id,
       { $set: updateData },
       { new: true }
     ).populate("owner", "firstName lastName email phone role");
 
-    console.log("updatedProperty.title:", updatedProperty?.title);
-    console.log("=== UPDATE SUCCESS ===");
-
     res.status(200).json({ message: "Орон сууц амжилттай шинэчлэгдлээ", property: updatedProperty });
   } catch (error) {
-    console.error("updateProperty error:", error);
     res.status(500).json({ message: "Орон сууц шинэчлэхэд алдаа гарлаа", error: error.message });
   }
 };
