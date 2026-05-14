@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import axios from "axios";
+import api from "../api/axiosInstance";
 import Navbar from "../components/Navbar";
 
 const statusMap = {
@@ -16,10 +16,7 @@ function MyApplications() {
   useEffect(() => {
     const fetchApplications = async () => {
       try {
-        const token = localStorage.getItem("token");
-        const res = await axios.get("https://rental-system-api.onrender.com/api/applications/my", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const res = await api.get("/api/applications/my");
         setApplications(res.data);
       } catch (error) {
         console.log(error);

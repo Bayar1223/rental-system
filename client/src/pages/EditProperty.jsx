@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import axios from "axios";
+import api from "../api/axiosInstance";
 import Navbar from "../components/Navbar";
 
 const districts = [
@@ -34,7 +34,7 @@ function EditProperty() {
   useEffect(() => {
     const fetchProperty = async () => {
       try {
-        const res = await axios.get(`https://rental-system-api.onrender.com/api/properties/${id}`);
+        const res = await api.get(`/api/properties/${id}`);
         const p = res.data;
 
         const khorooMatch = p.location?.address?.match(/\d+-р хороо/);
@@ -99,8 +99,7 @@ function EditProperty() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const token = localStorage.getItem("token");
-      const data  = new FormData();
+      const data = new FormData();
 
       data.append("title", formData.title);
       data.append("location[city]", formData.city);
@@ -131,11 +130,7 @@ function EditProperty() {
       existingImages.forEach((img) => data.append("existingImages", img));
       newImageFiles.forEach((file) => data.append("images", file));
 
-      await axios.put(`https://rental-system-api.onrender.com/api/properties/${id}`, data, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      await api.put(`/api/properties/${id}`, data);
 
       alert("Байрны мэдээлэл амжилттай шинэчлэгдлээ");
       navigate(`/properties/${id}`);
@@ -170,7 +165,6 @@ function EditProperty() {
 
         <div className="bg-white rounded-3xl shadow-xl p-8">
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Байршил */}
             <button type="button" onClick={() => setShowLocationModal(true)} className="w-full bg-gray-100 border p-4 rounded-xl text-left font-semibold">
               Байршил: {selectedLocation}
             </button>
@@ -251,7 +245,6 @@ function EditProperty() {
               </div>
             </div>
 
-            {/* Одоогийн зургууд */}
             {existingImages.length > 0 && (
               <div>
                 <h2 className="text-xl font-bold mb-3">Одоогийн зургууд</h2>
@@ -266,7 +259,6 @@ function EditProperty() {
               </div>
             )}
 
-            {/* Шинэ зураг */}
             <div>
               <h2 className="text-xl font-bold mb-3">Шинэ зураг нэмэх</h2>
               <label className="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-2xl p-8 cursor-pointer hover:border-indigo-500 transition">
@@ -295,7 +287,6 @@ function EditProperty() {
         </div>
       </div>
 
-      {/* Location modal */}
       {showLocationModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-3xl p-8 w-[90%] max-w-4xl">

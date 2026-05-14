@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import axios from "axios";
+import api from "../api/axiosInstance";
 import Navbar from "../components/Navbar";
 
 function Contract() {
@@ -14,14 +14,9 @@ function Contract() {
   useEffect(() => {
     const fetchApplication = async () => {
       try {
-        const token = localStorage.getItem("token");
         const [tenantRes, landlordRes] = await Promise.allSettled([
-          axios.get("https://rental-system-api.onrender.com/api/applications/my", {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
-          axios.get("https://rental-system-api.onrender.com/api/applications/landlord", {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
+          api.get("/api/applications/my"),
+          api.get("/api/applications/landlord"),
         ]);
 
         let apps = [];

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
+import api from "../api/axiosInstance";
 import Navbar from "../components/Navbar";
 
 function AddProperty() {
@@ -68,11 +68,8 @@ function AddProperty() {
 
   const handleImageChange = (e) => {
     const files = Array.from(e.target.files);
-
     setImageFiles(files);
-
     const previewImages = files.map((file) => URL.createObjectURL(file));
-
     setImages(previewImages);
   };
 
@@ -85,8 +82,6 @@ function AddProperty() {
     e.preventDefault();
 
     try {
-      const token = localStorage.getItem("token");
-
       const data = new FormData();
 
       data.append("title", formData.title);
@@ -94,10 +89,7 @@ function AddProperty() {
 
       data.append("location[city]", formData.city);
       data.append("location[district]", formData.district);
-      data.append(
-        "location[address]",
-        `${formData.khoroo} ${formData.address}`
-      );
+      data.append("location[address]", `${formData.khoroo} ${formData.address}`);
 
       data.append("monthlyRent", formData.monthlyRent);
       data.append("depositAmount", 0);
@@ -121,10 +113,7 @@ function AddProperty() {
       data.append("totalFloors", formData.totalFloors);
 
       data.append("isFurnished", formData.isFurnished === "Тавилгатай");
-      data.append(
-        "hasOutdoorParking",
-        formData.hasOutdoorParking === "Байгаа"
-      );
+      data.append("hasOutdoorParking", formData.hasOutdoorParking === "Байгаа");
 
       data.append("contactName", formData.contactName);
       data.append("contactPhone", formData.contactPhone);
@@ -136,16 +125,9 @@ function AddProperty() {
         data.append("images", file);
       });
 
-      const response = await axios.post(
-        "https://rental-system-api.onrender.com/api/properties",
-        data,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "multipart/form-data",
-          },
-        }
-      );
+      const response = await api.post("/api/properties", data, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
 
       const propertyId = response.data.property?._id || response.data._id;
 
@@ -292,9 +274,7 @@ function AddProperty() {
               >
                 <option value="">Цонхны тоо</option>
                 {numbers.slice(0, 10).map((n) => (
-                  <option key={n} value={n}>
-                    {n}
-                  </option>
+                  <option key={n} value={n}>{n}</option>
                 ))}
               </select>
 
@@ -306,9 +286,7 @@ function AddProperty() {
               >
                 <option value="">Хэдэн давхарт</option>
                 {numbers.map((n) => (
-                  <option key={n} value={n}>
-                    {n}
-                  </option>
+                  <option key={n} value={n}>{n}</option>
                 ))}
               </select>
 
@@ -320,9 +298,7 @@ function AddProperty() {
               >
                 <option value="">Ашиглалтад орсон он</option>
                 {years.map((year) => (
-                  <option key={year} value={year}>
-                    {year}
-                  </option>
+                  <option key={year} value={year}>{year}</option>
                 ))}
               </select>
 
@@ -334,9 +310,7 @@ function AddProperty() {
               >
                 <option value="">Барилгын давхар</option>
                 {numbers.map((n) => (
-                  <option key={n} value={n}>
-                    {n}
-                  </option>
+                  <option key={n} value={n}>{n}</option>
                 ))}
               </select>
 
@@ -430,14 +404,10 @@ function AddProperty() {
               <h2 className="text-2xl font-bold mb-4">Зурагнууд</h2>
 
               <label className="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-2xl p-10 cursor-pointer hover:border-indigo-500 transition">
-                <span className="text-lg text-gray-600 mb-2">
-                  Зургаа сонгох
-                </span>
-
+                <span className="text-lg text-gray-600 mb-2">Зургаа сонгох</span>
                 <span className="text-sm text-gray-400">
                   Нэг болон түүнээс дээш зураг сонгож болно
                 </span>
-
                 <input
                   type="file"
                   accept="image/*"
@@ -456,7 +426,6 @@ function AddProperty() {
                         alt="preview"
                         className="h-40 w-full object-cover rounded-2xl"
                       />
-
                       <button
                         type="button"
                         onClick={() => removeImage(index)}
@@ -494,20 +463,11 @@ function AddProperty() {
           <div className="bg-white rounded-3xl p-8 w-[90%] max-w-4xl">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-3xl font-bold">Байршил сонгох</h2>
-
-              <button
-                onClick={() => setShowLocationModal(false)}
-                className="text-3xl"
-              >
-                ×
-              </button>
+              <button onClick={() => setShowLocationModal(false)} className="text-3xl">×</button>
             </div>
 
             <div className="grid grid-cols-3 gap-5">
-              <button
-                type="button"
-                className="w-full bg-yellow-200 p-4 rounded-xl text-left"
-              >
+              <button type="button" className="w-full bg-yellow-200 p-4 rounded-xl text-left">
                 Улаанбаатар
               </button>
 
@@ -516,18 +476,9 @@ function AddProperty() {
                   <button
                     key={district}
                     type="button"
-                    onClick={() =>
-                      setFormData({
-                        ...formData,
-                        city: "Улаанбаатар",
-                        district,
-                        khoroo: "",
-                      })
-                    }
+                    onClick={() => setFormData({ ...formData, city: "Улаанбаатар", district, khoroo: "" })}
                     className={`w-full p-3 rounded-xl text-left ${
-                      formData.district === district
-                        ? "bg-yellow-200"
-                        : "bg-gray-100"
+                      formData.district === district ? "bg-yellow-200" : "bg-gray-100"
                     }`}
                   >
                     {district}
@@ -540,16 +491,9 @@ function AddProperty() {
                   <button
                     key={khoroo}
                     type="button"
-                    onClick={() =>
-                      setFormData({
-                        ...formData,
-                        khoroo,
-                      })
-                    }
+                    onClick={() => setFormData({ ...formData, khoroo })}
                     className={`w-full p-3 rounded-xl text-left ${
-                      formData.khoroo === khoroo
-                        ? "bg-yellow-200"
-                        : "bg-gray-100"
+                      formData.khoroo === khoroo ? "bg-yellow-200" : "bg-gray-100"
                     }`}
                   >
                     {khoroo}

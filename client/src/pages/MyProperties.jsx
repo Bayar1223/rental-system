@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import axios from "axios";
+import api from "../api/axiosInstance";
 import Navbar from "../components/Navbar";
 
 function MyProperties() {
@@ -8,13 +8,10 @@ function MyProperties() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    const user  = JSON.parse(localStorage.getItem("user"));
+    const user = JSON.parse(localStorage.getItem("user"));
 
-    axios
-      .get("https://rental-system-api.onrender.com/api/properties", {
-        headers: { Authorization: `Bearer ${token}` },
-      })
+    api
+      .get("/api/properties")
       .then((res) => {
         const mine = res.data.filter(
           (p) =>
@@ -32,10 +29,7 @@ function MyProperties() {
   const handleDelete = async (id) => {
     if (!window.confirm("Энэ байрыг устгах уу?")) return;
     try {
-      const token = localStorage.getItem("token");
-      await axios.delete(`https://rental-system-api.onrender.com/api/properties/${id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      await api.delete(`/api/properties/${id}`);
       setProperties((prev) => prev.filter((p) => p._id !== id));
     } catch (error) {
       alert(error.response?.data?.message || "Устгахад алдаа гарлаа");

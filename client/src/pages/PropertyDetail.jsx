@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import axios from "axios";
+import api from "../api/axiosInstance";
 import Navbar from "../components/Navbar";
 
 function PropertyDetail() {
@@ -15,9 +15,7 @@ function PropertyDetail() {
   useEffect(() => {
     const fetchProperty = async () => {
       try {
-        const res = await axios.get(
-          `https://rental-system-api.onrender.com/api/properties/${id}`
-        );
+        const res = await api.get(`/api/properties/${id}`);
         setProperty(res.data);
       } catch (error) {
         console.log(error);
@@ -67,20 +65,12 @@ function PropertyDetail() {
     }
 
     try {
-      await axios.post(
-        "https://rental-system-api.onrender.com/api/applications",
-        {
-          propertyId: property._id,
-          startDate: new Date(),
-          leaseMonths: 6,
-          message: "Сайн байна уу. Энэ байрыг түрээслэх хүсэлтэй байна.",
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      await api.post("/api/applications", {
+        propertyId: property._id,
+        startDate: new Date(),
+        leaseMonths: 6,
+        message: "Сайн байна уу. Энэ байрыг түрээслэх хүсэлтэй байна.",
+      });
 
       alert("Хүсэлт амжилттай илгээгдлээ");
     } catch (error) {

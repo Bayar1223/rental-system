@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import axios from "axios";
+import api from "../api/axiosInstance";
 import Navbar from "../components/Navbar";
 
 const statusConfig = {
@@ -15,12 +15,9 @@ function LandlordApplications() {
   const [refresh, setRefresh] = useState(0);
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
     const fetchData = async () => {
       try {
-        const res = await axios.get("https://rental-system-api.onrender.com/api/applications/landlord", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const res = await api.get("/api/applications/landlord");
         setApplications(res.data);
       } catch (error) {
         console.log(error);
@@ -33,12 +30,7 @@ function LandlordApplications() {
 
   const updateStatus = async (id, status) => {
     try {
-      const token = localStorage.getItem("token");
-      await axios.put(
-        `https://rental-system-api.onrender.com/api/applications/${id}/status`,
-        { status },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      await api.put(`/api/applications/${id}/status`, { status });
       setRefresh((r) => r + 1);
     } catch {
       alert("Алдаа гарлаа");

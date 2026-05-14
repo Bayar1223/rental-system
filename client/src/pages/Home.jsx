@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import axios from "axios";
+import api from "../api/axiosInstance";
 import Navbar from "../components/Navbar";
 import PropertyCard from "../components/PropertyCard";
 
@@ -29,7 +29,7 @@ function Home() {
       if (minRent) params.minRent = minRent;
       if (maxRent) params.maxRent = maxRent;
 
-      const res = await axios.get("https://rental-system-api.onrender.com/api/properties", { params });
+     const res = await api.get("/api/properties", { params });
       setProperties(res.data);
     } catch (error) {
       console.log(error);

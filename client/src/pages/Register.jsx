@@ -1,5 +1,5 @@
 import { useState } from "react";
-import axios from "axios";
+import api from "../api/axiosInstance";
 
 function Register() {
   const [firstName, setFirstName] = useState("");
@@ -13,7 +13,7 @@ function Register() {
     e.preventDefault();
 
     try {
-      await axios.post("https://rental-system-api.onrender.com/api/auth/register", {
+      await api.post("/api/auth/register", {
         firstName,
         lastName,
         phone,

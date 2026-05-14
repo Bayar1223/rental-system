@@ -1,8 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import axios from "axios";
-
-const API = "https://rental-system-api.onrender.com";
+import api from "../api/axiosInstance";
 
 const stats = [
   { number: "500+", label: "Идэвхтэй зар" },
@@ -45,7 +43,7 @@ export default function Landing() {
   }, [user, navigate]);
 
   useEffect(() => {
-    axios.get(`${API}/api/properties`).then((res) => {
+    api.get("/api/properties").then((res) => {
       setFeaturedProperties(res.data.slice(0, 3));
     }).catch(() => {});
   }, []);
@@ -84,14 +82,12 @@ export default function Landing() {
 
       {/* Hero */}
       <section className="relative min-h-screen flex items-center overflow-hidden">
-        {/* Background */}
         <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900" />
         <div className="absolute inset-0 opacity-20"
           style={{
             backgroundImage: "radial-gradient(circle at 20% 50%, #6366f1 0%, transparent 50%), radial-gradient(circle at 80% 20%, #8b5cf6 0%, transparent 50%)",
           }}
         />
-        {/* Floating shapes */}
         <div className="absolute top-20 right-20 w-72 h-72 bg-indigo-500/10 rounded-full blur-3xl animate-pulse" />
         <div className="absolute bottom-20 left-20 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: "1s" }} />
 
@@ -99,7 +95,7 @@ export default function Landing() {
           <div>
             <div className="inline-flex items-center gap-2 bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 px-4 py-2 rounded-full text-sm font-medium mb-6">
               <span className="w-2 h-2 bg-indigo-400 rounded-full animate-pulse" />
-              Улаанбаатар хотын №1 түрээсийн платформ
+             №1 Орон сууц түрээсийн платформ
             </div>
 
             <h1 style={{ fontFamily: "'Playfair Display', serif" }}
@@ -110,7 +106,7 @@ export default function Landing() {
             </h1>
 
             <p className="text-lg text-slate-300 leading-relaxed mb-10">
-              Улаанбаатар хотын бүх дүүргийн түрээсийн орон сууцнуудаас хайж, онлайнаар хүсэлт илгээж, цахим гэрээ байгуулаарай.
+              Улаанбаатар хотын бүх дүүргийн түрээсийн орон сууцнуудаас хайж, онлайнаар хүсэлт илгээж, цахим гэрээ байгуулах боломжтой.
             </p>
 
             <div className="flex flex-wrap gap-4">
@@ -126,7 +122,6 @@ export default function Landing() {
               </Link>
             </div>
 
-            {/* Stats */}
             <div className="grid grid-cols-4 gap-6 mt-14">
               {stats.map((s) => (
                 <div key={s.label}>
@@ -137,7 +132,6 @@ export default function Landing() {
             </div>
           </div>
 
-          {/* Hero card */}
           <div className="hidden md:block">
             <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-3xl p-6 shadow-2xl">
               <div className="bg-white/5 rounded-2xl p-4 mb-4">
@@ -202,7 +196,6 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* Featured properties */}
       {featuredProperties.length > 0 && (
         <section className="py-24 bg-white">
           <div className="max-w-6xl mx-auto px-6">
@@ -253,7 +246,6 @@ export default function Landing() {
         </section>
       )}
 
-      {/* How it works */}
       <section className="py-24 bg-gradient-to-br from-indigo-950 to-slate-900">
         <div className="max-w-6xl mx-auto px-6">
           <div className="text-center mb-16">
@@ -283,7 +275,6 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* CTA */}
       <section className="py-24 bg-white">
         <div className="max-w-3xl mx-auto px-6 text-center">
           <h2 style={{ fontFamily: "'Playfair Display', serif" }}
@@ -308,7 +299,6 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* Footer */}
       <footer className="bg-slate-900 text-slate-400 py-10">
         <div className="max-w-6xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-4">
           <div className="flex items-center gap-2">

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import axios from "axios";
+import api from "../api/axiosInstance";
 import { useNavigate } from "react-router-dom";
 
 function Login() {
@@ -12,8 +12,8 @@ function Login() {
     e.preventDefault();
 
     try {
-      const res = await axios.post(
-        "https://rental-system-api.onrender.com/api/auth/login",
+      const res = await api.post(
+        "/api/auth/login",
         {
           email,
           password,
