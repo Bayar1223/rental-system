@@ -1,6 +1,5 @@
 const Property = require("../models/Property");
 
-// Тоон утгыг аюулгүй хөрвүүлэх — хоосон байвал undefined буцаана
 const toNum = (val) => {
   if (val === undefined || val === null || val === "") return undefined;
   const n = Number(val);
@@ -65,6 +64,7 @@ exports.createProperty = async (req, res) => {
         district: req.body["location[district]"] || req.body.location?.district || "",
         address:  req.body["location[address]"]  || req.body.location?.address  || "",
       },
+      description:       req.body.details || req.body.description || "",
       monthlyRent:       toNum(req.body.monthlyRent),
       depositAmount:     toNum(req.body.depositAmount)  ?? 0,
       minLeaseMonths:    toNum(req.body.minLeaseMonths) ?? 6,
@@ -90,35 +90,42 @@ exports.createProperty = async (req, res) => {
 
 exports.updateProperty = async (req, res) => {
   try {
+    console.log("=== UPDATE PROPERTY ===");
+    console.log("req.body:", req.body);
+    console.log("req.user:", req.user);
+
     const property = await Property.findById(req.params.id);
     if (!property) return res.status(404).json({ message: "Орон сууц олдсонгүй" });
 
     const userId = req.user._id || req.user.id;
+    console.log("property.owner:", property.owner.toString());
+    console.log("userId:", userId.toString());
+
     if (property.owner.toString() !== userId.toString()) {
       return res.status(403).json({ message: "Та энэ байрыг засах эрхгүй" });
     }
 
-    // FormData-аас location зөв авах
     const location = {
       city:     req.body["location[city]"]     || property.location?.city,
       district: req.body["location[district]"] || property.location?.district,
       address:  req.body["location[address]"]  || property.location?.address,
     };
 
-    // Зургууд: хуучин + шинэ
     const existingImages = req.body.existingImages
       ? Array.isArray(req.body.existingImages)
         ? req.body.existingImages
         : [req.body.existingImages]
       : [];
-    const newImageUrls = req.files ? req.files.map((f) => f.path) : [];
+    const newImageUrls = req.files
+      ? (req.files["images"] || []).map((f) => f.path)
+      : [];
     const allImages = [...existingImages, ...newImageUrls];
 
-    // Тоон утгыг аюулгүй авах — хоосон бол хуучин утгыг хадгална
     const numOrOld = (val, old) => toNum(val) ?? old;
 
     const updateData = {
       title:                req.body.title               || property.title,
+      description:          req.body.details || req.body.description || property.description || "",
       details:              req.body.details             || property.details,
       location,
       monthlyRent:          numOrOld(req.body.monthlyRent,   property.monthlyRent),
@@ -143,11 +150,17 @@ exports.updateProperty = async (req, res) => {
       images:               allImages.length > 0 ? allImages : property.images,
     };
 
+    console.log("updateData.title:", updateData.title);
+    console.log("updateData.monthlyRent:", updateData.monthlyRent);
+
     const updatedProperty = await Property.findByIdAndUpdate(
       req.params.id,
       { $set: updateData },
-      { returnDocument: "after" }
+      { new: true }
     ).populate("owner", "firstName lastName email phone role");
+
+    console.log("updatedProperty.title:", updatedProperty?.title);
+    console.log("=== UPDATE SUCCESS ===");
 
     res.status(200).json({ message: "Орон сууц амжилттай шинэчлэгдлээ", property: updatedProperty });
   } catch (error) {

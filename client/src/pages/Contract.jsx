@@ -16,10 +16,10 @@ function Contract() {
       try {
         const token = localStorage.getItem("token");
         const [tenantRes, landlordRes] = await Promise.allSettled([
-          axios.get("http://localhost:5000/api/applications/my", {
+          axios.get("https://rental-system-api.onrender.com/api/applications/my", {
             headers: { Authorization: `Bearer ${token}` },
           }),
-          axios.get("http://localhost:5000/api/applications/landlord", {
+          axios.get("https://rental-system-api.onrender.com/api/applications/landlord", {
             headers: { Authorization: `Bearer ${token}` },
           }),
         ]);

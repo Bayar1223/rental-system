@@ -16,7 +16,7 @@ function PropertyDetail() {
     const fetchProperty = async () => {
       try {
         const res = await axios.get(
-          `http://localhost:5000/api/properties/${id}`
+          `https://rental-system-api.onrender.com/api/properties/${id}`
         );
         setProperty(res.data);
       } catch (error) {
@@ -68,7 +68,7 @@ function PropertyDetail() {
 
     try {
       await axios.post(
-        "http://localhost:5000/api/applications",
+        "https://rental-system-api.onrender.com/api/applications",
         {
           propertyId: property._id,
           startDate: new Date(),

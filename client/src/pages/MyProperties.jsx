@@ -12,7 +12,7 @@ function MyProperties() {
     const user  = JSON.parse(localStorage.getItem("user"));
 
     axios
-      .get("http://localhost:5000/api/properties", {
+      .get("https://rental-system-api.onrender.com/api/properties", {
         headers: { Authorization: `Bearer ${token}` },
       })
       .then((res) => {
@@ -33,7 +33,7 @@ function MyProperties() {
     if (!window.confirm("Энэ байрыг устгах уу?")) return;
     try {
       const token = localStorage.getItem("token");
-      await axios.delete(`http://localhost:5000/api/properties/${id}`, {
+      await axios.delete(`https://rental-system-api.onrender.com/api/properties/${id}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setProperties((prev) => prev.filter((p) => p._id !== id));

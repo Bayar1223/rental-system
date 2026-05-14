@@ -29,7 +29,7 @@ function Home() {
       if (minRent) params.minRent = minRent;
       if (maxRent) params.maxRent = maxRent;
 
-      const res = await axios.get("http://localhost:5000/api/properties", { params });
+      const res = await axios.get("https://rental-system-api.onrender.com/api/properties", { params });
       setProperties(res.data);
     } catch (error) {
       console.log(error);

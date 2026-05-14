@@ -13,7 +13,7 @@ function Register() {
     e.preventDefault();
 
     try {
-      await axios.post("http://localhost:5000/api/auth/register", {
+      await axios.post("https://rental-system-api.onrender.com/api/auth/register", {
         firstName,
         lastName,
         phone,

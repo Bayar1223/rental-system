@@ -18,7 +18,7 @@ function LandlordApplications() {
     const token = localStorage.getItem("token");
     const fetchData = async () => {
       try {
-        const res = await axios.get("http://localhost:5000/api/applications/landlord", {
+        const res = await axios.get("https://rental-system-api.onrender.com/api/applications/landlord", {
           headers: { Authorization: `Bearer ${token}` },
         });
         setApplications(res.data);
@@ -35,7 +35,7 @@ function LandlordApplications() {
     try {
       const token = localStorage.getItem("token");
       await axios.put(
-        `http://localhost:5000/api/applications/${id}/status`,
+        `https://rental-system-api.onrender.com/api/applications/${id}/status`,
         { status },
         { headers: { Authorization: `Bearer ${token}` } }
       );

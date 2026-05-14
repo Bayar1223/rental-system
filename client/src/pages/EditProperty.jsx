@@ -34,7 +34,7 @@ function EditProperty() {
   useEffect(() => {
     const fetchProperty = async () => {
       try {
-        const res = await axios.get(`http://localhost:5000/api/properties/${id}`);
+        const res = await axios.get(`https://rental-system-api.onrender.com/api/properties/${id}`);
         const p = res.data;
 
         const khorooMatch = p.location?.address?.match(/\d+-р хороо/);
@@ -126,14 +126,14 @@ function EditProperty() {
       data.append("contactPhone", formData.contactPhone);
       data.append("contactEmail", formData.contactEmail);
       data.append("details", formData.details);
+      data.append("description", formData.details);
 
       existingImages.forEach((img) => data.append("existingImages", img));
       newImageFiles.forEach((file) => data.append("images", file));
 
-      await axios.put(`http://localhost:5000/api/properties/${id}`, data, {
+      await axios.put(`https://rental-system-api.onrender.com/api/properties/${id}`, data, {
         headers: {
           Authorization: `Bearer ${token}`,
-          "Content-Type": "multipart/form-data",
         },
       });
 
