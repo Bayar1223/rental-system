@@ -1,6 +1,7 @@
 import { Link, useNavigate } from "react-router-dom";
-import { useState, useEffect, useRef } from "react";
+
 import api from "../api/axiosInstance";
+import { useState, useEffect, useRef } from "react";
 
 const timeAgo = (date) => {
   const d = new Date(date).getTime();
@@ -18,8 +19,15 @@ const typeIcon = (type) => {
   return "🔔";
 };
 
+const ROLE_LABELS = {
+  tenant: "Түрээслэгч",
+  landlord: "Түрээслүүлэгч",
+  admin: "Админ",
+};
+
 function Navbar() {
   const navigate = useNavigate();
+  
   const user = JSON.parse(localStorage.getItem("user"));
   const token = localStorage.getItem("token");
 
@@ -27,8 +35,12 @@ function Navbar() {
   const [notifications, setNotifications] = useState([]);
   const [showNotif, setShowNotif] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+
   const notifRef = useRef(null);
   const userMenuRef = useRef(null);
+
+ 
 
   useEffect(() => {
     if (!user || !token) return;
@@ -46,12 +58,8 @@ function Navbar() {
 
   useEffect(() => {
     const handleClick = (e) => {
-      if (notifRef.current && !notifRef.current.contains(e.target)) {
-        setShowNotif(false);
-      }
-      if (userMenuRef.current && !userMenuRef.current.contains(e.target)) {
-        setShowUserMenu(false);
-      }
+      if (notifRef.current && !notifRef.current.contains(e.target)) setShowNotif(false);
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target)) setShowUserMenu(false);
     };
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
@@ -84,191 +92,228 @@ function Navbar() {
     navigate("/");
   };
 
-  const ROLE_LABELS = {
-    tenant: "Түрээслэгч",
-    landlord: "Түрээслүүлэгч",
-    admin: "Админ",
-  };
-
   return (
-    <nav className="bg-white shadow-sm px-8 py-4 flex justify-between items-center sticky top-0 z-40">
-      <Link to={user ? "/home" : "/"}>
-        <div className="flex items-center gap-2">
-          <span className="text-xl">🏡</span>
-          <h1 className="text-xl font-bold text-indigo-600">Түрээсийн систем</h1>
-        </div>
-      </Link>
+    <>
+      <nav className="bg-white shadow-sm sticky top-0 z-40">
+        <div className="px-4 md:px-8 py-3 flex justify-between items-center max-w-6xl mx-auto">
 
-      <div className="flex items-center gap-5">
-        {user?.role === "tenant" && (
-          <Link to="/my-applications" className="text-gray-600 font-medium hover:text-indigo-600 transition text-sm">
-            Миний хүсэлтүүд
+          {/* Лого */}
+          <Link to={user ? "/home" : "/"}>
+            <div className="flex items-center gap-2">
+              <span className="text-xl">🏡</span>
+              <h1 className="text-lg md:text-xl font-bold text-indigo-600">Түрээсийн систем</h1>
+            </div>
           </Link>
-        )}
 
-        {user?.role === "landlord" && (
-          <>
-            <Link to="/my-properties" className="text-gray-600 font-medium hover:text-indigo-600 transition text-sm">
-              Миний байрнууд
-            </Link>
-            <Link to="/landlord-applications" className="text-gray-600 font-medium hover:text-indigo-600 transition text-sm">
-              Ирсэн хүсэлтүүд
-            </Link>
-          </>
-        )}
+          {/* ===== DESKTOP NAV ===== */}
+          <div className="hidden md:flex items-center gap-5">
+            {user?.role === "tenant" && (
+              <Link to="/my-applications" className="text-gray-600 font-medium hover:text-indigo-600 transition text-sm">
+                Миний хүсэлтүүд
+              </Link>
+            )}
+            {user?.role === "landlord" && (
+              <>
+                <Link to="/my-properties" className="text-gray-600 font-medium hover:text-indigo-600 transition text-sm">
+                  Миний байрнууд
+                </Link>
+                <Link to="/landlord-applications" className="text-gray-600 font-medium hover:text-indigo-600 transition text-sm">
+                  Ирсэн хүсэлтүүд
+                </Link>
+              </>
+            )}
 
-        {user && (
-          <div className="relative" ref={notifRef}>
-            <button
-              onClick={handleBellClick}
-              className="relative w-9 h-9 flex items-center justify-center rounded-xl hover:bg-gray-100 transition"
-            >
-              <span className="text-xl">🔔</span>
-              {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
-                  {unreadCount > 9 ? "9+" : unreadCount}
-                </span>
-              )}
-            </button>
-
-            {showNotif && (
-              <div className="absolute right-0 top-12 w-80 bg-white rounded-2xl shadow-xl border border-gray-100 z-50 overflow-hidden">
-                <div className="px-4 py-3 border-b flex items-center justify-between">
-                  <h3 className="font-bold text-gray-800">Мэдэгдлүүд</h3>
-                  <span className="text-xs text-gray-400">{notifications.length} мэдэгдэл</span>
-                </div>
-                <div className="max-h-80 overflow-y-auto">
-                  {notifications.length === 0 ? (
-                    <div className="py-10 text-center text-gray-400">
-                      <div className="text-3xl mb-2">🔔</div>
-                      <p className="text-sm">Мэдэгдэл байхгүй байна</p>
-                    </div>
-                  ) : (
-                    notifications.map((n) => (
-                      <button
-                        key={n._id}
-                        onClick={() => handleNotifClick(n)}
-                        className={`w-full text-left px-4 py-3 hover:bg-gray-50 transition border-b border-gray-50 ${!n.isRead ? "bg-indigo-50/50" : ""}`}
-                      >
-                        <div className="flex gap-3">
-                          <span className="text-xl flex-shrink-0">{typeIcon(n.type)}</span>
-                          <div className="min-w-0">
-                            <p className={`text-sm font-semibold ${!n.isRead ? "text-indigo-700" : "text-gray-800"}`}>
-                              {n.title}
-                            </p>
-                            <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{n.message}</p>
-                            <p className="text-xs text-gray-400 mt-1">{timeAgo(n.createdAt)}</p>
-                          </div>
-                          {!n.isRead && (
-                            <span className="w-2 h-2 bg-indigo-500 rounded-full flex-shrink-0 mt-1" />
-                          )}
-                        </div>
-                      </button>
-                    ))
+            {/* Мэдэгдэл */}
+            {user && (
+              <div className="relative" ref={notifRef}>
+                <button onClick={handleBellClick}
+                  className="relative w-9 h-9 flex items-center justify-center rounded-xl hover:bg-gray-100 transition">
+                  <span className="text-xl">🔔</span>
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
+                      {unreadCount > 9 ? "9+" : unreadCount}
+                    </span>
                   )}
-                </div>
+                </button>
+                {showNotif && (
+                  <div className="absolute right-0 top-12 w-80 bg-white rounded-2xl shadow-xl border border-gray-100 z-50 overflow-hidden">
+                    <div className="px-4 py-3 border-b flex items-center justify-between">
+                      <h3 className="font-bold text-gray-800">Мэдэгдлүүд</h3>
+                      <span className="text-xs text-gray-400">{notifications.length} мэдэгдэл</span>
+                    </div>
+                    <div className="max-h-80 overflow-y-auto">
+                      {notifications.length === 0 ? (
+                        <div className="py-10 text-center text-gray-400">
+                          <div className="text-3xl mb-2">🔔</div>
+                          <p className="text-sm">Мэдэгдэл байхгүй байна</p>
+                        </div>
+                      ) : notifications.map((n) => (
+                        <button key={n._id} onClick={() => handleNotifClick(n)}
+                          className={`w-full text-left px-4 py-3 hover:bg-gray-50 transition border-b border-gray-50 ${!n.isRead ? "bg-indigo-50/50" : ""}`}>
+                          <div className="flex gap-3">
+                            <span className="text-xl flex-shrink-0">{typeIcon(n.type)}</span>
+                            <div className="min-w-0">
+                              <p className={`text-sm font-semibold ${!n.isRead ? "text-indigo-700" : "text-gray-800"}`}>{n.title}</p>
+                              <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{n.message}</p>
+                              <p className="text-xs text-gray-400 mt-1">{timeAgo(n.createdAt)}</p>
+                            </div>
+                            {!n.isRead && <span className="w-2 h-2 bg-indigo-500 rounded-full flex-shrink-0 mt-1" />}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* User dropdown */}
+            {user ? (
+              <div className="relative" ref={userMenuRef}>
+                <button onClick={() => setShowUserMenu((p) => !p)}
+                  className="flex items-center gap-2 bg-gray-50 hover:bg-gray-100 px-3 py-2 rounded-xl transition">
+                  <div className="w-7 h-7 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600 font-bold text-sm">
+                    {user.firstName?.[0]?.toUpperCase()}
+                  </div>
+                  <span className="font-medium text-gray-800 text-sm">{user.firstName}</span>
+                  <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                {showUserMenu && (
+                  <div className="absolute right-0 top-12 w-52 bg-white rounded-2xl shadow-xl border border-gray-100 z-50 overflow-hidden">
+                    <div className="px-4 py-3 border-b border-gray-100">
+                      <p className="font-semibold text-gray-800 text-sm">{user.firstName} {user.lastName}</p>
+                      <p className="text-xs text-gray-400 mt-0.5">{ROLE_LABELS[user.role]}</p>
+                    </div>
+                    <div className="py-1">
+                      <Link to="/home" onClick={() => setShowUserMenu(false)} className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition"><span>🏠</span> Байр хайх</Link>
+                      <Link to="/profile" onClick={() => setShowUserMenu(false)} className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition"><span>👤</span> Профайл</Link>
+                      {user.role === "tenant" && (
+                        <Link to="/my-applications" onClick={() => setShowUserMenu(false)} className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition"><span>📋</span> Миний хүсэлтүүд</Link>
+                      )}
+                      {user.role === "landlord" && (
+                        <>
+                          <Link to="/my-properties" onClick={() => setShowUserMenu(false)} className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition"><span>🏘️</span> Миний байрнууд</Link>
+                          <Link to="/add-property" onClick={() => setShowUserMenu(false)} className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition"><span>➕</span> Байр нэмэх</Link>
+                        </>
+                      )}
+                    </div>
+                    <div className="border-t border-gray-100 py-1">
+                      <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition">
+                        <span>🚪</span> Гарах
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <Link to="/login"><button className="px-4 py-2 rounded-xl text-gray-600 hover:bg-gray-100 font-medium text-sm transition">Нэвтрэх</button></Link>
+                <Link to="/register"><button className="px-4 py-2 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 font-medium text-sm transition">Бүртгүүлэх</button></Link>
               </div>
             )}
           </div>
-        )}
 
-        {user ? (
-          <div className="relative" ref={userMenuRef}>
-            <button
-              onClick={() => setShowUserMenu((prev) => !prev)}
-              className="flex items-center gap-2 bg-gray-50 hover:bg-gray-100 px-3 py-2 rounded-xl transition"
-            >
-              <div className="w-7 h-7 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600 font-bold text-sm">
-                {user.firstName?.[0]?.toUpperCase()}
-              </div>
-              <span className="font-medium text-gray-800 text-sm">{user.firstName}</span>
-              <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
+          {/* ===== MOBILE RIGHT ===== */}
+          <div className="flex md:hidden items-center gap-2">
+            {user && (
+              <button onClick={handleBellClick}
+                className="relative w-9 h-9 flex items-center justify-center rounded-xl hover:bg-gray-100 transition">
+                <span className="text-lg">🔔</span>
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
+                    {unreadCount > 9 ? "9+" : unreadCount}
+                  </span>
+                )}
+              </button>
+            )}
+            {/* Hamburger */}
+            <button onClick={() => setMobileOpen((p) => !p)}
+              className="w-9 h-9 flex flex-col items-center justify-center gap-1.5 rounded-xl hover:bg-gray-100 transition">
+              <span className={`block w-5 h-0.5 bg-gray-600 transition-all duration-200 ${mobileOpen ? "rotate-45 translate-y-2" : ""}`} />
+              <span className={`block w-5 h-0.5 bg-gray-600 transition-all duration-200 ${mobileOpen ? "opacity-0" : ""}`} />
+              <span className={`block w-5 h-0.5 bg-gray-600 transition-all duration-200 ${mobileOpen ? "-rotate-45 -translate-y-2" : ""}`} />
             </button>
+          </div>
+        </div>
 
-            {showUserMenu && (
-              <div className="absolute right-0 top-12 w-52 bg-white rounded-2xl shadow-xl border border-gray-100 z-50 overflow-hidden">
-                <div className="px-4 py-3 border-b border-gray-100">
-                  <p className="font-semibold text-gray-800 text-sm">{user.firstName} {user.lastName}</p>
-                  <p className="text-xs text-gray-400 mt-0.5">{ROLE_LABELS[user.role] || user.role}</p>
+        {/* ===== MOBILE MENU ===== */}
+        {mobileOpen && (
+          <div className="md:hidden border-t border-gray-100 bg-white px-4 py-3 space-y-1">
+            {user ? (
+              <>
+                <div className="flex items-center gap-3 px-3 py-3 mb-2 bg-gray-50 rounded-xl">
+                  <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600 font-bold text-lg">
+                    {user.firstName?.[0]?.toUpperCase()}
+                  </div>
+                  <div>
+                    <p className="font-semibold text-gray-800 text-sm">{user.firstName} {user.lastName}</p>
+                    <p className="text-xs text-gray-400">{ROLE_LABELS[user.role]}</p>
+                  </div>
                 </div>
-
-                <div className="py-1">
-                  <Link
-                    to="/home"
-                    onClick={() => setShowUserMenu(false)}
-                    className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition"
-                  >
-                    <span>🏠</span> Байр хайх
-                  </Link>
-
-                  {/* ПРОФАЙЛ ХОЛБООС */}
-                  <Link
-                    to="/profile"
-                    onClick={() => setShowUserMenu(false)}
-                    className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition"
-                  >
-                    <span>👤</span> Профайл
-                  </Link>
-
-                  {user.role === "tenant" && (
-                    <Link
-                      to="/my-applications"
-                      onClick={() => setShowUserMenu(false)}
-                      className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition"
-                    >
-                      <span>📋</span> Миний хүсэлтүүд
-                    </Link>
-                  )}
-
-                  {user.role === "landlord" && (
-                    <>
-                      <Link
-                        to="/my-properties"
-                        onClick={() => setShowUserMenu(false)}
-                        className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition"
-                      >
-                        <span>🏘️</span> Миний байрнууд
-                      </Link>
-                      <Link
-                        to="/add-property"
-                        onClick={() => setShowUserMenu(false)}
-                        className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition"
-                      >
-                        <span>➕</span> Байр нэмэх
-                      </Link>
-                    </>
-                  )}
-                </div>
-
-                <div className="border-t border-gray-100 py-1">
-                  <button
-                    onClick={handleLogout}
-                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition"
-                  >
+                <Link to="/home" className="flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition"><span>🏠</span> Байр хайх</Link>
+                <Link to="/profile" className="flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition"><span>👤</span> Профайл</Link>
+                {user.role === "tenant" && (
+                  <Link to="/my-applications" className="flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition"><span>📋</span> Миний хүсэлтүүд</Link>
+                )}
+                {user.role === "landlord" && (
+                  <>
+                    <Link to="/my-properties" className="flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition"><span>🏘️</span> Миний байрнууд</Link>
+                    <Link to="/landlord-applications" className="flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition"><span>📬</span> Ирсэн хүсэлтүүд</Link>
+                    <Link to="/add-property" className="flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition"><span>➕</span> Байр нэмэх</Link>
+                  </>
+                )}
+                <div className="pt-2 border-t border-gray-100">
+                  <button onClick={handleLogout} className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-red-500 hover:bg-red-50 rounded-xl transition">
                     <span>🚪</span> Гарах
                   </button>
                 </div>
-              </div>
+              </>
+            ) : (
+              <>
+                <Link to="/home" className="flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition"><span>🏠</span> Байр үзэх</Link>
+                <Link to="/login" className="flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition"><span>🔑</span> Нэвтрэх</Link>
+                <Link to="/register">
+                  <button className="w-full mt-1 bg-indigo-600 text-white py-2.5 rounded-xl text-sm font-medium hover:bg-indigo-700 transition">
+                    Бүртгүүлэх
+                  </button>
+                </Link>
+              </>
             )}
           </div>
-        ) : (
-          <div className="flex items-center gap-2">
-            <Link to="/login">
-              <button className="px-4 py-2 rounded-xl text-gray-600 hover:bg-gray-100 font-medium text-sm transition">
-                Нэвтрэх
-              </button>
-            </Link>
-            <Link to="/register">
-              <button className="px-4 py-2 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 font-medium text-sm transition">
-                Бүртгүүлэх
-              </button>
-            </Link>
-          </div>
         )}
-      </div>
-    </nav>
+      </nav>
+
+      {/* Mobile notification panel */}
+      {showNotif && user && (
+        <div className="md:hidden fixed inset-x-4 top-16 z-50">
+          <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+            <div className="px-4 py-3 border-b flex items-center justify-between">
+              <h3 className="font-bold text-gray-800">Мэдэгдлүүд</h3>
+              <button onClick={() => setShowNotif(false)} className="text-gray-400 text-2xl leading-none">×</button>
+            </div>
+            <div className="max-h-72 overflow-y-auto">
+              {notifications.length === 0 ? (
+                <div className="py-8 text-center text-gray-400 text-sm">Мэдэгдэл байхгүй байна</div>
+              ) : notifications.map((n) => (
+                <button key={n._id} onClick={() => handleNotifClick(n)}
+                  className={`w-full text-left px-4 py-3 hover:bg-gray-50 border-b border-gray-50 ${!n.isRead ? "bg-indigo-50/50" : ""}`}>
+                  <div className="flex gap-3">
+                    <span className="text-lg">{typeIcon(n.type)}</span>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-gray-800">{n.title}</p>
+                      <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{n.message}</p>
+                      <p className="text-xs text-gray-400 mt-1">{timeAgo(n.createdAt)}</p>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
