@@ -1,5 +1,6 @@
 import { useState } from "react";
 import api from "../api/axiosInstance";
+import { useNavigate, Link } from "react-router-dom";
 
 function Register() {
   const [firstName, setFirstName] = useState("");
@@ -8,9 +9,15 @@ function Register() {
   const [role, setRole] = useState("tenant");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const navigate = useNavigate();
 
   const handleRegister = async (e) => {
     e.preventDefault();
+    setLoading(true);
+    setError("");
 
     try {
       await api.post("/api/auth/register", {
@@ -21,125 +28,158 @@ function Register() {
         password,
         role,
       });
-
-      alert("Амжилттай бүртгэгдлээ");
+      alert("Амжилттай бүртгэгдлээ! Нэвтэрнэ үү.");
+      navigate("/login");
     } catch (err) {
-      console.log(err);
-      alert("Бүртгэл амжилтгүй");
+      setError(err.response?.data?.message || "Бүртгэл амжилтгүй боллоо");
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#f4f4f2] flex">
-      <div className="hidden md:flex w-1/2 relative bg-[url('https://images.unsplash.com/photo-1505693416388-ac5ce068fe85')] bg-cover bg-center">
-        <div className="absolute inset-0 bg-white/50"></div>
+    <div className="min-h-screen flex flex-col bg-gray-50">
 
-        <div className="relative z-10 p-10">
-          <h1 className="text-2xl font-bold text-purple-700">
-            RentalSystem
-          </h1>
-        </div>
+      {/* Буцах товч */}
+      <div className="px-4 pt-4">
+        <button
+          onClick={() => navigate("/")}
+          className="flex items-center gap-2 text-gray-500 hover:text-gray-800 transition text-sm"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+          Буцах
+        </button>
       </div>
 
-      <div className="w-full md:w-1/2 flex items-center justify-center px-6">
+      {/* Лого */}
+      <div className="flex justify-center mt-6 mb-4">
+        <Link to="/" className="flex items-center gap-2">
+          <span className="text-2xl">🏡</span>
+          <span className="text-xl font-bold text-indigo-600">Түрээсийн систем</span>
+        </Link>
+      </div>
+
+      {/* Form */}
+      <div className="flex-1 flex items-center justify-center px-4 py-6">
         <form
           onSubmit={handleRegister}
-          className="bg-white rounded-3xl shadow-xl p-10 w-full max-w-[470px]"
+          className="bg-white p-8 rounded-2xl shadow-lg w-full max-w-[480px]"
         >
-          <p className="text-gray-600 mb-1">Welcome to RentalSystem</p>
+          <h1 className="text-3xl font-bold mb-2 text-center">Бүртгүүлэх</h1>
+          <p className="text-gray-400 text-sm text-center mb-6">
+            Шинэ данс үүсгэж эхлэцгэаая
+          </p>
 
-          <h1 className="text-4xl font-bold mb-6">Бүртгүүлэх</h1>
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-600 rounded-xl p-3 mb-4 text-sm text-center">
+              {error}
+            </div>
+          )}
 
-          <div className="grid grid-cols-2 gap-4">
+          {/* Роль сонгох */}
+          <div className="grid grid-cols-2 gap-3 mb-5">
+            <button
+              type="button"
+              onClick={() => setRole("tenant")}
+              className={`py-3 rounded-xl text-sm font-medium transition border-2 ${
+                role === "tenant"
+                  ? "bg-indigo-600 text-white border-indigo-600"
+                  : "bg-white text-gray-600 border-gray-200 hover:border-indigo-300"
+              }`}
+            >
+              🏠 Түрээслэгч
+            </button>
+            <button
+              type="button"
+              onClick={() => setRole("landlord")}
+              className={`py-3 rounded-xl text-sm font-medium transition border-2 ${
+                role === "landlord"
+                  ? "bg-indigo-600 text-white border-indigo-600"
+                  : "bg-white text-gray-600 border-gray-200 hover:border-indigo-300"
+              }`}
+            >
+              🏢 Түрээслүүлэгч
+            </button>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 mb-4">
             <div>
-              <label className="text-sm font-semibold">Овог</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Овог</label>
               <input
                 type="text"
                 placeholder="Овог"
                 value={lastName}
                 onChange={(e) => setLastName(e.target.value)}
-                className="w-full border p-3 rounded-lg mt-1"
+                className="w-full border border-gray-200 p-3 rounded-xl focus:outline-none focus:border-indigo-400 text-sm"
                 required
               />
             </div>
-
             <div>
-              <label className="text-sm font-semibold">Нэр</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Нэр</label>
               <input
                 type="text"
                 placeholder="Нэр"
                 value={firstName}
                 onChange={(e) => setFirstName(e.target.value)}
-                className="w-full border p-3 rounded-lg mt-1"
+                className="w-full border border-gray-200 p-3 rounded-xl focus:outline-none focus:border-indigo-400 text-sm"
                 required
               />
             </div>
           </div>
 
-          <label className="text-sm font-semibold mt-4 block">
-            Утасны дугаар
-          </label>
-          <input
-            type="text"
-            placeholder="Утасны дугаар"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            className="w-full border p-3 rounded-lg mt-1"
-            required
-          />
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">Утасны дугаар</label>
+            <input
+              type="tel"
+              placeholder="99001234"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              className="w-full border border-gray-200 p-3 rounded-xl focus:outline-none focus:border-indigo-400 text-sm"
+              required
+            />
+          </div>
 
-          <label className="text-sm font-semibold mt-4 block">
-            Имэйл хаяг
-          </label>
-          <input
-            type="email"
-            placeholder="Имэйл хаяг"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full border p-3 rounded-lg mt-1"
-            required
-          />
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">Имэйл хаяг</label>
+            <input
+              type="email"
+              placeholder="example@gmail.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full border border-gray-200 p-3 rounded-xl focus:outline-none focus:border-indigo-400 text-sm"
+              required
+            />
+          </div>
 
-          <label className="text-sm font-semibold mt-4 block">
-            Нууц үг
-          </label>
-          <input
-            type="password"
-            placeholder="Нууц үг"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full border p-3 rounded-lg mt-1"
-            required
-          />
-
-          <div className="grid grid-cols-2 gap-4 mt-6">
-            <button
-              type="button"
-              onClick={() => setRole("tenant")}
-              className={`py-3 rounded-lg text-white ${
-                role === "tenant" ? "bg-slate-900" : "bg-slate-500"
-              }`}
-            >
-              Түрээслэгч
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setRole("landlord")}
-              className={`py-3 rounded-lg text-white ${
-                role === "landlord" ? "bg-slate-900" : "bg-slate-500"
-              }`}
-            >
-              Түрээслүүлэгч
-            </button>
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">Нууц үг</label>
+            <input
+              type="password"
+              placeholder="Хамгийн багадаа 6 тэмдэгт"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full border border-gray-200 p-3 rounded-xl focus:outline-none focus:border-indigo-400 text-sm"
+              required
+              minLength={6}
+            />
           </div>
 
           <button
             type="submit"
-            className="w-full mt-6 bg-indigo-600 text-white py-3 rounded-lg hover:bg-purple-800"
+            disabled={loading}
+            className="w-full bg-indigo-600 text-white py-3 rounded-xl hover:bg-indigo-700 font-medium transition disabled:opacity-50"
           >
-            Бүртгүүлэх
+            {loading ? "Бүртгэж байна..." : "Бүртгүүлэх"}
           </button>
+
+          <p className="text-center text-sm text-gray-500 mt-5">
+            Данс байгаа юу?{" "}
+            <Link to="/login" className="text-indigo-600 font-medium hover:underline">
+              Нэвтрэх
+            </Link>
+          </p>
         </form>
       </div>
     </div>
