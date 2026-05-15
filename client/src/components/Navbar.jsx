@@ -30,24 +30,20 @@ function Navbar() {
   const notifRef = useRef(null);
   const userMenuRef = useRef(null);
 
-  // Мэдэгдлийн тоог 30 секунд тутамд шинэчлэх
   useEffect(() => {
     if (!user || !token) return;
-
     const load = async () => {
       try {
         const res = await api.get("/api/notifications/unread-count");
         setUnreadCount(res.data.count);
       } catch { /* silent */ }
     };
-
     load();
     const interval = setInterval(load, 30000);
     return () => clearInterval(interval);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Dropdown хаах
   useEffect(() => {
     const handleClick = (e) => {
       if (notifRef.current && !notifRef.current.contains(e.target)) {
@@ -67,7 +63,6 @@ function Navbar() {
         const res = await api.get("/api/notifications");
         setNotifications(res.data);
       } catch { /* silent */ }
-
       if (unreadCount > 0) {
         try {
           await api.put("/api/notifications/mark-all-read", {});
@@ -97,7 +92,6 @@ function Navbar() {
 
   return (
     <nav className="bg-white shadow-sm px-8 py-4 flex justify-between items-center sticky top-0 z-40">
-      {/* Лого */}
       <Link to={user ? "/home" : "/"}>
         <div className="flex items-center gap-2">
           <span className="text-xl">🏡</span>
@@ -106,14 +100,12 @@ function Navbar() {
       </Link>
 
       <div className="flex items-center gap-5">
-        {/* Tenant цэс */}
         {user?.role === "tenant" && (
           <Link to="/my-applications" className="text-gray-600 font-medium hover:text-indigo-600 transition text-sm">
             Миний хүсэлтүүд
           </Link>
         )}
 
-        {/* Landlord цэс */}
         {user?.role === "landlord" && (
           <>
             <Link to="/my-properties" className="text-gray-600 font-medium hover:text-indigo-600 transition text-sm">
@@ -125,7 +117,6 @@ function Navbar() {
           </>
         )}
 
-        {/* Мэдэгдэл */}
         {user && (
           <div className="relative" ref={notifRef}>
             <button
@@ -181,7 +172,6 @@ function Navbar() {
           </div>
         )}
 
-        {/* Хэрэглэгчийн цэс */}
         {user ? (
           <div className="relative" ref={userMenuRef}>
             <button
@@ -197,16 +187,13 @@ function Navbar() {
               </svg>
             </button>
 
-            {/* Dropdown */}
             {showUserMenu && (
               <div className="absolute right-0 top-12 w-52 bg-white rounded-2xl shadow-xl border border-gray-100 z-50 overflow-hidden">
-                {/* Хэрэглэгчийн мэдээлэл */}
                 <div className="px-4 py-3 border-b border-gray-100">
                   <p className="font-semibold text-gray-800 text-sm">{user.firstName} {user.lastName}</p>
                   <p className="text-xs text-gray-400 mt-0.5">{ROLE_LABELS[user.role] || user.role}</p>
                 </div>
 
-                {/* Холбоосууд */}
                 <div className="py-1">
                   <Link
                     to="/home"
@@ -214,6 +201,15 @@ function Navbar() {
                     className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition"
                   >
                     <span>🏠</span> Байр хайх
+                  </Link>
+
+                  {/* ПРОФАЙЛ ХОЛБООС */}
+                  <Link
+                    to="/profile"
+                    onClick={() => setShowUserMenu(false)}
+                    className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition"
+                  >
+                    <span>👤</span> Профайл
                   </Link>
 
                   {user.role === "tenant" && (
@@ -246,7 +242,6 @@ function Navbar() {
                   )}
                 </div>
 
-                {/* Гарах */}
                 <div className="border-t border-gray-100 py-1">
                   <button
                     onClick={handleLogout}

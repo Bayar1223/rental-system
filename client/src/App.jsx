@@ -10,6 +10,7 @@ import LandlordApplications from "./pages/LandlordApplications";
 import MyProperties from "./pages/MyProperties";
 import Contract from "./pages/Contract";
 import EditProperty from "./pages/EditProperty";
+import Profile from "./pages/Profile";
 
 function App() {
   return (
@@ -26,6 +27,7 @@ function App() {
         <Route path="/my-properties" element={<MyProperties />} />
         <Route path="/contract/:id" element={<Contract />} />
         <Route path="/edit-property/:id" element={<EditProperty />} />
+        <Route path="/profile" element={<Profile />} />
       </Routes>
     </BrowserRouter>
   );
