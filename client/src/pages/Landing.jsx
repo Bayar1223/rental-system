@@ -43,9 +43,13 @@ export default function Landing() {
   }, [user, navigate]);
 
   useEffect(() => {
-    api.get("/api/properties").then((res) => {
-      setFeaturedProperties(res.data.slice(0, 3));
-    }).catch(() => {});
+    // Pagination форматтай болсон тул properties массивыг зөв авах
+    api.get("/api/properties", { params: { limit: 3, page: 1 } })
+      .then((res) => {
+        const data = res.data.properties || res.data;
+        setFeaturedProperties(Array.isArray(data) ? data.slice(0, 3) : []);
+      })
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -63,16 +67,16 @@ export default function Landing() {
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-2xl">🏡</span>
-            <span className="text-xl font-bold text-gray-900">Түрээсийн систем</span>
+            <span className="text-xl font-bold text-white">Түрээсийн систем</span>
           </div>
           <div className="flex items-center gap-3">
             <Link to="/login">
-              <button className="px-5 py-2.5 rounded-xl text-gray-700 font-medium hover:bg-gray-100 transition">
+              <button className="px-5 py-2.5 rounded-xl text-white/80 font-medium hover:bg-white/10 transition">
                 Нэвтрэх
               </button>
             </Link>
             <Link to="/register">
-              <button className="px-5 py-2.5 rounded-xl bg-indigo-600 text-white font-medium hover:bg-indigo-700 transition shadow-lg shadow-indigo-200">
+              <button className="px-5 py-2.5 rounded-xl bg-indigo-600 text-white font-medium hover:bg-indigo-500 transition shadow-lg shadow-indigo-900/50">
                 Бүртгүүлэх
               </button>
             </Link>
@@ -95,7 +99,7 @@ export default function Landing() {
           <div>
             <div className="inline-flex items-center gap-2 bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 px-4 py-2 rounded-full text-sm font-medium mb-6">
               <span className="w-2 h-2 bg-indigo-400 rounded-full animate-pulse" />
-             №1 Орон сууц түрээсийн платформ
+              №1 Орон сууц түрээсийн платформ
             </div>
 
             <h1 style={{ fontFamily: "'Playfair Display', serif" }}
@@ -167,6 +171,13 @@ export default function Landing() {
             </div>
           </div>
         </div>
+
+        {/* Доош скролл заалт */}
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 animate-bounce">
+          <svg className="w-6 h-6 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </div>
       </section>
 
       {/* Features */}
@@ -181,7 +192,6 @@ export default function Landing() {
               Түрээслэгч болон түрээслүүлэгч хоёуланд тохиромжтой бүрэн платформ
             </p>
           </div>
-
           <div className="grid md:grid-cols-4 gap-6">
             {features.map((f) => (
               <div key={f.title} className="bg-white rounded-2xl p-6 shadow-sm hover:shadow-md transition-all hover:-translate-y-1 border border-gray-100">
@@ -196,6 +206,7 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* Онцлох байрнууд */}
       {featuredProperties.length > 0 && (
         <section className="py-24 bg-white">
           <div className="max-w-6xl mx-auto px-6">
@@ -211,12 +222,11 @@ export default function Landing() {
                 Бүгдийг харах →
               </Link>
             </div>
-
             <div className="grid md:grid-cols-3 gap-6">
               {featuredProperties.map((p) => (
                 <Link to={`/properties/${p._id}`} key={p._id}>
                   <div className="group rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100">
-                    <div className="relative overflow-hidden h-48">
+                    <div className="relative overflow-hidden h-52">
                       <img
                         src={p.images?.[0] || "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688"}
                         alt={p.title}
@@ -225,14 +235,20 @@ export default function Landing() {
                       <div className="absolute top-3 left-3 bg-white/90 backdrop-blur text-xs font-semibold px-3 py-1 rounded-full text-indigo-600">
                         {p.rooms} өрөө
                       </div>
+                      <div className="absolute top-3 right-3 bg-green-500 text-white text-xs font-semibold px-2 py-1 rounded-full">
+                        Боломжтой
+                      </div>
                     </div>
                     <div className="p-5">
                       <h3 className="font-bold text-gray-900 mb-1 truncate">{p.title}</h3>
-                      <p className="text-gray-500 text-sm mb-3">
-                        📍 {p.location?.city}, {p.location?.district}
+                      <p className="text-gray-500 text-sm mb-3 flex items-center gap-1">
+                        <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                        </svg>
+                        {p.location?.district}, {p.location?.city}
                       </p>
                       <div className="flex items-center justify-between">
-                        <span className="text-indigo-600 font-bold text-lg">
+                        <span className="text-indigo-600 font-bold text-xl">
                           {p.monthlyRent?.toLocaleString()}₮
                         </span>
                         <span className="text-gray-400 text-sm">/сар</span>
@@ -246,6 +262,7 @@ export default function Landing() {
         </section>
       )}
 
+      {/* Хэрхэн ажилладаг */}
       <section className="py-24 bg-gradient-to-br from-indigo-950 to-slate-900">
         <div className="max-w-6xl mx-auto px-6">
           <div className="text-center mb-16">
@@ -255,7 +272,6 @@ export default function Landing() {
             </h2>
             <p className="text-slate-400 text-lg">3 хялбар алхамаар байраа олоорой</p>
           </div>
-
           <div className="grid md:grid-cols-3 gap-8">
             {[
               { step: "01", title: "Бүртгүүлэх", desc: "Tenant эсвэл Landlord эрхтэйгээр бүртгүүлнэ", icon: "👤" },
@@ -275,6 +291,7 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* CTA */}
       <section className="py-24 bg-white">
         <div className="max-w-3xl mx-auto px-6 text-center">
           <h2 style={{ fontFamily: "'Playfair Display', serif" }}
@@ -299,6 +316,7 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* Footer */}
       <footer className="bg-slate-900 text-slate-400 py-10">
         <div className="max-w-6xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-4">
           <div className="flex items-center gap-2">
