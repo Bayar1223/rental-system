@@ -69,7 +69,7 @@ function Register() {
         >
           <h1 className="text-3xl font-bold mb-2 text-center">Бүртгүүлэх</h1>
           <p className="text-gray-400 text-sm text-center mb-6">
-            Шинэ данс үүсгэж эхлэцгэаая
+            Шинэ хаяг үүсгэх 
           </p>
 
           {error && (
@@ -175,7 +175,7 @@ function Register() {
           </button>
 
           <p className="text-center text-sm text-gray-500 mt-5">
-            Данс байгаа юу?{" "}
+            Бүртгэлтэй хэрэглэгч үү?{" "}
             <Link to="/login" className="text-indigo-600 font-medium hover:underline">
               Нэвтрэх
             </Link>

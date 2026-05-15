@@ -59,7 +59,7 @@ function Login() {
         >
           <h1 className="text-3xl font-bold mb-2 text-center">Нэвтрэх</h1>
           <p className="text-gray-400 text-sm text-center mb-8">
-            Тавтай морил! Дансаараа нэвтэрнэ үү.
+            Тавтай морил! Хаягаараа нэвтэрнэ үү.
           </p>
 
           {error && (
