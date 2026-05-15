@@ -13,7 +13,8 @@ function MyProperties() {
     api
       .get("/api/properties")
       .then((res) => {
-        const mine = res.data.filter(
+        const data = res.data.properties || res.data;
+        const mine = data.filter(
           (p) =>
             p.owner?._id === user?.id   ||
             p.owner?._id === user?._id  ||
