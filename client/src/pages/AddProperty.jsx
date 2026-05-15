@@ -6,101 +6,74 @@ import Navbar from "../components/Navbar";
 function AddProperty() {
   const navigate = useNavigate();
 
-  const years = Array.from({ length: 40 }, (_, i) => 2026 - i);
-  const numbers = Array.from({ length: 30 }, (_, i) => i + 1);
-
+  const years    = Array.from({ length: 40 }, (_, i) => 2026 - i);
+  const numbers  = Array.from({ length: 30 }, (_, i) => i + 1);
   const districts = [
-    "Багануур",
-    "Багахангай",
-    "Баянгол",
-    "Баянзүрх",
-    "Налайх",
-    "Сонгинохайрхан",
-    "Сүхбаатар",
-    "Хан-Уул",
-    "Чингэлтэй",
+    "Багануур","Багахангай","Баянгол","Баянзүрх",
+    "Налайх","Сонгинохайрхан","Сүхбаатар","Хан-Уул","Чингэлтэй",
   ];
-
   const khoroos = Array.from({ length: 30 }, (_, i) => `${i + 1}-р хороо`);
 
   const initialFormData = {
-    title: "",
-    city: "Улаанбаатар",
-    district: "",
-    khoroo: "",
-    address: "",
-    rooms: "",
-    balconyCount: "",
-    doorType: "",
-    garageInfo: "",
-    windowType: "",
-    floorMaterial: "",
-    area: "",
-    windowCount: "",
-    floorNumber: "",
-    builtYear: "",
-    totalFloors: "",
-    paymentConditionText: "",
-    monthlyRent: "",
-    details: "",
-    isFurnished: "",
-    hasOutdoorParking: "",
-    contactName: "",
-    contactPhone: "",
-    contactEmail: "",
+    title: "", city: "Улаанбаатар", district: "", khoroo: "",
+    address: "", rooms: "", balconyCount: "", doorType: "",
+    garageInfo: "", windowType: "", floorMaterial: "", area: "",
+    windowCount: "", floorNumber: "", builtYear: "", totalFloors: "",
+    paymentConditionText: "", monthlyRent: "", details: "",
+    isFurnished: "", hasOutdoorParking: "",
+    contactName: "", contactPhone: "", contactEmail: "",
   };
 
   const [formData, setFormData] = useState(initialFormData);
   const [images, setImages] = useState([]);
   const [imageFiles, setImageFiles] = useState([]);
   const [showLocationModal, setShowLocationModal] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
 
   const selectedLocation = `${formData.city}${
     formData.district ? " — " + formData.district : ""
   }${formData.khoroo ? " — " + formData.khoroo : ""}`;
 
-  const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
-  };
+  const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
   const handleImageChange = (e) => {
     const files = Array.from(e.target.files);
-    setImageFiles(files);
-    const previewImages = files.map((file) => URL.createObjectURL(file));
-    setImages(previewImages);
+    const newFiles = [...imageFiles, ...files].slice(0, 10);
+    setImageFiles(newFiles);
+    setImages(newFiles.map((f) => URL.createObjectURL(f)));
   };
 
   const removeImage = (index) => {
-    setImages(images.filter((_, i) => i !== index));
-    setImageFiles(imageFiles.filter((_, i) => i !== index));
+    const newFiles = imageFiles.filter((_, i) => i !== index);
+    setImageFiles(newFiles);
+    setImages(newFiles.map((f) => URL.createObjectURL(f)));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!formData.district) {
+      setError("Дүүрэг сонгоно уу");
+      return;
+    }
+    setSubmitting(true);
+    setError("");
 
     try {
       const data = new FormData();
-
       data.append("title", formData.title);
       data.append("description", formData.details);
-
       data.append("location[city]", formData.city);
       data.append("location[district]", formData.district);
-      data.append("location[address]", `${formData.khoroo} ${formData.address}`);
-
+      data.append("location[address]", `${formData.khoroo} ${formData.address}`.trim());
       data.append("monthlyRent", formData.monthlyRent);
       data.append("depositAmount", 0);
       data.append("paymentCondition", "monthly");
       data.append("paymentConditionText", formData.paymentConditionText);
       data.append("minLeaseMonths", 6);
-
       data.append("rooms", formData.rooms);
       data.append("area", formData.area);
       data.append("propertyType", "apartment");
-
       data.append("floorMaterial", formData.floorMaterial);
       data.append("doorType", formData.doorType);
       data.append("balconyCount", formData.balconyCount);
@@ -111,403 +84,345 @@ function AddProperty() {
       data.append("windowCount", formData.windowCount);
       data.append("floorNumber", formData.floorNumber);
       data.append("totalFloors", formData.totalFloors);
-
       data.append("isFurnished", formData.isFurnished === "Тавилгатай");
       data.append("hasOutdoorParking", formData.hasOutdoorParking === "Байгаа");
-
       data.append("contactName", formData.contactName);
       data.append("contactPhone", formData.contactPhone);
       data.append("contactEmail", formData.contactEmail);
-
       data.append("details", formData.details);
-
-      imageFiles.forEach((file) => {
-        data.append("images", file);
-      });
+      imageFiles.forEach((file) => data.append("images", file));
 
       const response = await api.post("/api/properties", data, {
         headers: { "Content-Type": "multipart/form-data" },
       });
 
       const propertyId = response.data.property?._id || response.data._id;
-
-      alert("Байрны мэдээлэл амжилттай орууллаа");
       navigate(`/properties/${propertyId}`);
-    } catch (error) {
-      console.log(error);
-      alert(error.response?.data?.message || "Алдаа гарлаа");
+    } catch (err) {
+      setError(err.response?.data?.message || "Алдаа гарлаа. Дахин оролдоно уу.");
+    } finally {
+      setSubmitting(false);
     }
   };
+
+  const inputCls = "w-full border border-gray-200 p-3 rounded-xl focus:outline-none focus:border-indigo-400 text-sm";
+  const selectCls = "w-full border border-gray-200 p-3 rounded-xl focus:outline-none focus:border-indigo-400 text-sm bg-white";
+  const labelCls = "block text-sm font-medium text-gray-700 mb-1.5";
+  const sectionCls = "bg-white rounded-2xl shadow p-5 md:p-6";
 
   return (
     <div className="min-h-screen bg-gray-100">
       <Navbar />
 
-      <div className="max-w-5xl mx-auto p-8">
-        <div className="bg-white rounded-3xl shadow-xl p-8">
-          <h1 className="text-4xl font-bold mb-8">
-            Байрны мэдээлэл оруулах
-          </h1>
+      <div className="max-w-3xl mx-auto px-4 md:px-8 py-6 pb-10">
+        <div className="flex items-center gap-3 mb-6">
+          <button onClick={() => navigate(-1)}
+            className="flex items-center gap-1 text-gray-500 hover:text-gray-800 transition text-sm">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+            Буцах
+          </button>
+          <h1 className="text-xl md:text-2xl font-bold">Байр нэмэх</h1>
+        </div>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-600 rounded-xl p-3 mb-4 text-sm">
+            ✕ {error}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+
+          {/* Байршил */}
+          <div className={sectionCls}>
+            <h2 className="font-bold text-lg mb-4">📍 Байршил</h2>
             <button
               type="button"
               onClick={() => setShowLocationModal(true)}
-              className="w-full bg-gray-100 border p-4 rounded-xl text-left font-semibold"
+              className={`w-full text-left p-3 rounded-xl border-2 text-sm font-medium transition ${
+                formData.district
+                  ? "border-indigo-400 bg-indigo-50 text-indigo-700"
+                  : "border-dashed border-gray-300 text-gray-500 hover:border-indigo-300"
+              }`}
             >
-              Байршил: {selectedLocation}
+              {formData.district ? `✓ ${selectedLocation}` : "Дүүрэг, хороо сонгох →"}
             </button>
-
-            <input
-              name="title"
-              placeholder="Зарын гарчиг"
-              value={formData.title}
-              onChange={handleChange}
-              className="w-full border p-4 rounded-xl"
-              required
-            />
-
-            <input
-              name="address"
-              placeholder="Дэлгэрэнгүй хаяг /байр, хотхон, гудамж/"
-              value={formData.address}
-              onChange={handleChange}
-              className="w-full border p-4 rounded-xl"
-              required
-            />
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-              <select
-                name="rooms"
-                value={formData.rooms}
-                onChange={handleChange}
-                className="border p-4 rounded-xl"
-                required
-              >
-                <option value="">Өрөө сонгох</option>
-                <option value="1">1 өрөө</option>
-                <option value="2">2 өрөө</option>
-                <option value="3">3 өрөө</option>
-                <option value="4">4 өрөө</option>
-                <option value="5">5+ өрөө</option>
-              </select>
-
-              <select
-                name="balconyCount"
-                value={formData.balconyCount}
-                onChange={handleChange}
-                className="border p-4 rounded-xl"
-              >
-                <option value="">Тагт сонгох</option>
-                <option value="0">Тагтгүй</option>
-                <option value="1">1 тагттай</option>
-                <option value="2">2 тагттай</option>
-                <option value="3">3+ тагттай</option>
-              </select>
-
-              <select
-                name="doorType"
-                value={formData.doorType}
-                onChange={handleChange}
-                className="border p-4 rounded-xl"
-              >
-                <option value="">Хаалга сонгох</option>
-                <option value="Мод">Мод</option>
-                <option value="Төмөр">Төмөр</option>
-                <option value="Бүргэд">Бүргэд</option>
-                <option value="Вакум">Вакум</option>
-              </select>
-
-              <select
-                name="garageInfo"
-                value={formData.garageInfo}
-                onChange={handleChange}
-                className="border p-4 rounded-xl"
-              >
-                <option value="">Гараж сонгох</option>
-                <option value="Байгаа">Байгаа</option>
-                <option value="Байхгүй">Байхгүй</option>
-              </select>
-
-              <select
-                name="windowType"
-                value={formData.windowType}
-                onChange={handleChange}
-                className="border p-4 rounded-xl"
-              >
-                <option value="">Цонх сонгох</option>
-                <option value="Мод">Мод</option>
-                <option value="Вакум">Вакум</option>
-                <option value="Төмөр вакум">Төмөр вакум</option>
-                <option value="Модон вакум">Модон вакум</option>
-              </select>
-
-              <select
-                name="floorMaterial"
-                value={formData.floorMaterial}
-                onChange={handleChange}
-                className="border p-4 rounded-xl"
-              >
-                <option value="">Шал сонгох</option>
-                <option value="Мод">Мод</option>
-                <option value="Паркет">Паркет</option>
-                <option value="Ламинат">Ламинат</option>
-                <option value="Чулуу">Чулуу</option>
-                <option value="Плита">Плита</option>
-              </select>
-
+            <div className="mt-3">
+              <label className={labelCls}>Дэлгэрэнгүй хаяг</label>
               <input
-                name="area"
-                inputMode="numeric"
-                placeholder="Талбай м²"
-                value={formData.area}
+                name="address"
+                placeholder="Байр, хотхон, гудамж..."
+                value={formData.address}
                 onChange={handleChange}
-                className="border p-4 rounded-xl"
-                required
+                className={inputCls}
               />
-
-              <select
-                name="windowCount"
-                value={formData.windowCount}
-                onChange={handleChange}
-                className="border p-4 rounded-xl"
-              >
-                <option value="">Цонхны тоо</option>
-                {numbers.slice(0, 10).map((n) => (
-                  <option key={n} value={n}>{n}</option>
-                ))}
-              </select>
-
-              <select
-                name="floorNumber"
-                value={formData.floorNumber}
-                onChange={handleChange}
-                className="border p-4 rounded-xl"
-              >
-                <option value="">Хэдэн давхарт</option>
-                {numbers.map((n) => (
-                  <option key={n} value={n}>{n}</option>
-                ))}
-              </select>
-
-              <select
-                name="builtYear"
-                value={formData.builtYear}
-                onChange={handleChange}
-                className="border p-4 rounded-xl"
-              >
-                <option value="">Ашиглалтад орсон он</option>
-                {years.map((year) => (
-                  <option key={year} value={year}>{year}</option>
-                ))}
-              </select>
-
-              <select
-                name="totalFloors"
-                value={formData.totalFloors}
-                onChange={handleChange}
-                className="border p-4 rounded-xl"
-              >
-                <option value="">Барилгын давхар</option>
-                {numbers.map((n) => (
-                  <option key={n} value={n}>{n}</option>
-                ))}
-              </select>
-
-              <select
-                name="paymentConditionText"
-                value={formData.paymentConditionText}
-                onChange={handleChange}
-                className="border p-4 rounded-xl"
-              >
-                <option value="">Төлбөрийн нөхцөл</option>
-                <option value="Барьцаа байхгүй">Барьцаа байхгүй</option>
-                <option value="1+1">1+1</option>
-                <option value="2+1">2+1</option>
-                <option value="3+1">3+1</option>
-                <option value="4+1">4+1</option>
-                <option value="5+1">5+1</option>
-                <option value="6+1">6+1</option>
-                <option value="12+1">12+1</option>
-              </select>
-
-              <select
-                name="isFurnished"
-                value={formData.isFurnished}
-                onChange={handleChange}
-                className="border p-4 rounded-xl"
-                required
-              >
-                <option value="">Тавилга сонгох</option>
-                <option value="Тавилгатай">Тавилгатай</option>
-                <option value="Тавилгагүй">Тавилгагүй</option>
-              </select>
-
-              <select
-                name="hasOutdoorParking"
-                value={formData.hasOutdoorParking}
-                onChange={handleChange}
-                className="border p-4 rounded-xl"
-                required
-              >
-                <option value="">Гадна зогсоол сонгох</option>
-                <option value="Байгаа">Байгаа</option>
-                <option value="Байхгүй">Байхгүй</option>
-              </select>
             </div>
+          </div>
 
-            <input
-              name="monthlyRent"
-              inputMode="numeric"
-              placeholder="Үнэ ₮"
-              value={formData.monthlyRent}
-              onChange={handleChange}
-              className="w-full border p-4 rounded-xl"
-              required
-            />
-
-            <div>
-              <h2 className="text-2xl font-bold mb-4">
-                Холбоо барих мэдээлэл
-              </h2>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          {/* Үндсэн мэдээлэл */}
+          <div className={sectionCls}>
+            <h2 className="font-bold text-lg mb-4">🏠 Үндсэн мэдээлэл</h2>
+            <div className="space-y-4">
+              <div>
+                <label className={labelCls}>Зарын гарчиг *</label>
                 <input
-                  name="contactName"
-                  placeholder="Нэр"
-                  value={formData.contactName}
+                  name="title"
+                  placeholder="Жишээ: Баянзүрх, 2 өрөө, тавилгатай байр"
+                  value={formData.title}
                   onChange={handleChange}
-                  className="border p-4 rounded-xl"
+                  className={inputCls}
                   required
-                />
-
-                <input
-                  name="contactPhone"
-                  placeholder="Утасны дугаар"
-                  value={formData.contactPhone}
-                  onChange={handleChange}
-                  className="border p-4 rounded-xl"
-                  required
-                />
-
-                <input
-                  name="contactEmail"
-                  placeholder="Имэйл"
-                  value={formData.contactEmail}
-                  onChange={handleChange}
-                  className="border p-4 rounded-xl"
                 />
               </div>
-            </div>
 
-            <div>
-              <h2 className="text-2xl font-bold mb-4">Зурагнууд</h2>
-
-              <label className="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-2xl p-10 cursor-pointer hover:border-indigo-500 transition">
-                <span className="text-lg text-gray-600 mb-2">Зургаа сонгох</span>
-                <span className="text-sm text-gray-400">
-                  Нэг болон түүнээс дээш зураг сонгож болно
-                </span>
-                <input
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  onChange={handleImageChange}
-                  className="hidden"
-                />
-              </label>
-
-              {images.length > 0 && (
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
-                  {images.map((img, index) => (
-                    <div key={index} className="relative">
-                      <img
-                        src={img}
-                        alt="preview"
-                        className="h-40 w-full object-cover rounded-2xl"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => removeImage(index)}
-                        className="absolute top-2 right-2 bg-red-500 text-white w-7 h-7 rounded-full"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ))}
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                <div>
+                  <label className={labelCls}>Өрөөний тоо *</label>
+                  <select name="rooms" value={formData.rooms} onChange={handleChange} className={selectCls} required>
+                    <option value="">Сонгох</option>
+                    {[1,2,3,4,5].map(n => <option key={n} value={n}>{n} өрөө</option>)}
+                  </select>
                 </div>
-              )}
+                <div>
+                  <label className={labelCls}>Талбай м² *</label>
+                  <input name="area" inputMode="numeric" placeholder="60" value={formData.area} onChange={handleChange} className={inputCls} required />
+                </div>
+                <div>
+                  <label className={labelCls}>Үнэ ₮/сар *</label>
+                  <input name="monthlyRent" inputMode="numeric" placeholder="800,000" value={formData.monthlyRent} onChange={handleChange} className={inputCls} required />
+                </div>
+                <div>
+                  <label className={labelCls}>Давхар</label>
+                  <select name="floorNumber" value={formData.floorNumber} onChange={handleChange} className={selectCls}>
+                    <option value="">Сонгох</option>
+                    {numbers.map(n => <option key={n} value={n}>{n}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className={labelCls}>Барилгын давхар</label>
+                  <select name="totalFloors" value={formData.totalFloors} onChange={handleChange} className={selectCls}>
+                    <option value="">Сонгох</option>
+                    {numbers.map(n => <option key={n} value={n}>{n}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className={labelCls}>Ашиглалтад орсон он</label>
+                  <select name="builtYear" value={formData.builtYear} onChange={handleChange} className={selectCls}>
+                    <option value="">Сонгох</option>
+                    {years.map(y => <option key={y} value={y}>{y}</option>)}
+                  </select>
+                </div>
+              </div>
             </div>
+          </div>
 
+          {/* Нэмэлт мэдээлэл */}
+          <div className={sectionCls}>
+            <h2 className="font-bold text-lg mb-4">🔧 Нэмэлт мэдээлэл</h2>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              <div>
+                <label className={labelCls}>Тавилга *</label>
+                <select name="isFurnished" value={formData.isFurnished} onChange={handleChange} className={selectCls} required>
+                  <option value="">Сонгох</option>
+                  <option value="Тавилгатай">Тавилгатай</option>
+                  <option value="Тавилгагүй">Тавилгагүй</option>
+                </select>
+              </div>
+              <div>
+                <label className={labelCls}>Гадна зогсоол *</label>
+                <select name="hasOutdoorParking" value={formData.hasOutdoorParking} onChange={handleChange} className={selectCls} required>
+                  <option value="">Сонгох</option>
+                  <option value="Байгаа">Байгаа</option>
+                  <option value="Байхгүй">Байхгүй</option>
+                </select>
+              </div>
+              <div>
+                <label className={labelCls}>Төлбөрийн нөхцөл</label>
+                <select name="paymentConditionText" value={formData.paymentConditionText} onChange={handleChange} className={selectCls}>
+                  <option value="">Сонгох</option>
+                  {["Барьцаа байхгүй","1+1","2+1","3+1","4+1","5+1","6+1","12+1"].map(v => (
+                    <option key={v} value={v}>{v}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className={labelCls}>Тагт</label>
+                <select name="balconyCount" value={formData.balconyCount} onChange={handleChange} className={selectCls}>
+                  <option value="">Сонгох</option>
+                  <option value="0">Тагтгүй</option>
+                  <option value="1">1 тагттай</option>
+                  <option value="2">2 тагттай</option>
+                  <option value="3">3+</option>
+                </select>
+              </div>
+              <div>
+                <label className={labelCls}>Гараж</label>
+                <select name="garageInfo" value={formData.garageInfo} onChange={handleChange} className={selectCls}>
+                  <option value="">Сонгох</option>
+                  <option value="Байгаа">Байгаа</option>
+                  <option value="Байхгүй">Байхгүй</option>
+                </select>
+              </div>
+              <div>
+                <label className={labelCls}>Шал</label>
+                <select name="floorMaterial" value={formData.floorMaterial} onChange={handleChange} className={selectCls}>
+                  <option value="">Сонгох</option>
+                  {["Мод","Паркет","Ламинат","Чулуу","Плита"].map(v => <option key={v} value={v}>{v}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className={labelCls}>Хаалга</label>
+                <select name="doorType" value={formData.doorType} onChange={handleChange} className={selectCls}>
+                  <option value="">Сонгох</option>
+                  {["Мод","Төмөр","Бүргэд","Вакум"].map(v => <option key={v} value={v}>{v}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className={labelCls}>Цонх</label>
+                <select name="windowType" value={formData.windowType} onChange={handleChange} className={selectCls}>
+                  <option value="">Сонгох</option>
+                  {["Мод","Вакум","Төмөр вакум","Модон вакум"].map(v => <option key={v} value={v}>{v}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className={labelCls}>Цонхны тоо</label>
+                <select name="windowCount" value={formData.windowCount} onChange={handleChange} className={selectCls}>
+                  <option value="">Сонгох</option>
+                  {numbers.slice(0,10).map(n => <option key={n} value={n}>{n}</option>)}
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Зурагнууд */}
+          <div className={sectionCls}>
+            <h2 className="font-bold text-lg mb-4">📷 Зурагнууд</h2>
+            <label className="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-2xl p-6 md:p-10 cursor-pointer hover:border-indigo-400 transition">
+              <span className="text-3xl mb-2">📁</span>
+              <span className="text-sm font-medium text-gray-600 mb-1">Зургаа сонгох</span>
+              <span className="text-xs text-gray-400">Хамгийн ихдээ 10 зураг • JPG, PNG</span>
+              <input type="file" accept="image/*" multiple onChange={handleImageChange} className="hidden" />
+            </label>
+
+            {images.length > 0 && (
+              <div className="grid grid-cols-3 md:grid-cols-4 gap-3 mt-4">
+                {images.map((img, index) => (
+                  <div key={index} className="relative aspect-square">
+                    <img src={img} alt="preview" className="w-full h-full object-cover rounded-xl" />
+                    <button
+                      type="button"
+                      onClick={() => removeImage(index)}
+                      className="absolute top-1.5 right-1.5 bg-red-500 text-white w-6 h-6 rounded-full text-xs flex items-center justify-center"
+                    >
+                      ×
+                    </button>
+                    {index === 0 && (
+                      <span className="absolute bottom-1.5 left-1.5 bg-black/50 text-white text-xs px-1.5 py-0.5 rounded">
+                        Үндсэн
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Холбоо барих */}
+          <div className={sectionCls}>
+            <h2 className="font-bold text-lg mb-4">📞 Холбоо барих мэдээлэл</h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div>
+                <label className={labelCls}>Нэр *</label>
+                <input name="contactName" placeholder="Нэр" value={formData.contactName} onChange={handleChange} className={inputCls} required />
+              </div>
+              <div>
+                <label className={labelCls}>Утасны дугаар *</label>
+                <input name="contactPhone" placeholder="99001234" value={formData.contactPhone} onChange={handleChange} className={inputCls} required />
+              </div>
+              <div>
+                <label className={labelCls}>Имэйл</label>
+                <input name="contactEmail" placeholder="example@gmail.com" value={formData.contactEmail} onChange={handleChange} className={inputCls} />
+              </div>
+            </div>
+          </div>
+
+          {/* Тайлбар */}
+          <div className={sectionCls}>
+            <h2 className="font-bold text-lg mb-4">📝 Тайлбар *</h2>
             <textarea
               name="details"
-              placeholder="Тайлбар"
+              placeholder="Байрны талаар дэлгэрэнгүй мэдээлэл бичнэ үү..."
               value={formData.details}
               onChange={handleChange}
-              className="w-full border p-4 rounded-xl h-48"
+              className={`${inputCls} h-36 resize-none`}
               required
             />
+          </div>
 
-            <button
-              type="submit"
-              className="w-full bg-indigo-600 text-white py-4 rounded-xl hover:bg-indigo-700 text-lg font-semibold"
-            >
-              Байрны мэдээлэл оруулах
-            </button>
-          </form>
-        </div>
+          <button
+            type="submit"
+            disabled={submitting}
+            className="w-full bg-indigo-600 text-white py-4 rounded-2xl hover:bg-indigo-700 text-base font-bold transition disabled:opacity-50"
+          >
+            {submitting ? "Оруулж байна..." : "Байр нэмэх"}
+          </button>
+        </form>
       </div>
 
+      {/* Location Modal */}
       {showLocationModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-3xl p-8 w-[90%] max-w-4xl">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-3xl font-bold">Байршил сонгох</h2>
-              <button onClick={() => setShowLocationModal(false)} className="text-3xl">×</button>
+        <div className="fixed inset-0 bg-black/50 flex items-end md:items-center justify-center z-50">
+          <div className="bg-white rounded-t-3xl md:rounded-3xl w-full md:w-[90%] md:max-w-2xl p-6">
+            <div className="flex justify-between items-center mb-5">
+              <h2 className="text-xl font-bold">Байршил сонгох</h2>
+              <button onClick={() => setShowLocationModal(false)} className="text-2xl text-gray-400">×</button>
             </div>
 
-            <div className="grid grid-cols-3 gap-5">
-              <button type="button" className="w-full bg-yellow-200 p-4 rounded-xl text-left">
-                Улаанбаатар
-              </button>
-
-              <div className="space-y-2 max-h-80 overflow-y-auto">
-                {districts.map((district) => (
-                  <button
-                    key={district}
-                    type="button"
-                    onClick={() => setFormData({ ...formData, city: "Улаанбаатар", district, khoroo: "" })}
-                    className={`w-full p-3 rounded-xl text-left ${
-                      formData.district === district ? "bg-yellow-200" : "bg-gray-100"
-                    }`}
-                  >
-                    {district}
-                  </button>
-                ))}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-xs font-semibold text-gray-400 uppercase mb-2">Дүүрэг</p>
+                <div className="space-y-1.5 max-h-64 overflow-y-auto">
+                  {districts.map((d) => (
+                    <button
+                      key={d}
+                      type="button"
+                      onClick={() => setFormData({ ...formData, city: "Улаанбаатар", district: d, khoroo: "" })}
+                      className={`w-full p-2.5 rounded-xl text-left text-sm transition ${
+                        formData.district === d ? "bg-indigo-600 text-white" : "bg-gray-100 hover:bg-gray-200"
+                      }`}
+                    >
+                      {d}
+                    </button>
+                  ))}
+                </div>
               </div>
 
-              <div className="space-y-2 max-h-80 overflow-y-auto">
-                {khoroos.map((khoroo) => (
-                  <button
-                    key={khoroo}
-                    type="button"
-                    onClick={() => setFormData({ ...formData, khoroo })}
-                    className={`w-full p-3 rounded-xl text-left ${
-                      formData.khoroo === khoroo ? "bg-yellow-200" : "bg-gray-100"
-                    }`}
-                  >
-                    {khoroo}
-                  </button>
-                ))}
+              <div>
+                <p className="text-xs font-semibold text-gray-400 uppercase mb-2">Хороо</p>
+                <div className="space-y-1.5 max-h-64 overflow-y-auto">
+                  {khoroos.map((k) => (
+                    <button
+                      key={k}
+                      type="button"
+                      onClick={() => setFormData({ ...formData, khoroo: k })}
+                      className={`w-full p-2.5 rounded-xl text-left text-sm transition ${
+                        formData.khoroo === k ? "bg-indigo-600 text-white" : "bg-gray-100 hover:bg-gray-200"
+                      }`}
+                    >
+                      {k}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
             <button
               type="button"
               onClick={() => setShowLocationModal(false)}
-              className="mt-8 w-full bg-yellow-400 py-4 rounded-xl font-bold"
+              className="mt-5 w-full bg-indigo-600 text-white py-3 rounded-xl font-bold hover:bg-indigo-700 transition"
             >
-              Үргэлжлүүлэх
+              Хадгалах
             </button>
           </div>
         </div>
