@@ -95,7 +95,7 @@ function Navbar() {
   return (
     <>
       <nav className="bg-white shadow-sm sticky top-0 z-40">
-        <div className="px-4 md:px-8 py-3 flex justify-between items-center max-w-6xl mx-auto">
+        <div className="px-4 md:px-8 py-3 flex justify-between items-center w-full">
 
           {/* Лого */}
           <Link to={user ? "/home" : "/"}>
