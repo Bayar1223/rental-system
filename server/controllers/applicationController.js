@@ -1,5 +1,6 @@
 const Application = require("../models/Application");
 const Property = require("../models/Property");
+const cloudinary = require("../config/cloudinary");
 const { createNotification } = require("./notificationController");
 
 // POST /api/applications — хүсэлт үүсгэх
@@ -184,16 +185,29 @@ exports.signContract = async (req, res) => {
       application.contractStatus = "pending_signatures";
     }
 
-    // Гарын үсэг + зураг хадгалах
+    // Гарын үсэг зурах + Cloudinary руу upload
     if (isTenant && !application.tenantSigned) {
       application.tenantSigned   = true;
       application.tenantSignedAt = new Date();
-      if (signatureImage) application.tenantSignature = signatureImage;
+      if (signatureImage) {
+        const result = await cloudinary.uploader.upload(signatureImage, {
+          folder: "signatures",
+          resource_type: "image",
+        });
+        application.tenantSignature = result.secure_url;
+      }
     }
+
     if (isLandlord && !application.landlordSigned) {
       application.landlordSigned   = true;
       application.landlordSignedAt = new Date();
-      if (signatureImage) application.landlordSignature = signatureImage;
+      if (signatureImage) {
+        const result = await cloudinary.uploader.upload(signatureImage, {
+          folder: "signatures",
+          resource_type: "image",
+        });
+        application.landlordSignature = result.secure_url;
+      }
     }
 
     // Хоёр тал гарын үсэг зурсан бол гэрээ хүчин төгөлдөр болно
