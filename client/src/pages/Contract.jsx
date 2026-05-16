@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import SignatureCanvas from "react-signature-canvas";
 import api from "../api/axiosInstance";
 import Navbar from "../components/Navbar";
 
@@ -7,10 +8,13 @@ function Contract() {
   const { id } = useParams();
   const navigate = useNavigate();
   const printRef = useRef();
+  const sigCanvasRef = useRef(null);
 
   const [application, setApplication] = useState(null);
   const [loading, setLoading] = useState(true);
   const [signing, setSigning] = useState(false);
+  const [showSignModal, setShowSignModal] = useState(false);
+  const [sigEmpty, setSigEmpty] = useState(true);
 
   const currentUser = JSON.parse(localStorage.getItem("user") || "null");
 
@@ -21,17 +25,11 @@ function Contract() {
           api.get("/api/applications/my"),
           api.get("/api/applications/landlord"),
         ]);
-
         let apps = [];
         if (tenantRes.status === "fulfilled") apps = [...apps, ...tenantRes.value.data];
         if (landlordRes.status === "fulfilled") apps = [...apps, ...landlordRes.value.data];
-
         const found = apps.find((a) => a._id === id);
-        if (!found) {
-          alert("Гэрээ олдсонгүй");
-          navigate(-1);
-          return;
-        }
+        if (!found) { alert("Гэрээ олдсонгүй"); navigate(-1); return; }
         setApplication(found);
       } catch (error) {
         console.log(error);
@@ -45,12 +43,22 @@ function Contract() {
   const handlePrint = () => window.print();
 
   const handleSign = async () => {
-    if (!window.confirm("Гэрээнд гарын үсэг зурахыг баталгаажуулна уу?")) return;
+    if (sigCanvasRef.current?.isEmpty()) {
+      alert("Гарын үсэг зурна уу");
+      return;
+    }
     setSigning(true);
     try {
-      const res = await api.put(`/api/applications/${id}/sign`);
+      // Canvas-аас зургийг авах
+      const signatureImage = sigCanvasRef.current
+        .getTrimmedCanvas()
+        .toDataURL("image/png");
+
+      const res = await api.put(`/api/applications/${id}/sign`, {
+        signatureImage,
+      });
       setApplication(res.data.application);
-      alert("Гарын үсэг амжилттай зурагдлаа!");
+      setShowSignModal(false);
     } catch (err) {
       alert(err.response?.data?.message || "Алдаа гарлаа");
     } finally {
@@ -118,7 +126,7 @@ function Contract() {
           </button>
         </div>
 
-        {/* Гэрээний статус хэсэг */}
+        {/* Статус хэсэг */}
         <div className="bg-white rounded-2xl shadow p-5 mb-5 print:hidden">
           <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
             <div>
@@ -145,9 +153,11 @@ function Contract() {
 
           {canSign && (
             <div className="pt-4 border-t border-gray-100">
-              <button onClick={handleSign} disabled={signing}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-xl font-medium text-sm transition disabled:opacity-50">
-                {signing ? "Зурж байна..." : "✍️ Гэрээнд гарын үсэг зурах"}
+              <button
+                onClick={() => setShowSignModal(true)}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-xl font-medium text-sm transition"
+              >
+                ✍️ Гэрээнд гарын үсэг зурах
               </button>
               <p className="text-xs text-gray-400 mt-2">
                 Гарын үсэг зурснаар та гэрээний нөхцөлүүдийг хүлээн зөвшөөрч байна.
@@ -254,10 +264,15 @@ function Contract() {
             <div>
               <p className="font-bold mb-4 text-sm">ТҮРЭЭСЛҮҮЛЭГЧИЙН ГАРЫН ҮСЭГ</p>
               {application.landlordSigned ? (
-                <div className="border-2 border-green-400 bg-green-50 rounded-xl p-4 text-center">
-                  <p className="text-green-600 font-bold">✓ Зурсан</p>
+                <div className="border-2 border-green-400 bg-green-50 rounded-xl p-3 text-center">
+                  {application.landlordSignature ? (
+                    <img src={application.landlordSignature} alt="Гарын үсэг"
+                      className="max-h-16 mx-auto" />
+                  ) : (
+                    <p className="text-green-600 font-bold">✓ Зурсан</p>
+                  )}
                   <p className="text-green-500 text-xs mt-1">{formatDate(application.landlordSignedAt)}</p>
-                  <p className="text-gray-600 text-sm mt-2">{property?.contactName || landlord?.firstName} {landlord?.lastName}</p>
+                  <p className="text-gray-500 text-xs">{property?.contactName || landlord?.firstName} {landlord?.lastName}</p>
                 </div>
               ) : (
                 <div className="border-b-2 border-dashed border-gray-300 pt-10 text-center">
@@ -268,10 +283,15 @@ function Contract() {
             <div>
               <p className="font-bold mb-4 text-sm">ТҮРЭЭСЛЭГЧИЙН ГАРЫН ҮСЭГ</p>
               {application.tenantSigned ? (
-                <div className="border-2 border-green-400 bg-green-50 rounded-xl p-4 text-center">
-                  <p className="text-green-600 font-bold">✓ Зурсан</p>
+                <div className="border-2 border-green-400 bg-green-50 rounded-xl p-3 text-center">
+                  {application.tenantSignature ? (
+                    <img src={application.tenantSignature} alt="Гарын үсэг"
+                      className="max-h-16 mx-auto" />
+                  ) : (
+                    <p className="text-green-600 font-bold">✓ Зурсан</p>
+                  )}
                   <p className="text-green-500 text-xs mt-1">{formatDate(application.tenantSignedAt)}</p>
-                  <p className="text-gray-600 text-sm mt-2">{tenant?.firstName} {tenant?.lastName}</p>
+                  <p className="text-gray-500 text-xs">{tenant?.firstName} {tenant?.lastName}</p>
                 </div>
               ) : (
                 <div className="border-b-2 border-dashed border-gray-300 pt-10 text-center">
@@ -291,6 +311,56 @@ function Contract() {
           </div>
         </div>
       </div>
+
+      {/* Гарын үсэг зурах Modal */}
+      {showSignModal && (
+        <div className="fixed inset-0 bg-black/60 flex items-end md:items-center justify-center z-50 p-0 md:p-4">
+          <div className="bg-white rounded-t-3xl md:rounded-2xl w-full md:max-w-lg p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold">Гарын үсэг зурах</h2>
+              <button onClick={() => setShowSignModal(false)} className="text-gray-400 text-2xl">×</button>
+            </div>
+
+            <p className="text-sm text-gray-500 mb-4">
+              Доорх хайрцагт гарын үсгээ зурна уу. Mouse эсвэл хуруугаараа зурж болно.
+            </p>
+
+            {/* Canvas */}
+            <div className="border-2 border-gray-200 rounded-xl overflow-hidden mb-4 bg-gray-50">
+              <SignatureCanvas
+                ref={sigCanvasRef}
+                penColor="black"
+                canvasProps={{
+                  width: 500,
+                  height: 180,
+                  className: "w-full h-44 cursor-crosshair",
+                }}
+                onEnd={() => setSigEmpty(sigCanvasRef.current?.isEmpty())}
+              />
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  sigCanvasRef.current?.clear();
+                  setSigEmpty(true);
+                }}
+                className="flex-1 border border-gray-200 py-3 rounded-xl text-gray-600 hover:bg-gray-50 text-sm transition"
+              >
+                🗑️ Арилгах
+              </button>
+              <button
+                onClick={handleSign}
+                disabled={signing || sigEmpty}
+                className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl text-sm font-medium transition disabled:opacity-50"
+              >
+                {signing ? "Хадгалж байна..." : "✓ Баталгаажуулах"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <style>{`@media print { body { background: white; } .print\\:hidden { display: none !important; } }`}</style>
     </div>
   );
