@@ -153,7 +153,9 @@ exports.updateApplicationStatus = async (req, res) => {
 // PUT /api/applications/:id/sign — гэрээнд гарын үсэг зурах
 exports.signContract = async (req, res) => {
   try {
+    const { signatureImage } = req.body;
     const userId = req.user._id || req.user.id;
+
     const application = await Application.findById(req.params.id)
       .populate("property", "title _id")
       .populate("tenant", "firstName _id")
@@ -163,7 +165,6 @@ exports.signContract = async (req, res) => {
       return res.status(404).json({ message: "Хүсэлт олдсонгүй" });
     }
 
-    // Approved эсэхийг шалгах — contractStatus "none" байсан ч зөвшөөрнө
     if (application.status !== "approved") {
       return res.status(400).json({ message: "Зөвхөн зөвшөөрөгдсөн хүсэлтэд гэрээ байгуулах боломжтой" });
     }
@@ -179,18 +180,20 @@ exports.signContract = async (req, res) => {
       return res.status(403).json({ message: "Зөвшөөрөлгүй" });
     }
 
-    // contractStatus "none" байвал "pending_signatures" болгоно
     if (application.contractStatus === "none") {
       application.contractStatus = "pending_signatures";
     }
 
+    // Гарын үсэг + зураг хадгалах
     if (isTenant && !application.tenantSigned) {
       application.tenantSigned   = true;
       application.tenantSignedAt = new Date();
+      if (signatureImage) application.tenantSignature = signatureImage;
     }
     if (isLandlord && !application.landlordSigned) {
       application.landlordSigned   = true;
       application.landlordSignedAt = new Date();
+      if (signatureImage) application.landlordSignature = signatureImage;
     }
 
     // Хоёр тал гарын үсэг зурсан бол гэрээ хүчин төгөлдөр болно
