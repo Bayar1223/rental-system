@@ -43,7 +43,7 @@ function Contract() {
   const handlePrint = () => window.print();
 
   const handleSign = async () => {
-    if (sigCanvasRef.current?.isEmpty()) {
+    if (sigEmpty) {
       alert("Гарын үсэг зурна уу");
       return;
     }
@@ -51,7 +51,7 @@ function Contract() {
     try {
       // Canvas-аас base64 зураг авах
       const signatureImage = sigCanvasRef.current
-        .getTrimmedCanvas()
+        .getCanvas()
         .toDataURL("image/png");
 
       // Frontend-аас Cloudinary руу шууд upload
@@ -345,7 +345,7 @@ function Contract() {
                   height: 180,
                   className: "w-full h-44 cursor-crosshair",
                 }}
-                onEnd={() => setSigEmpty(sigCanvasRef.current?.isEmpty())}
+                onEnd={() => setSigEmpty(false)}
               />
             </div>
             <div className="flex gap-3">
