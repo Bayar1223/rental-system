@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import SignatureCanvas from "react-signature-canvas";
+import SignaturePad from "signature_pad";
 import api from "../api/axiosInstance";
 import Navbar from "../components/Navbar";
 
@@ -9,6 +9,7 @@ function Contract() {
   const navigate = useNavigate();
   const printRef = useRef();
   const sigCanvasRef = useRef(null);
+  const signaturePadRef = useRef(null);
 
   const [application, setApplication] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -40,21 +41,35 @@ function Contract() {
     fetchApplication();
   }, [id, navigate]);
 
+  useEffect(() => {
+    if (showSignModal && sigCanvasRef.current) {
+      const pad = new SignaturePad(sigCanvasRef.current, {
+        penColor: "black",
+      });
+      pad.addEventListener("endStroke", () => {
+        setSigEmpty(pad.isEmpty());
+      });
+      signaturePadRef.current = pad;
+      setSigEmpty(true);
+
+      return () => {
+        pad.off();
+        signaturePadRef.current = null;
+      };
+    }
+  }, [showSignModal]);
+
   const handlePrint = () => window.print();
 
   const handleSign = async () => {
-    if (sigEmpty) {
+    if (sigEmpty || !signaturePadRef.current || signaturePadRef.current.isEmpty()) {
       alert("Гарын үсэг зурна уу");
       return;
     }
     setSigning(true);
     try {
-      // Canvas-аас base64 зураг авах
-      const signatureImage = sigCanvasRef.current
-        .getCanvas()
-        .toDataURL("image/png");
+      const signatureImage = signaturePadRef.current.toDataURL("image/png");
 
-      // Frontend-аас Cloudinary руу шууд upload
       const formData = new FormData();
       formData.append("file", signatureImage);
       formData.append("upload_preset", "rental-signature");
@@ -69,7 +84,6 @@ function Contract() {
         throw new Error("Зураг хадгалахад алдаа гарлаа");
       }
 
-      // Cloudinary URL-ийг backend-д илгээх
       const res = await api.put(`/api/applications/${id}/sign`, {
         signatureUrl: cloudData.secure_url,
       });
@@ -336,21 +350,20 @@ function Contract() {
             <p className="text-sm text-gray-500 mb-4">
               Доорх хайрцагт гарын үсгээ зурна уу. Mouse эсвэл хуруугаараа зурж болно.
             </p>
-            <div className="border-2 border-gray-200 rounded-xl overflow-hidden mb-4 bg-gray-50">
-              <SignatureCanvas
+            <div className="border-2 border-gray-200 rounded-xl overflow-hidden mb-4 bg-white">
+              <canvas
                 ref={sigCanvasRef}
-                penColor="black"
-                canvasProps={{
-                  width: 500,
-                  height: 180,
-                  className: "w-full h-44 cursor-crosshair",
-                }}
-                onEnd={() => setSigEmpty(false)}
+                width={500}
+                height={180}
+                className="w-full h-44 cursor-crosshair touch-none"
               />
             </div>
             <div className="flex gap-3">
               <button
-                onClick={() => { sigCanvasRef.current?.clear(); setSigEmpty(true); }}
+                onClick={() => {
+                  signaturePadRef.current?.clear();
+                  setSigEmpty(true);
+                }}
                 className="flex-1 border border-gray-200 py-3 rounded-xl text-gray-600 hover:bg-gray-50 text-sm transition"
               >
                 🗑️ Арилгах
