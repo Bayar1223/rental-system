@@ -1,5 +1,4 @@
 import { Link, useNavigate } from "react-router-dom";
-
 import api from "../api/axiosInstance";
 import { useState, useEffect, useRef } from "react";
 
@@ -27,20 +26,18 @@ const ROLE_LABELS = {
 
 function Navbar() {
   const navigate = useNavigate();
-  
-  const user = JSON.parse(localStorage.getItem("user"));
+
+  const user  = JSON.parse(localStorage.getItem("user"));
   const token = localStorage.getItem("token");
 
-  const [unreadCount, setUnreadCount] = useState(0);
+  const [unreadCount, setUnreadCount]   = useState(0);
   const [notifications, setNotifications] = useState([]);
-  const [showNotif, setShowNotif] = useState(false);
+  const [showNotif, setShowNotif]       = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const [mobileOpen, setMobileOpen]     = useState(false);
 
-  const notifRef = useRef(null);
+  const notifRef    = useRef(null);
   const userMenuRef = useRef(null);
-
- 
 
   useEffect(() => {
     if (!user || !token) return;
@@ -180,27 +177,52 @@ function Navbar() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
                 </button>
+
                 {showUserMenu && (
-                  <div className="absolute right-0 top-12 w-52 bg-white rounded-2xl shadow-xl border border-gray-100 z-50 overflow-hidden">
+                  <div className="absolute right-0 top-12 w-56 bg-white rounded-2xl shadow-xl border border-gray-100 z-50 overflow-hidden">
                     <div className="px-4 py-3 border-b border-gray-100">
                       <p className="font-semibold text-gray-800 text-sm">{user.firstName} {user.lastName}</p>
                       <p className="text-xs text-gray-400 mt-0.5">{ROLE_LABELS[user.role]}</p>
                     </div>
                     <div className="py-1">
-                      <Link to="/home" onClick={() => setShowUserMenu(false)} className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition"><span>🏠</span> Байр хайх</Link>
-                      <Link to="/profile" onClick={() => setShowUserMenu(false)} className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition"><span>👤</span> Профайл</Link>
+                      <Link to="/home" onClick={() => setShowUserMenu(false)}
+                        className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition">
+                        <span>🏠</span> Байр хайх
+                      </Link>
+                      <Link to="/profile" onClick={() => setShowUserMenu(false)}
+                        className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition">
+                        <span>👤</span> Профайл
+                      </Link>
+
+                      {/* ← МИНИЙ ТҮРЭЭС ХОЛБООС */}
+                      <Link to="/my-rentals" onClick={() => setShowUserMenu(false)}
+                        className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition">
+                        <span>{user.role === "tenant" ? "🏠" : "📊"}</span>
+                        {user.role === "tenant" ? "Миний түрээс" : "Түрээсийн мэдээлэл"}
+                      </Link>
+
                       {user.role === "tenant" && (
-                        <Link to="/my-applications" onClick={() => setShowUserMenu(false)} className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition"><span>📋</span> Миний хүсэлтүүд</Link>
+                        <Link to="/my-applications" onClick={() => setShowUserMenu(false)}
+                          className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition">
+                          <span>📋</span> Миний хүсэлтүүд
+                        </Link>
                       )}
                       {user.role === "landlord" && (
                         <>
-                          <Link to="/my-properties" onClick={() => setShowUserMenu(false)} className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition"><span>🏘️</span> Миний байрнууд</Link>
-                          <Link to="/add-property" onClick={() => setShowUserMenu(false)} className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition"><span>➕</span> Байр нэмэх</Link>
+                          <Link to="/my-properties" onClick={() => setShowUserMenu(false)}
+                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition">
+                            <span>🏘️</span> Миний байрнууд
+                          </Link>
+                          <Link to="/add-property" onClick={() => setShowUserMenu(false)}
+                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition">
+                            <span>➕</span> Байр нэмэх
+                          </Link>
                         </>
                       )}
                     </div>
                     <div className="border-t border-gray-100 py-1">
-                      <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition">
+                      <button onClick={handleLogout}
+                        className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition">
                         <span>🚪</span> Гарах
                       </button>
                     </div>
@@ -209,8 +231,16 @@ function Navbar() {
               </div>
             ) : (
               <div className="flex items-center gap-2">
-                <Link to="/login"><button className="px-4 py-2 rounded-xl text-gray-600 hover:bg-gray-100 font-medium text-sm transition">Нэвтрэх</button></Link>
-                <Link to="/register"><button className="px-4 py-2 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 font-medium text-sm transition">Бүртгүүлэх</button></Link>
+                <Link to="/login">
+                  <button className="px-4 py-2 rounded-xl text-gray-600 hover:bg-gray-100 font-medium text-sm transition">
+                    Нэвтрэх
+                  </button>
+                </Link>
+                <Link to="/register">
+                  <button className="px-4 py-2 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 font-medium text-sm transition">
+                    Бүртгүүлэх
+                  </button>
+                </Link>
               </div>
             )}
           </div>
@@ -252,28 +282,53 @@ function Navbar() {
                     <p className="text-xs text-gray-400">{ROLE_LABELS[user.role]}</p>
                   </div>
                 </div>
-                <Link to="/home" className="flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition"><span>🏠</span> Байр хайх</Link>
-                <Link to="/profile" className="flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition"><span>👤</span> Профайл</Link>
+
+                <Link to="/home" className="flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition">
+                  <span>🏠</span> Байр хайх
+                </Link>
+                <Link to="/profile" className="flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition">
+                  <span>👤</span> Профайл
+                </Link>
+
+                {/* ← МИНИЙ ТҮРЭЭС ХОЛБООС (mobile) */}
+                <Link to="/my-rentals" className="flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition">
+                  <span>{user.role === "tenant" ? "🏠" : "📊"}</span>
+                  {user.role === "tenant" ? "Миний түрээс" : "Түрээсийн мэдээлэл"}
+                </Link>
+
                 {user.role === "tenant" && (
-                  <Link to="/my-applications" className="flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition"><span>📋</span> Миний хүсэлтүүд</Link>
+                  <Link to="/my-applications" className="flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition">
+                    <span>📋</span> Миний хүсэлтүүд
+                  </Link>
                 )}
                 {user.role === "landlord" && (
                   <>
-                    <Link to="/my-properties" className="flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition"><span>🏘️</span> Миний байрнууд</Link>
-                    <Link to="/landlord-applications" className="flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition"><span>📬</span> Ирсэн хүсэлтүүд</Link>
-                    <Link to="/add-property" className="flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition"><span>➕</span> Байр нэмэх</Link>
+                    <Link to="/my-properties" className="flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition">
+                      <span>🏘️</span> Миний байрнууд
+                    </Link>
+                    <Link to="/landlord-applications" className="flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition">
+                      <span>📬</span> Ирсэн хүсэлтүүд
+                    </Link>
+                    <Link to="/add-property" className="flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition">
+                      <span>➕</span> Байр нэмэх
+                    </Link>
                   </>
                 )}
                 <div className="pt-2 border-t border-gray-100">
-                  <button onClick={handleLogout} className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-red-500 hover:bg-red-50 rounded-xl transition">
+                  <button onClick={handleLogout}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-red-500 hover:bg-red-50 rounded-xl transition">
                     <span>🚪</span> Гарах
                   </button>
                 </div>
               </>
             ) : (
               <>
-                <Link to="/home" className="flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition"><span>🏠</span> Байр үзэх</Link>
-                <Link to="/login" className="flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition"><span>🔑</span> Нэвтрэх</Link>
+                <Link to="/home" className="flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition">
+                  <span>🏠</span> Байр үзэх
+                </Link>
+                <Link to="/login" className="flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition">
+                  <span>🔑</span> Нэвтрэх
+                </Link>
                 <Link to="/register">
                   <button className="w-full mt-1 bg-indigo-600 text-white py-2.5 rounded-xl text-sm font-medium hover:bg-indigo-700 transition">
                     Бүртгүүлэх

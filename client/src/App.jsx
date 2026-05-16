@@ -11,6 +11,7 @@ import MyProperties from "./pages/MyProperties";
 import Contract from "./pages/Contract";
 import EditProperty from "./pages/EditProperty";
 import Profile from "./pages/Profile";
+import MyRentals from "./pages/MyRentals";
 
 function App() {
   return (
@@ -28,6 +29,7 @@ function App() {
         <Route path="/contract/:id" element={<Contract />} />
         <Route path="/edit-property/:id" element={<EditProperty />} />
         <Route path="/profile" element={<Profile />} />
+        <Route path="/my-rentals" element={<MyRentals />} />
       </Routes>
     </BrowserRouter>
   );

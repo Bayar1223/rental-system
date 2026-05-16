@@ -30,15 +30,41 @@ const applicationSchema = new mongoose.Schema(
       required: true,
     },
 
+    // Автоматаар тооцоологдоно: startDate + leaseMonths
+    endDate: {
+      type: Date,
+    },
+
     totalRent: {
       type: Number,
     },
 
     status: {
       type: String,
-      enum: ["pending", "approved", "rejected"],
+      enum: ["pending", "approved", "rejected", "cancelled", "completed"],
       default: "pending",
     },
+
+    // Гэрээний төлөв
+    contractStatus: {
+      type: String,
+      enum: ["none", "pending_signatures", "signed", "cancelled"],
+      default: "none",
+    },
+
+    // Гэрээнд гарын үсэг зурсан эсэх
+    tenantSigned: { type: Boolean, default: false },
+    landlordSigned: { type: Boolean, default: false },
+    tenantSignedAt: { type: Date },
+    landlordSignedAt: { type: Date },
+
+    // Гэрээ цуцлах хүсэлт
+    cancellationRequestedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
+    cancellationReason: { type: String },
+    cancellationRequestedAt: { type: Date },
 
     message: {
       type: String,
@@ -48,5 +74,15 @@ const applicationSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
+
+// Хадгалахын өмнө endDate автоматаар тооцоолох
+applicationSchema.pre("save", function (next) {
+  if (this.startDate && this.leaseMonths) {
+    const end = new Date(this.startDate);
+    end.setMonth(end.getMonth() + this.leaseMonths);
+    this.endDate = end;
+  }
+  next();
+});
 
 module.exports = mongoose.model("Application", applicationSchema);

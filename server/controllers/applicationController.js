@@ -2,6 +2,7 @@ const Application = require("../models/Application");
 const Property = require("../models/Property");
 const { createNotification } = require("./notificationController");
 
+// POST /api/applications — хүсэлт үүсгэх
 exports.createApplication = async (req, res) => {
   try {
     const { propertyId, startDate, leaseMonths, message } = req.body;
@@ -24,17 +25,23 @@ exports.createApplication = async (req, res) => {
     }
 
     const totalRent = property.monthlyRent * leaseMonths;
+
+    // endDate тооцоолох
+    const start = new Date(startDate);
+    const end = new Date(start);
+    end.setMonth(end.getMonth() + Number(leaseMonths));
+
     const application = await Application.create({
       property: propertyId,
       tenant: userId,
       landlord: property.owner._id,
       startDate,
+      endDate: end,
       leaseMonths,
       totalRent,
       message,
     });
 
-    // Landlord-д мэдэгдэл илгээх
     await createNotification({
       user: property.owner._id,
       title: "Шинэ хүсэлт ирлээ",
@@ -49,30 +56,61 @@ exports.createApplication = async (req, res) => {
   }
 };
 
+// GET /api/applications/my — tenant-ийн хүсэлтүүд
 exports.getMyApplications = async (req, res) => {
   try {
     const userId = req.user._id || req.user.id;
     const applications = await Application.find({ tenant: userId })
       .populate("property")
-      .populate("landlord", "firstName lastName phone email");
+      .populate("landlord", "firstName lastName phone email")
+      .sort({ createdAt: -1 });
     res.json(applications);
   } catch (error) {
     res.status(500).json({ message: "Хүсэлтүүд авахад алдаа гарлаа" });
   }
 };
 
+// GET /api/applications/landlord — landlord-ийн хүсэлтүүд
 exports.getLandlordApplications = async (req, res) => {
   try {
     const userId = req.user._id || req.user.id;
     const applications = await Application.find({ landlord: userId })
       .populate("property")
-      .populate("tenant", "firstName lastName phone email");
+      .populate("tenant", "firstName lastName phone email")
+      .sort({ createdAt: -1 });
     res.json(applications);
   } catch (error) {
     res.status(500).json({ message: "Хүсэлтүүд авахад алдаа гарлаа" });
   }
 };
 
+// GET /api/applications/active — идэвхтэй түрээснүүд
+exports.getActiveRentals = async (req, res) => {
+  try {
+    const userId = req.user._id || req.user.id;
+    const role = req.user.role;
+
+    const filter = {
+      status: "approved",
+      endDate: { $gte: new Date() },
+    };
+
+    if (role === "tenant") filter.tenant = userId;
+    else filter.landlord = userId;
+
+    const applications = await Application.find(filter)
+      .populate("property", "title location monthlyRent images")
+      .populate("tenant", "firstName lastName phone email")
+      .populate("landlord", "firstName lastName phone email")
+      .sort({ startDate: -1 });
+
+    res.json(applications);
+  } catch (error) {
+    res.status(500).json({ message: "Алдаа гарлаа", error: error.message });
+  }
+};
+
+// PUT /api/applications/:id/status — approve/reject
 exports.updateApplicationStatus = async (req, res) => {
   try {
     const { status } = req.body;
@@ -89,9 +127,14 @@ exports.updateApplicationStatus = async (req, res) => {
     }
 
     application.status = status;
+
+    // Approve хийхэд contractStatus pending_signatures болно
+    if (status === "approved") {
+      application.contractStatus = "pending_signatures";
+    }
+
     await application.save();
 
-    // Tenant-д мэдэгдэл илгээх
     const isApproved = status === "approved";
     await createNotification({
       user: application.tenant._id,
@@ -106,5 +149,117 @@ exports.updateApplicationStatus = async (req, res) => {
     res.json({ message: "Хүсэлтийн төлөв шинэчлэгдлээ", application });
   } catch (error) {
     res.status(500).json({ message: "Шинэчлэхэд алдаа гарлаа", error: error.message });
+  }
+};
+
+// PUT /api/applications/:id/sign — гэрээнд гарын үсэг зурах
+exports.signContract = async (req, res) => {
+  try {
+    const userId = req.user._id || req.user.id;
+    const application = await Application.findById(req.params.id)
+      .populate("property", "title")
+      .populate("tenant", "firstName _id")
+      .populate("landlord", "firstName _id");
+
+    if (!application) return res.status(404).json({ message: "Хүсэлт олдсонгүй" });
+    if (application.status !== "approved") {
+      return res.status(400).json({ message: "Зөвхөн зөвшөөрөгдсөн хүсэлтэд гэрээ байгуулах боломжтой" });
+    }
+
+    const isTenant   = application.tenant._id.toString()   === userId.toString();
+    const isLandlord = application.landlord._id.toString() === userId.toString();
+
+    if (!isTenant && !isLandlord) {
+      return res.status(403).json({ message: "Зөвшөөрөлгүй" });
+    }
+
+    if (isTenant && !application.tenantSigned) {
+      application.tenantSigned   = true;
+      application.tenantSignedAt = new Date();
+    }
+    if (isLandlord && !application.landlordSigned) {
+      application.landlordSigned   = true;
+      application.landlordSignedAt = new Date();
+    }
+
+    // Хоёр тал гарын үсэг зурсан бол гэрээ хүчин төгөлдөр болно
+    if (application.tenantSigned && application.landlordSigned) {
+      application.contractStatus = "signed";
+
+      // Байрны статус "rented" болно
+      await Property.findByIdAndUpdate(application.property._id || application.property, {
+        status: "rented",
+      });
+
+      // Хоёр талд мэдэгдэл
+      await createNotification({
+        user: application.tenant._id,
+        title: "Гэрээ байгуулагдлаа! 🎉",
+        message: `"${application.property.title}" байрны гэрээ хоёр талын гарын үсгээр баталгаажлаа.`,
+        type: "application_approved",
+        link: "/my-applications",
+      });
+      await createNotification({
+        user: application.landlord._id,
+        title: "Гэрээ байгуулагдлаа! 🎉",
+        message: `"${application.property.title}" байрны гэрээ хоёр талын гарын үсгээр баталгаажлаа.`,
+        type: "application_approved",
+        link: "/landlord-applications",
+      });
+    }
+
+    await application.save();
+    res.json({ message: "Гарын үсэг амжилттай зурагдлаа", application });
+  } catch (error) {
+    res.status(500).json({ message: "Алдаа гарлаа", error: error.message });
+  }
+};
+
+// PUT /api/applications/:id/cancel — гэрээ цуцлах хүсэлт
+exports.requestCancellation = async (req, res) => {
+  try {
+    const { reason } = req.body;
+    const userId = req.user._id || req.user.id;
+
+    const application = await Application.findById(req.params.id)
+      .populate("property", "title")
+      .populate("tenant", "firstName _id")
+      .populate("landlord", "firstName _id");
+
+    if (!application) return res.status(404).json({ message: "Хүсэлт олдсонгүй" });
+
+    const isTenant   = application.tenant._id.toString()   === userId.toString();
+    const isLandlord = application.landlord._id.toString() === userId.toString();
+
+    if (!isTenant && !isLandlord) {
+      return res.status(403).json({ message: "Зөвшөөрөлгүй" });
+    }
+
+    application.status                  = "cancelled";
+    application.contractStatus          = "cancelled";
+    application.cancellationRequestedBy = userId;
+    application.cancellationReason      = reason || "";
+    application.cancellationRequestedAt = new Date();
+
+    // Байрны статус буцаан "available" болно
+    await Property.findByIdAndUpdate(application.property._id || application.property, {
+      status: "available",
+    });
+
+    await application.save();
+
+    // Нөгөө талд мэдэгдэл
+    const notifyUser = isTenant ? application.landlord._id : application.tenant._id;
+    await createNotification({
+      user: notifyUser,
+      title: "Гэрээ цуцлагдлаа",
+      message: `"${application.property.title}" байрны гэрээг цуцлах хүсэлт илгээгдлээ. Шалтгаан: ${reason || "—"}`,
+      type: "application_rejected",
+      link: isTenant ? "/landlord-applications" : "/my-applications",
+    });
+
+    res.json({ message: "Гэрээ цуцлагдлаа", application });
+  } catch (error) {
+    res.status(500).json({ message: "Алдаа гарлаа", error: error.message });
   }
 };
