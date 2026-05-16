@@ -12,6 +12,7 @@ import Contract from "./pages/Contract";
 import EditProperty from "./pages/EditProperty";
 import Profile from "./pages/Profile";
 import MyRentals from "./pages/MyRentals";
+import Payment from "./pages/Payment";
 
 function App() {
   return (
@@ -30,6 +31,7 @@ function App() {
         <Route path="/edit-property/:id" element={<EditProperty />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/my-rentals" element={<MyRentals />} />
+        <Route path="/payments" element={<Payment />} />
       </Routes>
     </BrowserRouter>
   );

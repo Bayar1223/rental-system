@@ -30,11 +30,11 @@ function Navbar() {
   const user  = JSON.parse(localStorage.getItem("user"));
   const token = localStorage.getItem("token");
 
-  const [unreadCount, setUnreadCount]   = useState(0);
+  const [unreadCount, setUnreadCount]     = useState(0);
   const [notifications, setNotifications] = useState([]);
-  const [showNotif, setShowNotif]       = useState(false);
-  const [showUserMenu, setShowUserMenu] = useState(false);
-  const [mobileOpen, setMobileOpen]     = useState(false);
+  const [showNotif, setShowNotif]         = useState(false);
+  const [showUserMenu, setShowUserMenu]   = useState(false);
+  const [mobileOpen, setMobileOpen]       = useState(false);
 
   const notifRef    = useRef(null);
   const userMenuRef = useRef(null);
@@ -105,9 +105,14 @@ function Navbar() {
           {/* ===== DESKTOP NAV ===== */}
           <div className="hidden md:flex items-center gap-5">
             {user?.role === "tenant" && (
-              <Link to="/my-applications" className="text-gray-600 font-medium hover:text-indigo-600 transition text-sm">
-                Миний хүсэлтүүд
-              </Link>
+              <>
+                <Link to="/my-applications" className="text-gray-600 font-medium hover:text-indigo-600 transition text-sm">
+                  Миний хүсэлтүүд
+                </Link>
+                <Link to="/payments" className="text-gray-600 font-medium hover:text-indigo-600 transition text-sm">
+                  💳 Төлбөр
+                </Link>
+              </>
             )}
             {user?.role === "landlord" && (
               <>
@@ -116,6 +121,9 @@ function Navbar() {
                 </Link>
                 <Link to="/landlord-applications" className="text-gray-600 font-medium hover:text-indigo-600 transition text-sm">
                   Ирсэн хүсэлтүүд
+                </Link>
+                <Link to="/payments" className="text-gray-600 font-medium hover:text-indigo-600 transition text-sm">
+                  💰 Орлого
                 </Link>
               </>
             )}
@@ -194,11 +202,17 @@ function Navbar() {
                         <span>👤</span> Профайл
                       </Link>
 
-                      {/* ← МИНИЙ ТҮРЭЭС ХОЛБООС */}
                       <Link to="/my-rentals" onClick={() => setShowUserMenu(false)}
                         className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition">
                         <span>{user.role === "tenant" ? "🏠" : "📊"}</span>
                         {user.role === "tenant" ? "Миний түрээс" : "Түрээсийн мэдээлэл"}
+                      </Link>
+
+                      {/* ← НЭМСЭН: Төлбөр холбоос */}
+                      <Link to="/payments" onClick={() => setShowUserMenu(false)}
+                        className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition">
+                        <span>{user.role === "tenant" ? "💳" : "💰"}</span>
+                        {user.role === "tenant" ? "Төлбөр" : "Орлого"}
                       </Link>
 
                       {user.role === "tenant" && (
@@ -258,7 +272,6 @@ function Navbar() {
                 )}
               </button>
             )}
-            {/* Hamburger */}
             <button onClick={() => setMobileOpen((p) => !p)}
               className="w-9 h-9 flex flex-col items-center justify-center gap-1.5 rounded-xl hover:bg-gray-100 transition">
               <span className={`block w-5 h-0.5 bg-gray-600 transition-all duration-200 ${mobileOpen ? "rotate-45 translate-y-2" : ""}`} />
@@ -290,10 +303,15 @@ function Navbar() {
                   <span>👤</span> Профайл
                 </Link>
 
-                {/* ← МИНИЙ ТҮРЭЭС ХОЛБООС (mobile) */}
                 <Link to="/my-rentals" className="flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition">
                   <span>{user.role === "tenant" ? "🏠" : "📊"}</span>
                   {user.role === "tenant" ? "Миний түрээс" : "Түрээсийн мэдээлэл"}
+                </Link>
+
+                {/* ← НЭМСЭН: Төлбөр холбоос (mobile) */}
+                <Link to="/payments" className="flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition">
+                  <span>{user.role === "tenant" ? "💳" : "💰"}</span>
+                  {user.role === "tenant" ? "Төлбөр" : "Орлого"}
                 </Link>
 
                 {user.role === "tenant" && (
