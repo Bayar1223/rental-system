@@ -26,7 +26,6 @@ exports.createApplication = async (req, res) => {
 
     const totalRent = property.monthlyRent * leaseMonths;
 
-    // endDate тооцоолох
     const start = new Date(startDate);
     const end = new Date(start);
     end.setMonth(end.getMonth() + Number(leaseMonths));
@@ -128,7 +127,6 @@ exports.updateApplicationStatus = async (req, res) => {
 
     application.status = status;
 
-    // Approve хийхэд contractStatus pending_signatures болно
     if (status === "approved") {
       application.contractStatus = "pending_signatures";
     }
@@ -157,13 +155,21 @@ exports.signContract = async (req, res) => {
   try {
     const userId = req.user._id || req.user.id;
     const application = await Application.findById(req.params.id)
-      .populate("property", "title")
+      .populate("property", "title _id")
       .populate("tenant", "firstName _id")
       .populate("landlord", "firstName _id");
 
-    if (!application) return res.status(404).json({ message: "Хүсэлт олдсонгүй" });
+    if (!application) {
+      return res.status(404).json({ message: "Хүсэлт олдсонгүй" });
+    }
+
+    // Approved эсэхийг шалгах — contractStatus "none" байсан ч зөвшөөрнө
     if (application.status !== "approved") {
       return res.status(400).json({ message: "Зөвхөн зөвшөөрөгдсөн хүсэлтэд гэрээ байгуулах боломжтой" });
+    }
+
+    if (application.contractStatus === "cancelled") {
+      return res.status(400).json({ message: "Цуцлагдсан гэрээнд гарын үсэг зурах боломжгүй" });
     }
 
     const isTenant   = application.tenant._id.toString()   === userId.toString();
@@ -171,6 +177,11 @@ exports.signContract = async (req, res) => {
 
     if (!isTenant && !isLandlord) {
       return res.status(403).json({ message: "Зөвшөөрөлгүй" });
+    }
+
+    // contractStatus "none" байвал "pending_signatures" болгоно
+    if (application.contractStatus === "none") {
+      application.contractStatus = "pending_signatures";
     }
 
     if (isTenant && !application.tenantSigned) {
@@ -186,12 +197,9 @@ exports.signContract = async (req, res) => {
     if (application.tenantSigned && application.landlordSigned) {
       application.contractStatus = "signed";
 
-      // Байрны статус "rented" болно
-      await Property.findByIdAndUpdate(application.property._id || application.property, {
-        status: "rented",
-      });
+      const propertyId = application.property._id || application.property;
+      await Property.findByIdAndUpdate(propertyId, { status: "rented" });
 
-      // Хоёр талд мэдэгдэл
       await createNotification({
         user: application.tenant._id,
         title: "Гэрээ байгуулагдлаа! 🎉",
@@ -211,18 +219,19 @@ exports.signContract = async (req, res) => {
     await application.save();
     res.json({ message: "Гарын үсэг амжилттай зурагдлаа", application });
   } catch (error) {
+    console.error("signContract error:", error);
     res.status(500).json({ message: "Алдаа гарлаа", error: error.message });
   }
 };
 
-// PUT /api/applications/:id/cancel — гэрээ цуцлах хүсэлт
+// PUT /api/applications/:id/cancel — гэрээ цуцлах
 exports.requestCancellation = async (req, res) => {
   try {
     const { reason } = req.body;
     const userId = req.user._id || req.user.id;
 
     const application = await Application.findById(req.params.id)
-      .populate("property", "title")
+      .populate("property", "title _id")
       .populate("tenant", "firstName _id")
       .populate("landlord", "firstName _id");
 
@@ -241,14 +250,11 @@ exports.requestCancellation = async (req, res) => {
     application.cancellationReason      = reason || "";
     application.cancellationRequestedAt = new Date();
 
-    // Байрны статус буцаан "available" болно
-    await Property.findByIdAndUpdate(application.property._id || application.property, {
-      status: "available",
-    });
+    const propertyId = application.property._id || application.property;
+    await Property.findByIdAndUpdate(propertyId, { status: "available" });
 
     await application.save();
 
-    // Нөгөө талд мэдэгдэл
     const notifyUser = isTenant ? application.landlord._id : application.tenant._id;
     await createNotification({
       user: notifyUser,
