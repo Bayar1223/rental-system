@@ -49,18 +49,35 @@ function Contract() {
     }
     setSigning(true);
     try {
-      // Canvas-аас зургийг авах
+      // Canvas-аас base64 зураг авах
       const signatureImage = sigCanvasRef.current
         .getTrimmedCanvas()
         .toDataURL("image/png");
 
+      // Frontend-аас Cloudinary руу шууд upload
+      const formData = new FormData();
+      formData.append("file", signatureImage);
+      formData.append("upload_preset", "rental-signature");
+
+      const cloudRes = await fetch(
+        `https://api.cloudinary.com/v1_1/${import.meta.env.VITE_CLOUDINARY_CLOUD_NAME}/image/upload`,
+        { method: "POST", body: formData }
+      );
+      const cloudData = await cloudRes.json();
+
+      if (!cloudData.secure_url) {
+        throw new Error("Зураг хадгалахад алдаа гарлаа");
+      }
+
+      // Cloudinary URL-ийг backend-д илгээх
       const res = await api.put(`/api/applications/${id}/sign`, {
-        signatureImage,
+        signatureUrl: cloudData.secure_url,
       });
+
       setApplication(res.data.application);
       setShowSignModal(false);
     } catch (err) {
-      alert(err.response?.data?.message || "Алдаа гарлаа");
+      alert(err.response?.data?.message || err.message || "Алдаа гарлаа");
     } finally {
       setSigning(false);
     }
@@ -266,8 +283,7 @@ function Contract() {
               {application.landlordSigned ? (
                 <div className="border-2 border-green-400 bg-green-50 rounded-xl p-3 text-center">
                   {application.landlordSignature ? (
-                    <img src={application.landlordSignature} alt="Гарын үсэг"
-                      className="max-h-16 mx-auto" />
+                    <img src={application.landlordSignature} alt="Гарын үсэг" className="max-h-16 mx-auto" />
                   ) : (
                     <p className="text-green-600 font-bold">✓ Зурсан</p>
                   )}
@@ -285,8 +301,7 @@ function Contract() {
               {application.tenantSigned ? (
                 <div className="border-2 border-green-400 bg-green-50 rounded-xl p-3 text-center">
                   {application.tenantSignature ? (
-                    <img src={application.tenantSignature} alt="Гарын үсэг"
-                      className="max-h-16 mx-auto" />
+                    <img src={application.tenantSignature} alt="Гарын үсэг" className="max-h-16 mx-auto" />
                   ) : (
                     <p className="text-green-600 font-bold">✓ Зурсан</p>
                   )}
@@ -304,9 +319,7 @@ function Contract() {
           <div className="text-center mt-8 text-xs text-gray-400 border-t pt-4">
             Энэхүү гэрээ нь Монгол Улсын хуулийн дагуу хүчин төгөлдөр болно.
             {contractSigned && (
-              <span className="block mt-1 text-green-500">
-                ✓ Электрон гарын үсгээр баталгаажсан
-              </span>
+              <span className="block mt-1 text-green-500">✓ Электрон гарын үсгээр баталгаажсан</span>
             )}
           </div>
         </div>
@@ -320,12 +333,9 @@ function Contract() {
               <h2 className="text-xl font-bold">Гарын үсэг зурах</h2>
               <button onClick={() => setShowSignModal(false)} className="text-gray-400 text-2xl">×</button>
             </div>
-
             <p className="text-sm text-gray-500 mb-4">
               Доорх хайрцагт гарын үсгээ зурна уу. Mouse эсвэл хуруугаараа зурж болно.
             </p>
-
-            {/* Canvas */}
             <div className="border-2 border-gray-200 rounded-xl overflow-hidden mb-4 bg-gray-50">
               <SignatureCanvas
                 ref={sigCanvasRef}
@@ -338,13 +348,9 @@ function Contract() {
                 onEnd={() => setSigEmpty(sigCanvasRef.current?.isEmpty())}
               />
             </div>
-
             <div className="flex gap-3">
               <button
-                onClick={() => {
-                  sigCanvasRef.current?.clear();
-                  setSigEmpty(true);
-                }}
+                onClick={() => { sigCanvasRef.current?.clear(); setSigEmpty(true); }}
                 className="flex-1 border border-gray-200 py-3 rounded-xl text-gray-600 hover:bg-gray-50 text-sm transition"
               >
                 🗑️ Арилгах

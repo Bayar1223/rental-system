@@ -1,6 +1,5 @@
 const Application = require("../models/Application");
 const Property = require("../models/Property");
-const cloudinary = require("../config/cloudinary");
 const { createNotification } = require("./notificationController");
 
 // POST /api/applications — хүсэлт үүсгэх
@@ -154,7 +153,8 @@ exports.updateApplicationStatus = async (req, res) => {
 // PUT /api/applications/:id/sign — гэрээнд гарын үсэг зурах
 exports.signContract = async (req, res) => {
   try {
-    const { signatureImage } = req.body;
+    // Frontend Cloudinary-д upload хийж, URL-ийг илгээнэ
+    const { signatureUrl } = req.body;
     const userId = req.user._id || req.user.id;
 
     const application = await Application.findById(req.params.id)
@@ -185,29 +185,17 @@ exports.signContract = async (req, res) => {
       application.contractStatus = "pending_signatures";
     }
 
-    // Гарын үсэг зурах + Cloudinary руу upload
+    // Гарын үсэг + Cloudinary URL хадгалах
     if (isTenant && !application.tenantSigned) {
       application.tenantSigned   = true;
       application.tenantSignedAt = new Date();
-      if (signatureImage) {
-        const result = await cloudinary.uploader.upload(signatureImage, {
-          folder: "signatures",
-          resource_type: "image",
-        });
-        application.tenantSignature = result.secure_url;
-      }
+      if (signatureUrl) application.tenantSignature = signatureUrl;
     }
 
     if (isLandlord && !application.landlordSigned) {
       application.landlordSigned   = true;
       application.landlordSignedAt = new Date();
-      if (signatureImage) {
-        const result = await cloudinary.uploader.upload(signatureImage, {
-          folder: "signatures",
-          resource_type: "image",
-        });
-        application.landlordSignature = result.secure_url;
-      }
+      if (signatureUrl) application.landlordSignature = signatureUrl;
     }
 
     // Хоёр тал гарын үсэг зурсан бол гэрээ хүчин төгөлдөр болно
