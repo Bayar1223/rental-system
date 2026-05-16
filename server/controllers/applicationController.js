@@ -1,6 +1,7 @@
 const Application = require("../models/Application");
 const Property = require("../models/Property");
 const { createNotification } = require("./notificationController");
+const { generatePayments } = require("./paymentController"); // ← НЭМСЭН
 
 // POST /api/applications — хүсэлт үүсгэх
 exports.createApplication = async (req, res) => {
@@ -153,12 +154,11 @@ exports.updateApplicationStatus = async (req, res) => {
 // PUT /api/applications/:id/sign — гэрээнд гарын үсэг зурах
 exports.signContract = async (req, res) => {
   try {
-    // Frontend Cloudinary-д upload хийж, URL-ийг илгээнэ
     const { signatureUrl } = req.body;
     const userId = req.user._id || req.user.id;
 
     const application = await Application.findById(req.params.id)
-      .populate("property", "title _id")
+      .populate("property", "title _id paymentConditionText monthlyRent")
       .populate("tenant", "firstName _id")
       .populate("landlord", "firstName _id");
 
@@ -204,6 +204,9 @@ exports.signContract = async (req, res) => {
 
       const propertyId = application.property._id || application.property;
       await Property.findByIdAndUpdate(propertyId, { status: "rented" });
+
+      // ← НЭМСЭН: Төлбөрийн хуваарь автоматаар үүснэ
+      await generatePayments(application._id);
 
       await createNotification({
         user: application.tenant._id,
