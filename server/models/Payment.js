@@ -23,31 +23,36 @@ const paymentSchema = new mongoose.Schema(
       required: true,
     },
 
-    paymentNumber: { type: Number, required: true }, // 1-р, 2-р... төлөлт
-    periodStart:   { type: Date, required: true },   // Ямар хугацааны эхлэл
-    periodEnd:     { type: Date, required: true },   // Ямар хугацааны төгсгөл
-    dueDate:       { type: Date, required: true },   // Төлөх огноо
+    paymentNumber: { type: Number, required: true },
+    periodStart:   { type: Date, required: true },
+    periodEnd:     { type: Date, required: true },
+    dueDate:       { type: Date, required: true },
 
-    rentAmount:    { type: Number, required: true }, // Түрээсийн дүн
-    depositAmount: { type: Number, default: 0 },     // Барьцааны дүн
-    totalAmount:   { type: Number, required: true }, // Нийт төлөх дүн
+    rentAmount:    { type: Number, required: true },
+    depositAmount: { type: Number, default: 0 },
+    totalAmount:   { type: Number, required: true },
 
-    includesDeposit: { type: Boolean, default: false }, // Барьцаа орсон эсэх
-    periodMonths:    { type: Number, required: true },  // Хэдэн сарын төлбөр
+    includesDeposit: { type: Boolean, default: false },
+    periodMonths:    { type: Number, required: true },
 
     status: {
       type: String,
-      enum: ["pending", "paid", "overdue", "cancelled"],
+      enum: [
+        "urgent",    // ← НЭМСЭН: эхний төлбөр, яаралтай
+        "pending",
+        "paid",
+        "overdue",
+        "cancelled",
+      ],
       default: "pending",
     },
 
-    paidAt:         { type: Date },
-    paidAmount:     { type: Number },
-    paymentMethod:  { type: String, default: "" }, // qpay, cash, transfer...
+    paidAt:        { type: Date },
+    paidAmount:    { type: Number },
+    paymentMethod: { type: String, default: "" },
 
-    // QPay (дараа real болгоход)
-    qpayInvoiceId:  { type: String, default: "" },
-    qpayQrCode:     { type: String, default: "" },
+    qpayInvoiceId: { type: String, default: "" },
+    qpayQrCode:    { type: String, default: "" },
 
     note: { type: String, default: "" },
   },

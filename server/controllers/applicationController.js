@@ -1,7 +1,7 @@
 const Application = require("../models/Application");
 const Property = require("../models/Property");
 const { createNotification } = require("./notificationController");
-const { generatePayments } = require("./paymentController"); // ← НЭМСЭН
+const { generatePayments } = require("./paymentController");
 
 // POST /api/applications — хүсэлт үүсгэх
 exports.createApplication = async (req, res) => {
@@ -26,7 +26,6 @@ exports.createApplication = async (req, res) => {
     }
 
     const totalRent = property.monthlyRent * leaseMonths;
-
     const start = new Date(startDate);
     const end = new Date(start);
     end.setMonth(end.getMonth() + Number(leaseMonths));
@@ -127,11 +126,9 @@ exports.updateApplicationStatus = async (req, res) => {
     }
 
     application.status = status;
-
     if (status === "approved") {
       application.contractStatus = "pending_signatures";
     }
-
     await application.save();
 
     const isApproved = status === "approved";
@@ -174,7 +171,7 @@ exports.signContract = async (req, res) => {
       return res.status(400).json({ message: "Цуцлагдсан гэрээнд гарын үсэг зурах боломжгүй" });
     }
 
-    const isTenant   = application.tenant._id.toString()   === userId.toString();
+    const isTenant   = application.tenant._id.toString() === userId.toString();
     const isLandlord = application.landlord._id.toString() === userId.toString();
 
     if (!isTenant && !isLandlord) {
@@ -185,7 +182,6 @@ exports.signContract = async (req, res) => {
       application.contractStatus = "pending_signatures";
     }
 
-    // Гарын үсэг + Cloudinary URL хадгалах
     if (isTenant && !application.tenantSigned) {
       application.tenantSigned   = true;
       application.tenantSignedAt = new Date();
@@ -198,30 +194,15 @@ exports.signContract = async (req, res) => {
       if (signatureUrl) application.landlordSignature = signatureUrl;
     }
 
-    // Хоёр тал гарын үсэг зурсан бол гэрээ хүчин төгөлдөр болно
+    // ← ӨӨРЧЛӨЛТ: Хоёр тал зурсан бол "signed" → generatePayments → "payment_pending" болно
     if (application.tenantSigned && application.landlordSigned) {
       application.contractStatus = "signed";
 
       const propertyId = application.property._id || application.property;
       await Property.findByIdAndUpdate(propertyId, { status: "rented" });
 
-      // ← НЭМСЭН: Төлбөрийн хуваарь автоматаар үүснэ
+      // generatePayments дотор contractStatus "payment_pending" болгоно
       await generatePayments(application._id);
-
-      await createNotification({
-        user: application.tenant._id,
-        title: "Гэрээ байгуулагдлаа! 🎉",
-        message: `"${application.property.title}" байрны гэрээ хоёр талын гарын үсгээр баталгаажлаа.`,
-        type: "application_approved",
-        link: "/my-applications",
-      });
-      await createNotification({
-        user: application.landlord._id,
-        title: "Гэрээ байгуулагдлаа! 🎉",
-        message: `"${application.property.title}" байрны гэрээ хоёр талын гарын үсгээр баталгаажлаа.`,
-        type: "application_approved",
-        link: "/landlord-applications",
-      });
     }
 
     await application.save();
@@ -245,7 +226,7 @@ exports.requestCancellation = async (req, res) => {
 
     if (!application) return res.status(404).json({ message: "Хүсэлт олдсонгүй" });
 
-    const isTenant   = application.tenant._id.toString()   === userId.toString();
+    const isTenant   = application.tenant._id.toString() === userId.toString();
     const isLandlord = application.landlord._id.toString() === userId.toString();
 
     if (!isTenant && !isLandlord) {

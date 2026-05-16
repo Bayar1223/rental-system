@@ -38,15 +38,21 @@ const applicationSchema = new mongoose.Schema(
     },
     contractStatus: {
       type: String,
-      enum: ["none", "pending_signatures", "signed", "cancelled"],
+      enum: [
+        "none",
+        "pending_signatures",
+        "signed",
+        "payment_pending",  // ← НЭМСЭН: гарын үсэг зурсан, эхний төлбөр хүлээгдэж байна
+        "active",           // ← НЭМСЭН: эхний төлбөр төлөгдсөн, гэрээ идэвхтэй
+        "cancelled",
+      ],
       default: "none",
     },
-    tenantSigned:    { type: Boolean, default: false },
-    landlordSigned:  { type: Boolean, default: false },
-    tenantSignedAt:  { type: Date },
+    tenantSigned:     { type: Boolean, default: false },
+    landlordSigned:   { type: Boolean, default: false },
+    tenantSignedAt:   { type: Date },
     landlordSignedAt: { type: Date },
 
-    // Гарын үсгийн зураг (base64)
     tenantSignature:   { type: String },
     landlordSignature: { type: String },
 
