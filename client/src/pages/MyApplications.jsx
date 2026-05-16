@@ -5,9 +5,12 @@ import Navbar from "../components/Navbar";
 
 const statusMap = {
   pending:  { label: "Хүлээгдэж байна", cls: "bg-yellow-100 text-yellow-700" },
-  approved: { label: "Зөвшөөрөгдсөн", cls: "bg-green-100 text-green-700" },
-  rejected: { label: "Татгалзсан",     cls: "bg-red-100 text-red-600"    },
+  approved: { label: "Зөвшөөрөгдсөн",   cls: "bg-green-100 text-green-700"  },
+  rejected: { label: "Татгалзсан",       cls: "bg-red-100 text-red-600"      },
 };
+
+// Гэрээ хоёр тал зурсан статусууд — түрээст шилжсэн гэж үзнэ
+const RENTED_CONTRACT_STATUSES = ["signed", "payment_pending", "active"];
 
 function MyApplications() {
   const [applications, setApplications] = useState([]);
@@ -27,6 +30,21 @@ function MyApplications() {
     fetchApplications();
   }, []);
 
+  // Хүсэлт хэсэгт зөвхөн гэрээ зурагдаагүй хүсэлтүүд харагдана
+  const visibleApps = applications.filter((app) => {
+    // rejected, cancelled — харуулна
+    if (app.status === "rejected" || app.status === "cancelled") return true;
+    // pending — харуулна
+    if (app.status === "pending") return true;
+    // approved + гэрээ хоёр тал зурсан → түрээст шилжсэн → харуулахгүй
+    if (
+      app.status === "approved" &&
+      RENTED_CONTRACT_STATUSES.includes(app.contractStatus)
+    ) return false;
+    // approved + гэрээ зурагдаагүй — харуулна (гэрээнд урьж байгаа)
+    return true;
+  });
+
   return (
     <div className="min-h-screen bg-gray-100">
       <Navbar />
@@ -42,18 +60,33 @@ function MyApplications() {
               </div>
             ))}
           </div>
-        ) : applications.length === 0 ? (
+        ) : visibleApps.length === 0 ? (
           <div className="bg-white rounded-2xl shadow p-12 text-center">
             <div className="text-6xl mb-4">📋</div>
             <h3 className="text-xl font-bold text-gray-700 mb-2">Хүсэлт байхгүй байна</h3>
-            <p className="text-gray-500">Байрны хуудаснаас хүсэлт илгээж эхлээрэй</p>
+            <p className="text-gray-500 mb-2">Байрны хуудаснаас хүсэлт илгээж эхлээрэй</p>
+            {applications.some(a => RENTED_CONTRACT_STATUSES.includes(a.contractStatus)) && (
+              <p className="text-sm text-indigo-600 mt-2">
+                ✓ Таны түрээсэлсэн байр{" "}
+                <Link to="/my-rentals" className="underline font-medium">
+                  Миний түрээс
+                </Link>
+                {" "}хэсэгт харагдана
+              </p>
+            )}
+            <Link to="/home" className="mt-4 inline-block text-indigo-600 hover:underline text-sm">
+              Байр хайх →
+            </Link>
           </div>
         ) : (
           <div className="space-y-5">
-            {applications.map((app) => {
+            {visibleApps.map((app) => {
               const { label, cls } = statusMap[app.status] || statusMap.pending;
               const image = app.property?.images?.[0] ||
                 "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688";
+              const needsSignature =
+                app.status === "approved" &&
+                (app.contractStatus === "pending_signatures" || app.contractStatus === "none");
 
               return (
                 <div key={app._id} className="bg-white rounded-2xl shadow p-5">
@@ -74,9 +107,16 @@ function MyApplications() {
                             {app.property?.monthlyRent?.toLocaleString()}₮/сар
                           </p>
                         </div>
-                        <span className={`text-xs font-semibold px-3 py-1 rounded-full ${cls}`}>
-                          {label}
-                        </span>
+                        <div className="flex flex-col items-end gap-1">
+                          <span className={`text-xs font-semibold px-3 py-1 rounded-full ${cls}`}>
+                            {label}
+                          </span>
+                          {needsSignature && (
+                            <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-medium">
+                              ✍️ Гарын үсэг хүлээгдэж байна
+                            </span>
+                          )}
+                        </div>
                       </div>
 
                       <div className="flex flex-wrap gap-4 mt-3 text-sm text-gray-600">
