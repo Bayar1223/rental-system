@@ -51,20 +51,28 @@ function MyRentals() {
   const currentUser = JSON.parse(localStorage.getItem("user") || "null");
   const isLandlord = currentUser?.role === "landlord";
 
+  useEffect(() => {
+    const loadRentals = async () => {
+      try {
+        const res = await api.get("/api/applications/active");
+        setRentals(res.data);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadRentals();
+  }, []);
+
   const fetchRentals = async () => {
     try {
       const res = await api.get("/api/applications/active");
       setRentals(res.data);
     } catch (err) {
       console.error(err);
-    } finally {
-      setLoading(false);
     }
   };
-
-  useEffect(() => {
-    fetchRentals();
-  }, []);
 
   const handleCancel = async () => {
     if (!showCancelModal) return;
@@ -161,7 +169,9 @@ function MyRentals() {
                 </div>
                 <div className="w-full bg-gray-100 rounded-full h-3">
                   <div
-                    className={`h-3 rounded-full transition-all ${progress > 80 ? "bg-red-400" : progress > 60 ? "bg-yellow-400" : "bg-indigo-500"}`}
+                    className={`h-3 rounded-full transition-all ${
+                      progress > 80 ? "bg-red-400" : progress > 60 ? "bg-yellow-400" : "bg-indigo-500"
+                    }`}
                     style={{ width: `${progress}%` }}
                   />
                 </div>
@@ -174,7 +184,9 @@ function MyRentals() {
               </div>
 
               {/* Дараагийн төлбөр */}
-              <div className={`mt-4 rounded-xl px-4 py-3 flex items-center justify-between ${payDays <= 5 ? "bg-red-50 border border-red-200" : "bg-blue-50"}`}>
+              <div className={`mt-4 rounded-xl px-4 py-3 flex items-center justify-between ${
+                payDays <= 5 ? "bg-red-50 border border-red-200" : "bg-blue-50"
+              }`}>
                 <div>
                   <p className="text-xs text-gray-500">Дараагийн төлбөрийн огноо</p>
                   <p className="font-bold text-gray-800">{formatDate(nextPaymentDate(r.startDate))}</p>
@@ -202,7 +214,9 @@ function MyRentals() {
           <div className="bg-white rounded-2xl shadow p-10 text-center text-gray-400">
             <div className="text-5xl mb-3">🏠</div>
             <p className="text-lg font-medium">
-              {isLandlord ? "Одоогоор түрээслүүлж байгаа байр байхгүй" : "Одоогоор идэвхтэй түрээс байхгүй"}
+              {isLandlord
+                ? "Одоогоор түрээслүүлж байгаа байр байхгүй"
+                : "Одоогоор идэвхтэй түрээс байхгүй"}
             </p>
             {!isLandlord && (
               <Link to="/home" className="mt-4 inline-block text-indigo-600 hover:underline text-sm">
@@ -227,11 +241,17 @@ function MyRentals() {
                 <div key={rental._id} className="bg-white rounded-2xl shadow overflow-hidden">
                   {/* Дээд хэсэг */}
                   <div className="flex gap-4 p-5">
-                    <img src={image} alt="" className="w-24 h-20 md:w-32 md:h-24 object-cover rounded-xl flex-shrink-0" />
+                    <img
+                      src={image}
+                      alt=""
+                      className="w-24 h-20 md:w-32 md:h-24 object-cover rounded-xl flex-shrink-0"
+                    />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-2 mb-1">
-                        <Link to={`/properties/${rental.property?._id}`}
-                          className="font-bold text-gray-900 hover:text-indigo-600 transition line-clamp-1">
+                        <Link
+                          to={`/properties/${rental.property?._id}`}
+                          className="font-bold text-gray-900 hover:text-indigo-600 transition line-clamp-1"
+                        >
                           {rental.property?.title}
                         </Link>
                         <span className={`text-xs px-2 py-1 rounded-full flex-shrink-0 font-medium ${cs.cls}`}>
@@ -281,7 +301,9 @@ function MyRentals() {
                   <div className="px-5 pb-4">
                     <div className="w-full bg-gray-100 rounded-full h-2">
                       <div
-                        className={`h-2 rounded-full transition-all ${progress > 80 ? "bg-red-400" : progress > 60 ? "bg-yellow-400" : "bg-indigo-500"}`}
+                        className={`h-2 rounded-full transition-all ${
+                          progress > 80 ? "bg-red-400" : progress > 60 ? "bg-yellow-400" : "bg-indigo-500"
+                        }`}
                         style={{ width: `${progress}%` }}
                       />
                     </div>
