@@ -97,6 +97,25 @@ exports.deleteUser = async (req, res) => {
   }
 };
 
+// PUT /api/admin/users/:id/block — хэрэглэгч блоклох/идэвхжүүлэх
+exports.toggleBlockUser = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ message: "Хэрэглэгч олдсонгүй" });
+    if (req.params.id === (req.user._id || req.user.id).toString()) {
+      return res.status(400).json({ message: "Өөрийгөө блоклох боломжгүй" });
+    }
+    user.isBlocked = !user.isBlocked;
+    await user.save();
+    res.json({
+      message: user.isBlocked ? "Хэрэглэгч блоклогдлоо" : "Хэрэглэгч идэвхжлээ",
+      user,
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Алдаа гарлаа", error: error.message });
+  }
+};
+
 // GET /api/admin/properties — бүх байрнууд
 exports.getProperties = async (req, res) => {
   try {

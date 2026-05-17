@@ -34,6 +34,7 @@ const userSchema = new mongoose.Schema(
       enum: ["tenant", "landlord", "admin"],
       default: "tenant",
     },
+    isBlocked: { type: Boolean, default: false },
   },
   {
     timestamps: true,

@@ -97,6 +97,17 @@ function AdminPanel() {
     } catch { alert("Алдаа гарлаа"); }
   };
 
+  const handleToggleBlock = async (userId, isBlocked, name) => {
+    const action = isBlocked ? "идэвхжүүлэх" : "блоклох";
+    if (!window.confirm(`"${name}" хэрэглэгчийг ${action} уу?`)) return;
+    try {
+      const res = await api.put(`/api/admin/users/${userId}/block`);
+      setUsers((prev) =>
+        prev.map((u) => u._id === userId ? { ...u, isBlocked: res.data.user.isBlocked } : u)
+      );
+    } catch { alert("Алдаа гарлаа"); }
+  };
+
   const handleDeleteUser = async (userId, name) => {
     if (!window.confirm(`"${name}" хэрэглэгчийг устгах уу?`)) return;
     try {
@@ -256,9 +267,16 @@ function AdminPanel() {
                                 : u.firstName?.[0]?.toUpperCase()}
                             </div>
                             <div className="min-w-0">
-                              <p className="font-semibold text-sm text-gray-900 truncate">
-                                {u.firstName} {u.lastName}
-                              </p>
+                              <div className="flex items-center gap-1.5">
+                                <p className={`font-semibold text-sm truncate ${u.isBlocked ? "text-gray-400 line-through" : "text-gray-900"}`}>
+                                  {u.firstName} {u.lastName}
+                                </p>
+                                {u.isBlocked && (
+                                  <span className="text-xs bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full font-medium flex-shrink-0">
+                                    Блоклогдсон
+                                  </span>
+                                )}
+                              </div>
                               <p className="text-xs text-gray-500 truncate">{u.email} · {u.phone}</p>
                             </div>
                           </div>
@@ -275,6 +293,16 @@ function AdminPanel() {
                               <option value="landlord">Түрээслүүлэгч</option>
                               <option value="admin">Админ</option>
                             </select>
+                              <button
+                              onClick={() => handleToggleBlock(u._id, u.isBlocked, `${u.firstName} ${u.lastName}`)}
+                              className={`text-xs px-2 py-1 rounded-lg transition ${
+                                u.isBlocked
+                                  ? "text-green-600 hover:bg-green-50"
+                                  : "text-orange-500 hover:bg-orange-50"
+                              }`}
+                            >
+                              {u.isBlocked ? "Идэвхжүүлэх" : "Блоклох"}
+                            </button>
                             <button onClick={() => handleDeleteUser(u._id, `${u.firstName} ${u.lastName}`)}
                               className="text-xs text-red-400 hover:text-red-600 px-2 py-1 hover:bg-red-50 rounded-lg transition">
                               Устгах

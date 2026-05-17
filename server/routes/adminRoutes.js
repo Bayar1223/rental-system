@@ -6,6 +6,7 @@ const {
   getUsers,
   updateUserRole,
   deleteUser,
+  toggleBlockUser,
   getProperties,
   deleteProperty,
   getApplications,
@@ -16,6 +17,7 @@ router.get("/stats",               adminOnly, getStats);
 router.get("/users",               adminOnly, getUsers);
 router.put("/users/:id/role",      adminOnly, updateUserRole);
 router.delete("/users/:id",        adminOnly, deleteUser);
+router.put("/users/:id/block",     adminOnly, toggleBlockUser);
 router.get("/properties",          adminOnly, getProperties);
 router.delete("/properties/:id",   adminOnly, deleteProperty);
 router.get("/applications",        adminOnly, getApplications);
