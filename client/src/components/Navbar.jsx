@@ -251,17 +251,6 @@ function Navbar() {
                         className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition">
                         <span>👤</span> Профайл
                       </Link>
-                      <Link to="/my-rentals" onClick={() => setShowUserMenu(false)}
-                        className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition">
-                        <span>{user.role === "tenant" ? "🏠" : "📊"}</span>
-                        {user.role === "tenant" ? "Миний түрээс" : "Түрээсийн мэдээлэл"}
-                      </Link>
-                      <Link to="/payments" onClick={() => setShowUserMenu(false)}
-                        className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition">
-                        <span>{user.role === "tenant" ? "💳" : "💰"}</span>
-                        {user.role === "tenant" ? "Төлбөр" : "Орлого"}
-                      </Link>
-                      {/* ← НЭМСЭН: Мэдэгдэл холбоос */}
                       <Link to="/notifications" onClick={() => setShowUserMenu(false)}
                         className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition">
                         <span>🔔</span>
@@ -272,14 +261,34 @@ function Navbar() {
                           </span>
                         )}
                       </Link>
+                      {/* Tenant-д зориулсан links */}
                       {user.role === "tenant" && (
-                        <Link to="/my-applications" onClick={() => setShowUserMenu(false)}
-                          className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition">
-                          <span>📋</span> Миний хүсэлтүүд
-                        </Link>
+                        <>
+                          <Link to="/my-rentals" onClick={() => setShowUserMenu(false)}
+                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition">
+                            <span>🏠</span> Миний түрээс
+                          </Link>
+                          <Link to="/payments" onClick={() => setShowUserMenu(false)}
+                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition">
+                            <span>💳</span> Төлбөр
+                          </Link>
+                          <Link to="/my-applications" onClick={() => setShowUserMenu(false)}
+                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition">
+                            <span>📋</span> Миний хүсэлтүүд
+                          </Link>
+                        </>
                       )}
+                      {/* Landlord-д зориулсан links */}
                       {user.role === "landlord" && (
                         <>
+                          <Link to="/my-rentals" onClick={() => setShowUserMenu(false)}
+                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition">
+                            <span>📊</span> Түрээсийн мэдээлэл
+                          </Link>
+                          <Link to="/payments" onClick={() => setShowUserMenu(false)}
+                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition">
+                            <span>💰</span> Орлого
+                          </Link>
                           <Link to="/my-properties" onClick={() => setShowUserMenu(false)}
                             className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition">
                             <span>🏘️</span> Миний байрнууд
@@ -365,15 +374,6 @@ function Navbar() {
                 <Link to="/profile" className="flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition">
                   <span>👤</span> Профайл
                 </Link>
-                <Link to="/my-rentals" className="flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition">
-                  <span>{user.role === "tenant" ? "🏠" : "📊"}</span>
-                  {user.role === "tenant" ? "Миний түрээс" : "Түрээсийн мэдээлэл"}
-                </Link>
-                <Link to="/payments" className="flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition">
-                  <span>{user.role === "tenant" ? "💳" : "💰"}</span>
-                  {user.role === "tenant" ? "Төлбөр" : "Орлого"}
-                </Link>
-                {/* ← НЭМСЭН: Мэдэгдэл (mobile) */}
                 <Link to="/notifications" className="flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition">
                   <span>🔔</span>
                   Мэдэгдэлүүд
@@ -383,13 +383,29 @@ function Navbar() {
                     </span>
                   )}
                 </Link>
+                {/* Tenant-д зориулсан links */}
                 {user.role === "tenant" && (
-                  <Link to="/my-applications" className="flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition">
-                    <span>📋</span> Миний хүсэлтүүд
-                  </Link>
+                  <>
+                    <Link to="/my-rentals" className="flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition">
+                      <span>🏠</span> Миний түрээс
+                    </Link>
+                    <Link to="/payments" className="flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition">
+                      <span>💳</span> Төлбөр
+                    </Link>
+                    <Link to="/my-applications" className="flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition">
+                      <span>📋</span> Миний хүсэлтүүд
+                    </Link>
+                  </>
                 )}
+                {/* Landlord-д зориулсан links */}
                 {user.role === "landlord" && (
                   <>
+                    <Link to="/my-rentals" className="flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition">
+                      <span>📊</span> Түрээсийн мэдээлэл
+                    </Link>
+                    <Link to="/payments" className="flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition">
+                      <span>💰</span> Орлого
+                    </Link>
                     <Link to="/my-properties" className="flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition">
                       <span>🏘️</span> Миний байрнууд
                     </Link>
@@ -401,7 +417,8 @@ function Navbar() {
                     </Link>
                   </>
                 )}
-                {user?.role === "admin" && (
+                {/* Admin-д зориулсан link */}
+                {user.role === "admin" && (
                   <Link to="/admin"
                     className="flex items-center gap-3 px-3 py-2.5 text-sm text-purple-600 hover:bg-purple-50 rounded-xl transition">
                     <span>⚙️</span> Admin Panel
