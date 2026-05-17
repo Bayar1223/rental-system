@@ -3,10 +3,10 @@ import api from "../api/axiosInstance";
 import { useNavigate, Link } from "react-router-dom";
 
 function Login() {
-  const [email, setEmail] = useState("");
+  const [email, setEmail]       = useState("");
   const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState("");
 
   const navigate = useNavigate();
 
@@ -14,16 +14,25 @@ function Login() {
     e.preventDefault();
     setLoading(true);
     setError("");
-
     try {
       const res = await api.post("/api/auth/login", { email, password });
       localStorage.setItem("token", res.data.token);
       localStorage.setItem("user", JSON.stringify(res.data.user));
       navigate("/home");
-    } catch  {
+    } catch {
       setError("Имэйл эсвэл нууц үг буруу байна");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleBack = () => {
+    // Нэвтэрсэн хэрэглэгч байвал /home руу, эсвэл landing руу
+    const user = JSON.parse(localStorage.getItem("user") || "null");
+    if (user) {
+      navigate("/home");
+    } else {
+      navigate("/");
     }
   };
 
@@ -33,7 +42,7 @@ function Login() {
       {/* Буцах товч */}
       <div className="px-4 pt-4">
         <button
-          onClick={() => navigate("/")}
+          onClick={handleBack}
           className="flex items-center gap-2 text-gray-500 hover:text-gray-800 transition text-sm"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
