@@ -109,8 +109,8 @@ function Profile() {
       const updated = { ...currentUser, ...formData, avatar: avatarUrl };
       localStorage.setItem("user", JSON.stringify(updated));
       setMessage(res.data.message || "Профайл амжилттай шинэчлэгдлээ");
-      // Navbar-д avatar шинэчлэгдэхийн тулд хуудас reload хийнэ
-      setTimeout(() => window.location.reload(), 800);
+      // Navbar-д мэдэгдэх — custom event dispatch
+      window.dispatchEvent(new Event("userUpdated"));
     } catch (err) {
       setError(err.response?.data?.message || "Алдаа гарлаа");
       setUploadingAvatar(false);

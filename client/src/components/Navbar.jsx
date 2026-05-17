@@ -48,14 +48,16 @@ function AvatarCircle({ avatar, firstName, size = "sm" }) {
 function Navbar() {
   const navigate = useNavigate();
 
-  const user  = JSON.parse(localStorage.getItem("user"));
-  const token = localStorage.getItem("token");
-
+  const [currentUser, setCurrentUser]     = useState(() => JSON.parse(localStorage.getItem("user")));
   const [unreadCount, setUnreadCount]     = useState(0);
   const [notifications, setNotifications] = useState([]);
   const [showNotif, setShowNotif]         = useState(false);
   const [showUserMenu, setShowUserMenu]   = useState(false);
   const [mobileOpen, setMobileOpen]       = useState(false);
+
+  // State-аас гаргаж авна
+  const user  = currentUser;
+  const token = localStorage.getItem("token");
 
   const notifRef    = useRef(null);
   const userMenuRef = useRef(null);
@@ -72,6 +74,21 @@ function Navbar() {
     const interval = setInterval(load, 30000);
     return () => clearInterval(interval);
   // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // localStorage өөрчлөгдөхөд (Profile хадгалах үед) Navbar шинэчлэгдэнэ
+  useEffect(() => {
+    const handleStorageChange = () => {
+      const updated = JSON.parse(localStorage.getItem("user"));
+      setCurrentUser(updated);
+    };
+    window.addEventListener("storage", handleStorageChange);
+    // Custom event — same tab дотор ажиллана
+    window.addEventListener("userUpdated", handleStorageChange);
+    return () => {
+      window.removeEventListener("storage", handleStorageChange);
+      window.removeEventListener("userUpdated", handleStorageChange);
+    };
   }, []);
 
   useEffect(() => {
