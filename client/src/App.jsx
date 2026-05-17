@@ -13,6 +13,7 @@ import EditProperty from "./pages/EditProperty";
 import Profile from "./pages/Profile";
 import MyRentals from "./pages/MyRentals";
 import Payment from "./pages/Payment";
+import Notifications from "./pages/Notifications";
 
 function App() {
   return (
@@ -32,6 +33,7 @@ function App() {
         <Route path="/profile" element={<Profile />} />
         <Route path="/my-rentals" element={<MyRentals />} />
         <Route path="/payments" element={<Payment />} />
+        <Route path="/notifications" element={<Notifications />} />
       </Routes>
     </BrowserRouter>
   );

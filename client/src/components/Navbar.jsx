@@ -19,10 +19,31 @@ const typeIcon = (type) => {
 };
 
 const ROLE_LABELS = {
-  tenant: "Түрээслэгч",
+  tenant:   "Түрээслэгч",
   landlord: "Түрээслүүлэгч",
-  admin: "Админ",
+  admin:    "Админ",
 };
+
+// ← NAVBAR-ААС ГАДНА тодорхойлсон — render үед шинээр үүсгэхгүй
+function AvatarCircle({ avatar, firstName, size = "sm" }) {
+  const cls = size === "lg"
+    ? "w-10 h-10 text-lg"
+    : "w-7 h-7 text-sm";
+  if (avatar) {
+    return (
+      <img
+        src={avatar}
+        alt="avatar"
+        className={`${cls} rounded-full object-cover flex-shrink-0`}
+      />
+    );
+  }
+  return (
+    <div className={`${cls} bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600 font-bold flex-shrink-0`}>
+      {firstName?.[0]?.toUpperCase()}
+    </div>
+  );
+}
 
 function Navbar() {
   const navigate = useNavigate();
@@ -140,19 +161,20 @@ function Navbar() {
                     </span>
                   )}
                 </button>
+
                 {showNotif && (
                   <div className="absolute right-0 top-12 w-80 bg-white rounded-2xl shadow-xl border border-gray-100 z-50 overflow-hidden">
                     <div className="px-4 py-3 border-b flex items-center justify-between">
                       <h3 className="font-bold text-gray-800">Мэдэгдлүүд</h3>
                       <span className="text-xs text-gray-400">{notifications.length} мэдэгдэл</span>
                     </div>
-                    <div className="max-h-80 overflow-y-auto">
+                    <div className="max-h-72 overflow-y-auto">
                       {notifications.length === 0 ? (
                         <div className="py-10 text-center text-gray-400">
                           <div className="text-3xl mb-2">🔔</div>
                           <p className="text-sm">Мэдэгдэл байхгүй байна</p>
                         </div>
-                      ) : notifications.map((n) => (
+                      ) : notifications.slice(0, 5).map((n) => (
                         <button key={n._id} onClick={() => handleNotifClick(n)}
                           className={`w-full text-left px-4 py-3 hover:bg-gray-50 transition border-b border-gray-50 ${!n.isRead ? "bg-indigo-50/50" : ""}`}>
                           <div className="flex gap-3">
@@ -167,6 +189,14 @@ function Navbar() {
                         </button>
                       ))}
                     </div>
+                    {/* ← НЭМСЭН: Бүгдийг харах холбоос */}
+                    <Link
+                      to="/notifications"
+                      onClick={() => setShowNotif(false)}
+                      className="block text-center text-xs text-indigo-600 hover:text-indigo-700 py-2.5 hover:bg-indigo-50 border-t border-gray-100 font-medium transition"
+                    >
+                      Бүгдийг харах →
+                    </Link>
                   </div>
                 )}
               </div>
@@ -177,9 +207,8 @@ function Navbar() {
               <div className="relative" ref={userMenuRef}>
                 <button onClick={() => setShowUserMenu((p) => !p)}
                   className="flex items-center gap-2 bg-gray-50 hover:bg-gray-100 px-3 py-2 rounded-xl transition">
-                  <div className="w-7 h-7 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600 font-bold text-sm">
-                    {user.firstName?.[0]?.toUpperCase()}
-                  </div>
+                  {/* ← ӨӨРЧЛӨЛТ: Avatar зураг харуулах */}
+                  <AvatarCircle avatar={user?.avatar} firstName={user?.firstName} size="sm" />
                   <span className="font-medium text-gray-800 text-sm">{user.firstName}</span>
                   <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -201,20 +230,27 @@ function Navbar() {
                         className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition">
                         <span>👤</span> Профайл
                       </Link>
-
                       <Link to="/my-rentals" onClick={() => setShowUserMenu(false)}
                         className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition">
                         <span>{user.role === "tenant" ? "🏠" : "📊"}</span>
                         {user.role === "tenant" ? "Миний түрээс" : "Түрээсийн мэдээлэл"}
                       </Link>
-
-                      {/* ← НЭМСЭН: Төлбөр холбоос */}
                       <Link to="/payments" onClick={() => setShowUserMenu(false)}
                         className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition">
                         <span>{user.role === "tenant" ? "💳" : "💰"}</span>
                         {user.role === "tenant" ? "Төлбөр" : "Орлого"}
                       </Link>
-
+                      {/* ← НЭМСЭН: Мэдэгдэл холбоос */}
+                      <Link to="/notifications" onClick={() => setShowUserMenu(false)}
+                        className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition">
+                        <span>🔔</span>
+                        Мэдэгдэлүүд
+                        {unreadCount > 0 && (
+                          <span className="ml-auto bg-red-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full">
+                            {unreadCount}
+                          </span>
+                        )}
+                      </Link>
                       {user.role === "tenant" && (
                         <Link to="/my-applications" onClick={() => setShowUserMenu(false)}
                           className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition">
@@ -287,9 +323,8 @@ function Navbar() {
             {user ? (
               <>
                 <div className="flex items-center gap-3 px-3 py-3 mb-2 bg-gray-50 rounded-xl">
-                  <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600 font-bold text-lg">
-                    {user.firstName?.[0]?.toUpperCase()}
-                  </div>
+                  {/* ← ӨӨРЧЛӨЛТ: Avatar зураг */}
+                  <AvatarCircle avatar={user?.avatar} firstName={user?.firstName} size="lg" />
                   <div>
                     <p className="font-semibold text-gray-800 text-sm">{user.firstName} {user.lastName}</p>
                     <p className="text-xs text-gray-400">{ROLE_LABELS[user.role]}</p>
@@ -302,18 +337,24 @@ function Navbar() {
                 <Link to="/profile" className="flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition">
                   <span>👤</span> Профайл
                 </Link>
-
                 <Link to="/my-rentals" className="flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition">
                   <span>{user.role === "tenant" ? "🏠" : "📊"}</span>
                   {user.role === "tenant" ? "Миний түрээс" : "Түрээсийн мэдээлэл"}
                 </Link>
-
-                {/* ← НЭМСЭН: Төлбөр холбоос (mobile) */}
                 <Link to="/payments" className="flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition">
                   <span>{user.role === "tenant" ? "💳" : "💰"}</span>
                   {user.role === "tenant" ? "Төлбөр" : "Орлого"}
                 </Link>
-
+                {/* ← НЭМСЭН: Мэдэгдэл (mobile) */}
+                <Link to="/notifications" className="flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition">
+                  <span>🔔</span>
+                  Мэдэгдэлүүд
+                  {unreadCount > 0 && (
+                    <span className="ml-auto bg-red-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full">
+                      {unreadCount}
+                    </span>
+                  )}
+                </Link>
                 {user.role === "tenant" && (
                   <Link to="/my-applications" className="flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition">
                     <span>📋</span> Миний хүсэлтүүд
@@ -366,10 +407,10 @@ function Navbar() {
               <h3 className="font-bold text-gray-800">Мэдэгдлүүд</h3>
               <button onClick={() => setShowNotif(false)} className="text-gray-400 text-2xl leading-none">×</button>
             </div>
-            <div className="max-h-72 overflow-y-auto">
+            <div className="max-h-64 overflow-y-auto">
               {notifications.length === 0 ? (
                 <div className="py-8 text-center text-gray-400 text-sm">Мэдэгдэл байхгүй байна</div>
-              ) : notifications.map((n) => (
+              ) : notifications.slice(0, 5).map((n) => (
                 <button key={n._id} onClick={() => handleNotifClick(n)}
                   className={`w-full text-left px-4 py-3 hover:bg-gray-50 border-b border-gray-50 ${!n.isRead ? "bg-indigo-50/50" : ""}`}>
                   <div className="flex gap-3">
@@ -383,6 +424,14 @@ function Navbar() {
                 </button>
               ))}
             </div>
+            {/* ← НЭМСЭН: Mobile "Бүгдийг харах" */}
+            <Link
+              to="/notifications"
+              onClick={() => setShowNotif(false)}
+              className="block text-center text-xs text-indigo-600 hover:text-indigo-700 py-2.5 hover:bg-indigo-50 border-t border-gray-100 font-medium transition"
+            >
+              Бүгдийг харах →
+            </Link>
           </div>
         </div>
       )}
