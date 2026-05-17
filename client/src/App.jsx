@@ -15,6 +15,9 @@ import MyRentals from "./pages/MyRentals";
 import Payment from "./pages/Payment";
 import Notifications from "./pages/Notifications";
 import AdminPanel from "./pages/AdminPanel";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword  from "./pages/ResetPassword";
+
 
 function App() {
   return (
@@ -36,6 +39,8 @@ function App() {
         <Route path="/payments" element={<Payment />} />
         <Route path="/notifications" element={<Notifications />} />
         <Route path="/admin" element={<AdminPanel />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password"  element={<ResetPassword />} />
       </Routes>
     </BrowserRouter>
   );

@@ -27,7 +27,6 @@ function Login() {
   };
 
   const handleBack = () => {
-    // Нэвтэрсэн хэрэглэгч байвал /home руу, эсвэл landing руу
     const user = JSON.parse(localStorage.getItem("user") || "null");
     if (user) {
       navigate("/home");
@@ -91,7 +90,7 @@ function Login() {
             />
           </div>
 
-          <div className="mb-6">
+          <div className="mb-2">
             <label className="block text-sm font-medium text-gray-700 mb-1.5">
               Нууц үг
             </label>
@@ -103,6 +102,13 @@ function Login() {
               className="w-full border border-gray-200 p-3 rounded-xl focus:outline-none focus:border-indigo-400 text-sm"
               required
             />
+          </div>
+
+          {/* ← НЭМСЭН: Нууц үг мартсан холбоос */}
+          <div className="flex justify-end mb-6">
+            <Link to="/forgot-password" className="text-sm text-indigo-600 hover:underline">
+              Нууц үг мартсан уу?
+            </Link>
           </div>
 
           <button
