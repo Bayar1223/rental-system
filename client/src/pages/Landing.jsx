@@ -91,9 +91,9 @@ export default function Landing() {
               Түрээсийн систем
             </span>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <Link to="/login">
-              <button className={`px-5 py-2.5 rounded-xl font-medium transition ${
+              <button className={`px-3 md:px-5 py-2 md:py-2.5 rounded-xl font-medium transition text-sm md:text-base ${
                 scrolled
                   ? "text-gray-600 hover:bg-gray-100"
                   : "text-white/80 hover:bg-white/10"
@@ -102,7 +102,7 @@ export default function Landing() {
               </button>
             </Link>
             <Link to="/register">
-              <button className="px-5 py-2.5 rounded-xl bg-indigo-600 text-white font-medium hover:bg-indigo-500 transition shadow-lg shadow-indigo-900/30">
+              <button className="px-3 md:px-5 py-2 md:py-2.5 rounded-xl bg-indigo-600 text-white font-medium hover:bg-indigo-500 transition shadow-lg shadow-indigo-900/30 text-sm md:text-base">
                 Бүртгүүлэх
               </button>
             </Link>
