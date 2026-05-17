@@ -38,29 +38,17 @@ export default function Landing() {
     if (user) navigate("/home");
   }, [user, navigate]);
 
-  // Бодит статистик DB-с авах
+  // Нийт байрны тоог public endpoint-оос авах
   useEffect(() => {
-    api.get("/api/admin/stats")
-      .then((res) => {
-        const d = res.data;
-        setStats({
-          properties:   `${d.properties?.available || 0}+`,
-          users:        `${d.users?.total || 0}+`,
-          districts:    9,
-          satisfaction: "98%",
-        });
+    api.get("/api/properties", { params: { limit: 1 } })
+      .then((r) => {
+        const total = r.data.pagination?.total || 0;
+        setStats((prev) => ({
+          ...prev,
+          properties: `${total}+`,
+        }));
       })
-      .catch(() => {
-        // Fallback — нэвтрээгүй тул admin stats авахгүй, тооцоолсон утга ашиглана
-        api.get("/api/properties", { params: { limit: 1 } })
-          .then((r) => {
-            setStats((prev) => ({
-              ...prev,
-              properties: `${r.data.pagination?.total || 0}+`,
-            }));
-          })
-          .catch(() => {});
-      });
+      .catch(() => {});
   }, []);
 
   // Онцлох байрнууд
@@ -144,9 +132,9 @@ export default function Landing() {
             {/* Headline */}
             <h1 style={{ fontFamily: "'Playfair Display', serif" }}
               className="text-5xl md:text-6xl font-bold text-white leading-tight mb-6">
-              Төгс тохирох
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400"> орон сууцаа </span>
-              өнөөдөр ол
+              Мөрөөдлийн байраа
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400"> хялбараар </span>
+              олоорой
             </h1>
 
             {/* Sub-headline */}
