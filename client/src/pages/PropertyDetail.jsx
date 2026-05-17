@@ -370,7 +370,7 @@ function PropertyDetail() {
             )}
 
             {/* Газрын зураг — Leaflet */}
-            <div className="bg-white rounded-2xl shadow overflow-hidden">
+            <div className="bg-white rounded-2xl shadow overflow-hidden relative" style={{ zIndex: 0 }}>
               <div className="p-5 border-b border-gray-100">
                 <h2 className="text-xl font-bold">Байршил</h2>
                 <p className="text-sm text-gray-500 mt-0.5">
@@ -382,7 +382,7 @@ function PropertyDetail() {
                 <MapContainer
                   center={mapCoords}
                   zoom={15}
-                  style={{ height: "320px", width: "100%" }}
+                  style={{ height: "320px", width: "100%", zIndex: 0 }}
                   scrollWheelZoom={false}
                 >
                   <TileLayer
