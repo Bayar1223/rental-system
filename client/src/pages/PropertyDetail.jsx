@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
@@ -23,7 +23,6 @@ function PropertyDetail() {
 
   const [property, setProperty] = useState(null);
   const [myRental, setMyRental] = useState(null);
-  const [mapCoords, setMapCoords] = useState(null); // [lat, lng]
   const [selectedImageIndex, setSelectedImageIndex] = useState(null);
   const [showApplyModal, setShowApplyModal] = useState(false);
   const [applySuccess, setApplySuccess] = useState(false);
@@ -51,35 +50,26 @@ function PropertyDetail() {
     fetchProperty();
   }, [id]);
 
-  // Nominatim geocoding — хаяг → координат
-  useEffect(() => {
-    if (!property) return;
-    const address = [
-      property.location?.address,
-      property.location?.district,
-      property.location?.city || "Улаанбаатар",
-      "Монгол",
-    ].filter(Boolean).join(", ");
-
-    const geocode = async () => {
-      try {
-        const res = await fetch(
-          `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address)}&format=json&limit=1`,
-          { headers: { "Accept-Language": "mn" } }
-        );
-        const data = await res.json();
-        if (data && data.length > 0) {
-          setMapCoords([parseFloat(data[0].lat), parseFloat(data[0].lon)]);
-        } else {
-          // Хаяг олдохгүй бол Улаанбаатарын төв
-          setMapCoords([47.9077, 106.8832]);
-        }
-      } catch {
-        setMapCoords([47.9077, 106.8832]);
-      }
-    };
-    geocode();
-  }, [property]);
+  // DB координат → useMemo (setState биш)
+  const districtCoords = {
+    "Баянзүрх":       [47.9184, 106.9612],
+    "Баянгол":        [47.9077, 106.8432],
+    "Сүхбаатар":      [47.9195, 106.9077],
+    "Чингэлтэй":      [47.9268, 106.8782],
+    "Хан-Уул":        [47.8748, 106.8815],
+    "Сонгинохайрхан": [47.9268, 106.7782],
+    "Налайх":         [47.7577, 107.2682],
+    "Багануур":       [47.7121, 108.2821],
+    "Багахангай":     [47.8241, 106.9121],
+  };
+  const mapCoords = useMemo(() => {
+    if (!property) return null;
+    if (property.latitude && property.longitude) {
+      return [property.latitude, property.longitude];
+    }
+    const district = property.location?.district;
+    return districtCoords[district] || [47.9077, 106.8832];
+  }, [property]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Tenant бол өөрийн энэ байртай холбоотой идэвхтэй гэрээ байгаа эсэхийг шалгана
   useEffect(() => {

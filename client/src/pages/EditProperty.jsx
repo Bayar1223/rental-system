@@ -1,15 +1,46 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { MapContainer, TileLayer, Marker, useMapEvents } from "react-leaflet";
+import "leaflet/dist/leaflet.css";
+import L from "leaflet";
 import api from "../api/axiosInstance";
 import Navbar from "../components/Navbar";
 
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
+  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
+  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+});
+
+function MapPinSelector({ onSelect }) {
+  useMapEvents({
+    click(e) {
+      onSelect([e.latlng.lat, e.latlng.lng]);
+    },
+  });
+  return null;
+}
+
 const districts = [
-  "Багануур", "Багахангай", "Баянгол", "Баянзүрх",
-  "Налайх", "Сонгинохайрхан", "Сүхбаатар", "Хан-Уул", "Чингэлтэй",
+  "Багануур","Багахангай","Баянгол","Баянзүрх",
+  "Налайх","Сонгинохайрхан","Сүхбаатар","Хан-Уул","Чингэлтэй",
 ];
 const khoroos  = Array.from({ length: 30 }, (_, i) => `${i + 1}-р хороо`);
 const years    = Array.from({ length: 40 }, (_, i) => 2026 - i);
 const numbers  = Array.from({ length: 30 }, (_, i) => i + 1);
+
+const districtCoords = {
+  "Баянзүрх":       [47.9184, 106.9612],
+  "Баянгол":        [47.9077, 106.8432],
+  "Сүхбаатар":      [47.9195, 106.9077],
+  "Чингэлтэй":      [47.9268, 106.8782],
+  "Хан-Уул":        [47.8748, 106.8815],
+  "Сонгинохайрхан": [47.9268, 106.7782],
+  "Налайх":         [47.7577, 107.2682],
+  "Багануур":       [47.7121, 108.2821],
+  "Багахангай":     [47.8241, 106.9121],
+};
 
 function EditProperty() {
   const { id } = useParams();
@@ -25,11 +56,13 @@ function EditProperty() {
     contactPhone: "", contactEmail: "",
   });
 
-  const [existingImages, setExistingImages] = useState([]);
-  const [newImageFiles, setNewImageFiles]   = useState([]);
+  const [existingImages, setExistingImages]     = useState([]);
+  const [newImageFiles, setNewImageFiles]       = useState([]);
   const [newImagePreviews, setNewImagePreviews] = useState([]);
-  const [loading, setLoading]               = useState(true);
+  const [loading, setLoading]                   = useState(true);
   const [showLocationModal, setShowLocationModal] = useState(false);
+  const [showMapModal, setShowMapModal]         = useState(false);
+  const [pinCoords, setPinCoords]               = useState(null); // [lat, lng]
 
   useEffect(() => {
     const fetchProperty = async () => {
@@ -68,6 +101,11 @@ function EditProperty() {
           contactEmail: p.contactEmail || "",
         });
 
+        // ← Хадгалсан координат байвал ачаална
+        if (p.latitude && p.longitude) {
+          setPinCoords([p.latitude, p.longitude]);
+        }
+
         setExistingImages(p.images || []);
       } catch {
         alert("Байрны мэдээлэл авахад алдаа гарлаа");
@@ -79,8 +117,7 @@ function EditProperty() {
     fetchProperty();
   }, [id, navigate]);
 
-  const handleChange = (e) =>
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+  const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
   const handleNewImages = (e) => {
     const files = Array.from(e.target.files);
@@ -96,11 +133,14 @@ function EditProperty() {
     setNewImagePreviews(newImagePreviews.filter((_, i) => i !== index));
   };
 
+  const handlePinSelect = useCallback((coords) => {
+    setPinCoords(coords);
+  }, []);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
       const data = new FormData();
-
       data.append("title", formData.title);
       data.append("location[city]", formData.city);
       data.append("location[district]", formData.district);
@@ -126,12 +166,15 @@ function EditProperty() {
       data.append("contactEmail", formData.contactEmail);
       data.append("details", formData.details);
       data.append("description", formData.details);
-
+      // ← НЭМСЭН: Координат
+      if (pinCoords) {
+        data.append("latitude", pinCoords[0]);
+        data.append("longitude", pinCoords[1]);
+      }
       existingImages.forEach((img) => data.append("existingImages", img));
       newImageFiles.forEach((file) => data.append("images", file));
 
       await api.put(`/api/properties/${id}`, data);
-
       alert("Байрны мэдээлэл амжилттай шинэчлэгдлээ");
       navigate(`/properties/${id}`);
     } catch (error) {
@@ -140,6 +183,12 @@ function EditProperty() {
   };
 
   const selectedLocation = `${formData.city}${formData.district ? " — " + formData.district : ""}${formData.khoroo ? " — " + formData.khoroo : ""}`;
+  const mapCenter = formData.district && districtCoords[formData.district]
+    ? districtCoords[formData.district]
+    : pinCoords || [47.9077, 106.8832];
+
+  const inputCls  = "w-full border p-4 rounded-xl focus:outline-none focus:border-indigo-400";
+  const selectCls = "border p-4 rounded-xl focus:outline-none focus:border-indigo-400 bg-white w-full";
 
   if (loading) {
     return (
@@ -165,83 +214,98 @@ function EditProperty() {
 
         <div className="bg-white rounded-3xl shadow-xl p-8">
           <form onSubmit={handleSubmit} className="space-y-6">
-            <button type="button" onClick={() => setShowLocationModal(true)} className="w-full bg-gray-100 border p-4 rounded-xl text-left font-semibold">
-              Байршил: {selectedLocation}
+
+            {/* Байршил */}
+            <button type="button" onClick={() => setShowLocationModal(true)}
+              className="w-full bg-gray-100 border p-4 rounded-xl text-left font-semibold hover:bg-gray-200 transition">
+              📍 Байршил: {selectedLocation}
             </button>
 
-            <input name="title" placeholder="Зарын гарчиг" value={formData.title} onChange={handleChange} className="w-full border p-4 rounded-xl" required />
-            <input name="address" placeholder="Дэлгэрэнгүй хаяг" value={formData.address} onChange={handleChange} className="w-full border p-4 rounded-xl" required />
+            {/* Map pin товч */}
+            <button type="button" onClick={() => setShowMapModal(true)}
+              className={`w-full p-4 rounded-xl border-2 text-left font-medium transition ${
+                pinCoords
+                  ? "border-green-400 bg-green-50 text-green-700"
+                  : "border-dashed border-gray-300 text-gray-500 hover:border-indigo-300"
+              }`}>
+              {pinCoords
+                ? `🗺️ Байршил тэмдэглэгдсэн (${pinCoords[0].toFixed(4)}, ${pinCoords[1].toFixed(4)}) — өөрчлөх`
+                : "🗺️ Газрын зураг дээр байршил тэмдэглэх"}
+            </button>
+
+            <input name="title" placeholder="Зарын гарчиг" value={formData.title} onChange={handleChange} className={inputCls} required />
+            <input name="address" placeholder="Дэлгэрэнгүй хаяг" value={formData.address} onChange={handleChange} className={inputCls} required />
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-              <select name="rooms" value={formData.rooms} onChange={handleChange} className="border p-4 rounded-xl" required>
+              <select name="rooms" value={formData.rooms} onChange={handleChange} className={selectCls} required>
                 <option value="">Өрөө сонгох</option>
                 {[1,2,3,4,5].map(n => <option key={n} value={n}>{n} өрөө</option>)}
               </select>
-              <select name="balconyCount" value={formData.balconyCount} onChange={handleChange} className="border p-4 rounded-xl">
+              <select name="balconyCount" value={formData.balconyCount} onChange={handleChange} className={selectCls}>
                 <option value="">Тагт</option>
                 <option value="0">Тагтгүй</option>
                 <option value="1">1 тагттай</option>
                 <option value="2">2 тагттай</option>
                 <option value="3">3+ тагттай</option>
               </select>
-              <select name="doorType" value={formData.doorType} onChange={handleChange} className="border p-4 rounded-xl">
+              <select name="doorType" value={formData.doorType} onChange={handleChange} className={selectCls}>
                 <option value="">Хаалга</option>
                 {["Мод","Төмөр","Бүргэд","Вакум"].map(v => <option key={v} value={v}>{v}</option>)}
               </select>
-              <select name="garageInfo" value={formData.garageInfo} onChange={handleChange} className="border p-4 rounded-xl">
+              <select name="garageInfo" value={formData.garageInfo} onChange={handleChange} className={selectCls}>
                 <option value="">Гараж</option>
                 <option value="Байгаа">Байгаа</option>
                 <option value="Байхгүй">Байхгүй</option>
               </select>
-              <select name="windowType" value={formData.windowType} onChange={handleChange} className="border p-4 rounded-xl">
+              <select name="windowType" value={formData.windowType} onChange={handleChange} className={selectCls}>
                 <option value="">Цонх</option>
                 {["Мод","Вакум","Төмөр вакум","Модон вакум"].map(v => <option key={v} value={v}>{v}</option>)}
               </select>
-              <select name="floorMaterial" value={formData.floorMaterial} onChange={handleChange} className="border p-4 rounded-xl">
+              <select name="floorMaterial" value={formData.floorMaterial} onChange={handleChange} className={selectCls}>
                 <option value="">Шал</option>
                 {["Мод","Паркет","Ламинат","Чулуу","Плита"].map(v => <option key={v} value={v}>{v}</option>)}
               </select>
-              <input name="area" inputMode="numeric" placeholder="Талбай м²" value={formData.area} onChange={handleChange} className="border p-4 rounded-xl" required />
-              <select name="windowCount" value={formData.windowCount} onChange={handleChange} className="border p-4 rounded-xl">
+              <input name="area" inputMode="numeric" placeholder="Талбай м²" value={formData.area} onChange={handleChange} className={inputCls} required />
+              <select name="windowCount" value={formData.windowCount} onChange={handleChange} className={selectCls}>
                 <option value="">Цонхны тоо</option>
                 {numbers.slice(0,10).map(n => <option key={n} value={n}>{n}</option>)}
               </select>
-              <select name="floorNumber" value={formData.floorNumber} onChange={handleChange} className="border p-4 rounded-xl">
+              <select name="floorNumber" value={formData.floorNumber} onChange={handleChange} className={selectCls}>
                 <option value="">Хэдэн давхарт</option>
                 {numbers.map(n => <option key={n} value={n}>{n}</option>)}
               </select>
-              <select name="builtYear" value={formData.builtYear} onChange={handleChange} className="border p-4 rounded-xl">
+              <select name="builtYear" value={formData.builtYear} onChange={handleChange} className={selectCls}>
                 <option value="">Ашиглалтад орсон он</option>
                 {years.map(y => <option key={y} value={y}>{y}</option>)}
               </select>
-              <select name="totalFloors" value={formData.totalFloors} onChange={handleChange} className="border p-4 rounded-xl">
+              <select name="totalFloors" value={formData.totalFloors} onChange={handleChange} className={selectCls}>
                 <option value="">Барилгын давхар</option>
                 {numbers.map(n => <option key={n} value={n}>{n}</option>)}
               </select>
-              <select name="paymentConditionText" value={formData.paymentConditionText} onChange={handleChange} className="border p-4 rounded-xl">
+              <select name="paymentConditionText" value={formData.paymentConditionText} onChange={handleChange} className={selectCls}>
                 <option value="">Төлбөрийн нөхцөл</option>
                 {["Барьцаа байхгүй","1+1","2+1","3+1","4+1","5+1","6+1","12+1"].map(v => <option key={v} value={v}>{v}</option>)}
               </select>
-              <select name="isFurnished" value={formData.isFurnished} onChange={handleChange} className="border p-4 rounded-xl" required>
+              <select name="isFurnished" value={formData.isFurnished} onChange={handleChange} className={selectCls} required>
                 <option value="">Тавилга</option>
                 <option value="Тавилгатай">Тавилгатай</option>
                 <option value="Тавилгагүй">Тавилгагүй</option>
               </select>
-              <select name="hasOutdoorParking" value={formData.hasOutdoorParking} onChange={handleChange} className="border p-4 rounded-xl" required>
+              <select name="hasOutdoorParking" value={formData.hasOutdoorParking} onChange={handleChange} className={selectCls} required>
                 <option value="">Гадна зогсоол</option>
                 <option value="Байгаа">Байгаа</option>
                 <option value="Байхгүй">Байхгүй</option>
               </select>
             </div>
 
-            <input name="monthlyRent" inputMode="numeric" placeholder="Үнэ ₮" value={formData.monthlyRent} onChange={handleChange} className="w-full border p-4 rounded-xl" required />
+            <input name="monthlyRent" inputMode="numeric" placeholder="Үнэ ₮" value={formData.monthlyRent} onChange={handleChange} className={inputCls} required />
 
             <div>
               <h2 className="text-xl font-bold mb-4">Холбоо барих мэдээлэл</h2>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                <input name="contactName" placeholder="Нэр" value={formData.contactName} onChange={handleChange} className="border p-4 rounded-xl" required />
-                <input name="contactPhone" placeholder="Утасны дугаар" value={formData.contactPhone} onChange={handleChange} className="border p-4 rounded-xl" required />
-                <input name="contactEmail" placeholder="Имэйл" value={formData.contactEmail} onChange={handleChange} className="border p-4 rounded-xl" />
+                <input name="contactName" placeholder="Нэр" value={formData.contactName} onChange={handleChange} className={inputCls} required />
+                <input name="contactPhone" placeholder="Утасны дугаар" value={formData.contactPhone} onChange={handleChange} className={inputCls} required />
+                <input name="contactEmail" placeholder="Имэйл" value={formData.contactEmail} onChange={handleChange} className={inputCls} />
               </div>
             </div>
 
@@ -252,7 +316,8 @@ function EditProperty() {
                   {existingImages.map((img, index) => (
                     <div key={index} className="relative">
                       <img src={img} alt="" className="h-32 w-full object-cover rounded-xl" />
-                      <button type="button" onClick={() => removeExistingImage(index)} className="absolute top-2 right-2 bg-red-500 text-white w-7 h-7 rounded-full text-lg leading-none">×</button>
+                      <button type="button" onClick={() => removeExistingImage(index)}
+                        className="absolute top-2 right-2 bg-red-500 text-white w-7 h-7 rounded-full text-lg leading-none">×</button>
                     </div>
                   ))}
                 </div>
@@ -263,7 +328,6 @@ function EditProperty() {
               <h2 className="text-xl font-bold mb-3">Шинэ зураг нэмэх</h2>
               <label className="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-2xl p-8 cursor-pointer hover:border-indigo-500 transition">
                 <span className="text-gray-600 mb-1">Зургаа сонгох</span>
-                <span className="text-sm text-gray-400">Нэг болон түүнээс дээш зураг</span>
                 <input type="file" accept="image/*" multiple onChange={handleNewImages} className="hidden" />
               </label>
               {newImagePreviews.length > 0 && (
@@ -271,7 +335,8 @@ function EditProperty() {
                   {newImagePreviews.map((img, index) => (
                     <div key={index} className="relative">
                       <img src={img} alt="" className="h-32 w-full object-cover rounded-xl" />
-                      <button type="button" onClick={() => removeNewImage(index)} className="absolute top-2 right-2 bg-red-500 text-white w-7 h-7 rounded-full text-lg leading-none">×</button>
+                      <button type="button" onClick={() => removeNewImage(index)}
+                        className="absolute top-2 right-2 bg-red-500 text-white w-7 h-7 rounded-full text-lg leading-none">×</button>
                     </div>
                   ))}
                 </div>
@@ -287,6 +352,7 @@ function EditProperty() {
         </div>
       </div>
 
+      {/* Дүүрэг/Хороо Modal */}
       {showLocationModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-3xl p-8 w-[90%] max-w-4xl">
@@ -302,8 +368,7 @@ function EditProperty() {
                 {districts.map((d) => (
                   <button key={d} type="button"
                     onClick={() => setFormData((prev) => ({ ...prev, city: "Улаанбаатар", district: d, khoroo: "" }))}
-                    className={`w-full p-3 rounded-xl text-left ${formData.district === d ? "bg-yellow-200" : "bg-gray-100"}`}
-                  >
+                    className={`w-full p-3 rounded-xl text-left ${formData.district === d ? "bg-yellow-200" : "bg-gray-100"}`}>
                     {d}
                   </button>
                 ))}
@@ -312,16 +377,61 @@ function EditProperty() {
                 {khoroos.map((k) => (
                   <button key={k} type="button"
                     onClick={() => setFormData((prev) => ({ ...prev, khoroo: k }))}
-                    className={`w-full p-3 rounded-xl text-left ${formData.khoroo === k ? "bg-yellow-200" : "bg-gray-100"}`}
-                  >
+                    className={`w-full p-3 rounded-xl text-left ${formData.khoroo === k ? "bg-yellow-200" : "bg-gray-100"}`}>
                     {k}
                   </button>
                 ))}
               </div>
             </div>
-            <button type="button" onClick={() => setShowLocationModal(false)} className="mt-6 w-full bg-yellow-400 py-4 rounded-xl font-bold">
+            <button type="button" onClick={() => setShowLocationModal(false)}
+              className="mt-6 w-full bg-yellow-400 py-4 rounded-xl font-bold">
               Үргэлжлүүлэх
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Leaflet Map Modal */}
+      {showMapModal && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl">
+            <div className="p-4 border-b flex items-center justify-between">
+              <div>
+                <h2 className="font-bold text-lg">Байршил тэмдэглэх</h2>
+                <p className="text-sm text-gray-500">Map дээр байрны байршил дээр дарна уу</p>
+              </div>
+              <button onClick={() => setShowMapModal(false)} className="text-2xl text-gray-400">×</button>
+            </div>
+            {pinCoords && (
+              <div className="px-4 py-2 bg-green-50 text-green-700 text-sm">
+                📍 Сонгосон: {pinCoords[0].toFixed(5)}, {pinCoords[1].toFixed(5)}
+              </div>
+            )}
+            <MapContainer
+              center={pinCoords || mapCenter}
+              zoom={14}
+              style={{ height: "400px", width: "100%" }}
+              scrollWheelZoom={true}
+            >
+              <TileLayer
+                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              />
+              <MapPinSelector onSelect={handlePinSelect} />
+              {pinCoords && <Marker position={pinCoords} />}
+            </MapContainer>
+            <div className="p-4 flex gap-3">
+              {pinCoords && (
+                <button type="button" onClick={() => setPinCoords(null)}
+                  className="flex-1 border border-gray-200 py-3 rounded-xl text-gray-600 hover:bg-gray-50 text-sm">
+                  Арилгах
+                </button>
+              )}
+              <button type="button" onClick={() => setShowMapModal(false)}
+                className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-medium text-sm">
+                {pinCoords ? "✓ Хадгалах" : "Хаах"}
+              </button>
+            </div>
           </div>
         </div>
       )}

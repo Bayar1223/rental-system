@@ -103,6 +103,9 @@ exports.createProperty = async (req, res) => {
       hasGarage:         req.body.hasGarage        === "true",
       isFurnished:       req.body.isFurnished       === "true",
       hasOutdoorParking: req.body.hasOutdoorParking === "true",
+      // ← НЭМСЭН: Газрын зургийн координат
+      latitude:          toNum(req.body.latitude)  ?? null,
+      longitude:         toNum(req.body.longitude) ?? null,
       images:            imageUrls,
       owner:             req.user._id || req.user.id,
     });
@@ -165,6 +168,9 @@ exports.updateProperty = async (req, res) => {
       contactName:          req.body.contactName   || property.contactName,
       contactPhone:         req.body.contactPhone  || property.contactPhone,
       contactEmail:         req.body.contactEmail  || property.contactEmail,
+      // ← НЭМСЭН: Координат (илгээгдсэн бол шинэчлэх, эсвэл хуучнаар)
+      latitude:             toNum(req.body.latitude)  ?? property.latitude  ?? null,
+      longitude:            toNum(req.body.longitude) ?? property.longitude ?? null,
       images:               allImages.length > 0 ? allImages : property.images,
     };
 

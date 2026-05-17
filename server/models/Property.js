@@ -11,6 +11,10 @@ const propertySchema = new mongoose.Schema(
       address: { type: String, required: true },
     },
 
+    // ← НЭМСЭН: Газрын зургийн координат
+    latitude:  { type: Number, default: null },
+    longitude: { type: Number, default: null },
+
     monthlyRent: { type: Number, required: true },
     depositAmount: { type: Number, default: 0 },
 
