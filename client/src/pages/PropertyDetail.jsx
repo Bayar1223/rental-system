@@ -1,13 +1,17 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import api from "../api/axiosInstance";
 import Navbar from "../components/Navbar";
+
+// Tenant энэ байрыг идэвхтэй түрээсэлж байгаа эсэхийг шалгах
+const ACTIVE_RENTAL_STATUSES = ["signed", "payment_pending", "active"];
 
 function PropertyDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
 
   const [property, setProperty] = useState(null);
+  const [myRental, setMyRental] = useState(null); // ← tenant-ийн идэвхтэй гэрээ
   const [selectedImageIndex, setSelectedImageIndex] = useState(null);
   const [showApplyModal, setShowApplyModal] = useState(false);
   const [applySuccess, setApplySuccess] = useState(false);
@@ -20,6 +24,8 @@ function PropertyDetail() {
 
   const currentUser = JSON.parse(localStorage.getItem("user"));
   const token = localStorage.getItem("token");
+  const currentUserId = currentUser?._id || currentUser?.id;
+  const currentUserRole = currentUser?.role;
 
   useEffect(() => {
     const fetchProperty = async () => {
@@ -32,6 +38,25 @@ function PropertyDetail() {
     };
     fetchProperty();
   }, [id]);
+
+  // Tenant бол өөрийн энэ байртай холбоотой идэвхтэй гэрээ байгаа эсэхийг шалгана
+  useEffect(() => {
+    if (!token || !currentUserRole || currentUserRole !== "tenant") return;
+    const checkRental = async () => {
+      try {
+        const res = await api.get("/api/applications/my");
+        const active = res.data.find(
+          (app) =>
+            app.property?._id === id &&
+            ACTIVE_RENTAL_STATUSES.includes(app.contractStatus)
+        );
+        setMyRental(active || null);
+      } catch {
+        // чимээгүй алдаатай
+      }
+    };
+    checkRental();
+  }, [id, token, currentUserRole]);
 
   if (!property) {
     return (
@@ -49,29 +74,17 @@ function PropertyDetail() {
       ? property.images
       : ["https://images.unsplash.com/photo-1502672260266-1c1ef2d93688"];
 
-  const ownerId =
-    typeof property.owner === "object" ? property.owner?._id : property.owner;
-  const currentUserId = currentUser?._id || currentUser?.id;
-  const isOwner =
-    currentUserId && ownerId && String(currentUserId) === String(ownerId);
+  const ownerId = typeof property.owner === "object" ? property.owner?._id : property.owner;
+  const isOwner = currentUserId && ownerId && String(currentUserId) === String(ownerId);
+  const isRented = property.status === "rented";
 
-  const fullAddress = `${property.location?.city || ""} ${
-    property.location?.district || ""
-  } ${property.location?.address || ""}`;
-
-  const mapUrl = `https://maps.google.com/maps?q=${encodeURIComponent(
-    fullAddress
-  )}&t=&z=15&ie=UTF8&iwloc=&output=embed`;
-
-  const estimatedTotal =
-    property.monthlyRent * Number(applyForm.leaseMonths || 0);
+  const fullAddress = `${property.location?.city || ""} ${property.location?.district || ""} ${property.location?.address || ""}`;
+  const mapUrl = `https://maps.google.com/maps?q=${encodeURIComponent(fullAddress)}&t=&z=15&ie=UTF8&iwloc=&output=embed`;
+  const estimatedTotal = property.monthlyRent * Number(applyForm.leaseMonths || 0);
 
   const handleApply = async (e) => {
     e.preventDefault();
-    if (!token) {
-      navigate("/login");
-      return;
-    }
+    if (!token) { navigate("/login"); return; }
     setApplying(true);
     try {
       await api.post("/api/applications", {
@@ -87,6 +100,62 @@ function PropertyDetail() {
     } finally {
       setApplying(false);
     }
+  };
+
+  // Sidebar-д харуулах хэсгийг тодорхойлох
+  const renderSidebarAction = () => {
+    // 1. Энэ байрны эзэн
+    if (isOwner) {
+      return (
+        <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 text-sm text-blue-700 text-center">
+          Энэ таны байр
+        </div>
+      );
+    }
+
+    // 2. Tenant өөрөө энэ байрыг идэвхтэй түрээсэлж байна
+    if (myRental) {
+      return (
+        <div className="bg-green-50 border border-green-200 rounded-2xl p-4 text-center space-y-3">
+          <p className="text-green-700 font-semibold text-sm">✓ Та энэ байрыг түрээсэлж байна</p>
+          <Link
+            to="/my-rentals"
+            className="block w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-xl font-medium text-sm transition text-center"
+          >
+            🏠 Миний түрээс харах
+          </Link>
+          <Link
+            to={`/contract/${myRental._id}`}
+            className="block w-full bg-white border border-green-300 hover:bg-green-50 text-green-700 py-3 rounded-xl font-medium text-sm transition text-center"
+          >
+            📄 Гэрээ харах
+          </Link>
+        </div>
+      );
+    }
+
+    // 3. Байр түрээслэгдсэн (өөр хэн нэгнээр)
+    if (isRented) {
+      return (
+        <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4 text-sm text-gray-500 text-center">
+          🔒 Энэ байр одоогоор түрээслэгдсэн байна
+        </div>
+      );
+    }
+
+    // 4. Хүсэлт илгээх товч (хэвийн тохиолдол)
+    return (
+      <button
+        onClick={() => {
+          if (!token) { navigate("/login"); return; }
+          setShowApplyModal(true);
+        }}
+        disabled={applySuccess}
+        className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-4 rounded-2xl font-bold text-lg transition disabled:opacity-60"
+      >
+        {applySuccess ? "✓ Хүсэлт илгээгдсэн" : "Түрээслэх хүсэлт илгээх"}
+      </button>
+    );
   };
 
   return (
@@ -115,6 +184,16 @@ function PropertyDetail() {
             onClick={() => setSelectedImageIndex(0)}
             className="w-full h-64 md:h-[420px] object-cover cursor-pointer"
           />
+          {isRented && !myRental && (
+            <div className="absolute top-4 left-4 bg-gray-800/80 text-white text-xs font-semibold px-3 py-1 rounded-full">
+              🔒 Түрээслэгдсэн
+            </div>
+          )}
+          {myRental && (
+            <div className="absolute top-4 left-4 bg-green-600/90 text-white text-xs font-semibold px-3 py-1 rounded-full">
+              ✓ Таны түрээс
+            </div>
+          )}
         </div>
 
         {images.length > 1 && (
@@ -190,12 +269,7 @@ function PropertyDetail() {
               <div className="p-5 border-b border-gray-100">
                 <h2 className="text-xl font-bold">Байршил</h2>
               </div>
-              <iframe
-                title="map"
-                src={mapUrl}
-                className="w-full h-64 md:h-80"
-                loading="lazy"
-              />
+              <iframe title="map" src={mapUrl} className="w-full h-64 md:h-80" loading="lazy" />
             </div>
           </div>
 
@@ -224,23 +298,8 @@ function PropertyDetail() {
               </div>
             </div>
 
-            {/* Хүсэлт илгээх */}
-            {isOwner ? (
-              <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 text-sm text-blue-700 text-center">
-                Энэ таны байр
-              </div>
-            ) : (
-              <button
-                onClick={() => {
-                  if (!token) { navigate("/login"); return; }
-                  setShowApplyModal(true);
-                }}
-                disabled={applySuccess}
-                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-4 rounded-2xl font-bold text-lg transition disabled:opacity-60"
-              >
-                {applySuccess ? "✓ Хүсэлт илгээгдсэн" : "Түрээслэх хүсэлт илгээх"}
-              </button>
-            )}
+            {/* ← ӨӨРЧЛӨЛТ: renderSidebarAction() */}
+            {renderSidebarAction()}
 
             {/* Төлбөрийн нөхцөл */}
             <div className="bg-white p-5 rounded-2xl shadow text-sm">
@@ -248,7 +307,9 @@ function PropertyDetail() {
               <div className="space-y-2 text-gray-600">
                 <div className="flex justify-between">
                   <span>Барьцаа мөнгө</span>
-                  <span className="font-medium">{property.depositAmount ? `${property.depositAmount.toLocaleString()}₮` : "—"}</span>
+                  <span className="font-medium">
+                    {property.depositAmount ? `${property.depositAmount.toLocaleString()}₮` : "—"}
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span>Хамгийн бага хугацаа</span>

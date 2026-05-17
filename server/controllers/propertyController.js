@@ -13,7 +13,8 @@ exports.getProperties = async (req, res) => {
       page = 1, limit = 9,
     } = req.query;
 
-    const filter = {};
+    // ← ӨӨРЧЛӨЛТ: зөвхөн "available" байр харагдана
+    const filter = { status: "available" };
 
     if (city) filter["location.city"] = city;
     if (district) filter["location.district"] = district;
