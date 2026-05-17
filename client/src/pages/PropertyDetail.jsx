@@ -408,129 +408,6 @@ function PropertyDetail() {
             </div>
           </div>
 
-          {/* ====== REVIEW SECTION ====== */}
-          <div className="bg-white rounded-2xl shadow p-5 md:p-6">
-            <div className="flex items-center justify-between mb-5">
-              <div>
-                <h2 className="text-xl font-bold">Үнэлгээ ба сэтгэгдэл</h2>
-                {reviews.length > 0 && (
-                  <div className="flex items-center gap-2 mt-1">
-                    <div className="flex">
-                      {[1,2,3,4,5].map((s) => (
-                        <span key={s} className={`text-lg ${s <= Math.round(avgRating) ? "text-yellow-400" : "text-gray-200"}`}>★</span>
-                      ))}
-                    </div>
-                    <span className="font-bold text-gray-900">{avgRating}</span>
-                    <span className="text-gray-500 text-sm">({reviews.length} үнэлгээ)</span>
-                  </div>
-                )}
-              </div>
-              {canReview && !showReviewForm && (
-                <button
-                  onClick={() => setShowReviewForm(true)}
-                  className="text-sm bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl font-medium transition"
-                >
-                  {myReview ? "✏️ Засах" : "⭐ Үнэлгээ өгөх"}
-                </button>
-              )}
-            </div>
-
-            {/* Review form */}
-            {showReviewForm && (
-              <form onSubmit={handleSubmitReview} className="bg-indigo-50 rounded-xl p-4 mb-5">
-                <p className="font-semibold text-sm text-gray-700 mb-3">Үнэлгээ өгөх</p>
-                {/* Одны үнэлгээ */}
-                <div className="flex gap-1 mb-3">
-                  {[1,2,3,4,5].map((s) => (
-                    <button
-                      key={s}
-                      type="button"
-                      onClick={() => setReviewRating(s)}
-                      className={`text-2xl transition ${s <= reviewRating ? "text-yellow-400" : "text-gray-300 hover:text-yellow-300"}`}
-                    >
-                      ★
-                    </button>
-                  ))}
-                  <span className="ml-2 text-sm text-gray-500 self-center">{reviewRating}/5</span>
-                </div>
-                <textarea
-                  rows={3}
-                  placeholder="Сэтгэгдэл бичих..."
-                  value={reviewComment}
-                  onChange={(e) => setReviewComment(e.target.value)}
-                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-indigo-400 resize-none mb-3"
-                />
-                <div className="flex gap-2">
-                  <button type="button" onClick={() => setShowReviewForm(false)}
-                    className="flex-1 border border-gray-200 py-2.5 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition">
-                    Болих
-                  </button>
-                  <button type="submit" disabled={submittingReview}
-                    className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-xl text-sm font-medium transition disabled:opacity-50">
-                    {submittingReview ? "Хадгалж байна..." : "Хадгалах"}
-                  </button>
-                </div>
-              </form>
-            )}
-
-            {/* Reviews жагсаалт */}
-            {reviews.length === 0 ? (
-              <div className="text-center py-8 text-gray-400">
-                <div className="text-4xl mb-2">⭐</div>
-                <p className="text-sm">Үнэлгээ байхгүй байна</p>
-                {canReview && <p className="text-xs mt-1">Та эхний үнэлгээ өгч болно!</p>}
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {reviews.map((review) => {
-                  const isOwner = review.tenant?._id === currentUserId ||
-                    review.tenant?._id?.toString() === currentUserId;
-                  return (
-                    <div key={review._id} className={`border rounded-xl p-4 ${isOwner ? "border-indigo-200 bg-indigo-50/30" : "border-gray-100"}`}>
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0 overflow-hidden">
-                            {review.tenant?.avatar
-                              ? <img src={review.tenant.avatar} alt="" className="w-full h-full object-cover" />
-                              : <span className="text-indigo-600 font-bold text-sm">
-                                  {review.tenant?.firstName?.[0]?.toUpperCase()}
-                                </span>
-                            }
-                          </div>
-                          <div>
-                            <p className="font-semibold text-sm text-gray-900">
-                              {review.tenant?.firstName} {review.tenant?.lastName}
-                              {isOwner && <span className="ml-1 text-xs text-indigo-600">(Та)</span>}
-                            </p>
-                            <div className="flex items-center gap-1 mt-0.5">
-                              {[1,2,3,4,5].map((s) => (
-                                <span key={s} className={`text-sm ${s <= review.rating ? "text-yellow-400" : "text-gray-200"}`}>★</span>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          <span className="text-xs text-gray-400">
-                            {new Date(review.createdAt).toLocaleDateString("mn-MN")}
-                          </span>
-                          {isOwner && (
-                            <button onClick={() => handleDeleteReview(review._id)}
-                              className="text-xs text-red-400 hover:text-red-600 transition">
-                              Устгах
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                      {review.comment && (
-                        <p className="text-sm text-gray-600 mt-3 leading-relaxed">{review.comment}</p>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
           <div className="space-y-4">
             <div className="bg-white p-5 rounded-2xl shadow">
               <h3 className="font-bold text-lg mb-3">Холбоо барих</h3>
@@ -571,6 +448,124 @@ function PropertyDetail() {
               </div>
             </div>
           </div>
+        </div>
+
+        {/* ====== REVIEW SECTION — Grid-ийн доор ====== */}
+        <div className="mt-6 bg-white rounded-2xl shadow p-5 md:p-6">
+          <div className="flex items-center justify-between mb-5">
+            <div>
+              <h2 className="text-xl font-bold">Үнэлгээ ба сэтгэгдэл</h2>
+              {reviews.length > 0 && (
+                <div className="flex items-center gap-2 mt-1">
+                  <div className="flex">
+                    {[1,2,3,4,5].map((s) => (
+                      <span key={s} className={`text-lg ${s <= Math.round(avgRating) ? "text-yellow-400" : "text-gray-200"}`}>★</span>
+                    ))}
+                  </div>
+                  <span className="font-bold text-gray-900">{avgRating}</span>
+                  <span className="text-gray-500 text-sm">({reviews.length} үнэлгээ)</span>
+                </div>
+              )}
+            </div>
+            {canReview && !showReviewForm && (
+              <button
+                onClick={() => setShowReviewForm(true)}
+                className="text-sm bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl font-medium transition"
+              >
+                {myReview ? "✏️ Засах" : "⭐ Үнэлгээ өгөх"}
+              </button>
+            )}
+          </div>
+
+          {/* Review form */}
+          {showReviewForm && (
+            <form onSubmit={handleSubmitReview} className="bg-indigo-50 rounded-xl p-4 mb-5 max-w-2xl">
+              <p className="font-semibold text-sm text-gray-700 mb-3">Үнэлгээ өгөх</p>
+              <div className="flex gap-1 mb-3">
+                {[1,2,3,4,5].map((s) => (
+                  <button key={s} type="button" onClick={() => setReviewRating(s)}
+                    className={`text-3xl transition ${s <= reviewRating ? "text-yellow-400" : "text-gray-300 hover:text-yellow-300"}`}>
+                    ★
+                  </button>
+                ))}
+                <span className="ml-2 text-sm text-gray-500 self-center">{reviewRating}/5</span>
+              </div>
+              <textarea
+                rows={3}
+                placeholder="Сэтгэгдэл бичих..."
+                value={reviewComment}
+                onChange={(e) => setReviewComment(e.target.value)}
+                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-indigo-400 resize-none mb-3"
+              />
+              <div className="flex gap-2 max-w-xs">
+                <button type="button" onClick={() => setShowReviewForm(false)}
+                  className="flex-1 border border-gray-200 py-2.5 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition">
+                  Болих
+                </button>
+                <button type="submit" disabled={submittingReview}
+                  className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-xl text-sm font-medium transition disabled:opacity-50">
+                  {submittingReview ? "Хадгалж байна..." : "Хадгалах"}
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* Reviews жагсаалт */}
+          {reviews.length === 0 ? (
+            <div className="text-center py-8 text-gray-400">
+              <div className="text-4xl mb-2">⭐</div>
+              <p className="text-sm">Үнэлгээ байхгүй байна</p>
+              {canReview && <p className="text-xs mt-1 text-indigo-500">Та эхний үнэлгээ өгч болно!</p>}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {reviews.map((review) => {
+                const isMyReview = review.tenant?._id === currentUserId ||
+                  review.tenant?._id?.toString() === currentUserId;
+                return (
+                  <div key={review._id} className={`border rounded-xl p-4 ${isMyReview ? "border-indigo-200 bg-indigo-50/30" : "border-gray-100"}`}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                          {review.tenant?.avatar
+                            ? <img src={review.tenant.avatar} alt="" className="w-full h-full object-cover" />
+                            : <span className="text-indigo-600 font-bold text-sm">
+                                {review.tenant?.firstName?.[0]?.toUpperCase()}
+                              </span>
+                          }
+                        </div>
+                        <div>
+                          <p className="font-semibold text-sm text-gray-900">
+                            {review.tenant?.firstName} {review.tenant?.lastName}
+                            {isMyReview && <span className="ml-1 text-xs text-indigo-600">(Та)</span>}
+                          </p>
+                          <div className="flex items-center gap-0.5 mt-0.5">
+                            {[1,2,3,4,5].map((s) => (
+                              <span key={s} className={`text-sm ${s <= review.rating ? "text-yellow-400" : "text-gray-200"}`}>★</span>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <span className="text-xs text-gray-400">
+                          {new Date(review.createdAt).toLocaleDateString("mn-MN")}
+                        </span>
+                        {isMyReview && (
+                          <button onClick={() => handleDeleteReview(review._id)}
+                            className="text-xs text-red-400 hover:text-red-600 transition">
+                            Устгах
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    {review.comment && (
+                      <p className="text-sm text-gray-600 mt-3 leading-relaxed">{review.comment}</p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
 
