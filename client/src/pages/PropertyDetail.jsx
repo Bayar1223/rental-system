@@ -132,6 +132,15 @@ function PropertyDetail() {
   };
 
   const renderSidebarAction = () => {
+    // 0. Admin — хүсэлт илгээх боломжгүй
+    if (currentUserRole === "admin") {
+      return (
+        <div className="bg-purple-50 border border-purple-200 rounded-2xl p-4 text-sm text-purple-700 text-center">
+          ⚙️ Admin горимд хүсэлт илгээх боломжгүй
+        </div>
+      );
+    }
+
     if (isOwner) {
       return (
         <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 text-sm text-blue-700 text-center">
