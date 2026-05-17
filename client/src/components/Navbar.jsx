@@ -168,7 +168,8 @@ function Navbar() {
                       <h3 className="font-bold text-gray-800">Мэдэгдлүүд</h3>
                       <span className="text-xs text-gray-400">{notifications.length} мэдэгдэл</span>
                     </div>
-                    <div className="max-h-72 overflow-y-auto">
+                    {/* Scroll container — тогтмол өндөртэй */}
+                    <div className="max-h-60 overflow-y-auto">
                       {notifications.length === 0 ? (
                         <div className="py-10 text-center text-gray-400">
                           <div className="text-3xl mb-2">🔔</div>
@@ -189,11 +190,11 @@ function Navbar() {
                         </button>
                       ))}
                     </div>
-                    {/* ← НЭМСЭН: Бүгдийг харах холбоос */}
+                    {/* "Бүгдийг харах" — scroll-оос ГАДНА, үргэлж харагдана */}
                     <Link
                       to="/notifications"
                       onClick={() => setShowNotif(false)}
-                      className="block text-center text-xs text-indigo-600 hover:text-indigo-700 py-2.5 hover:bg-indigo-50 border-t border-gray-100 font-medium transition"
+                      className="flex items-center justify-center gap-1 text-xs text-indigo-600 hover:text-indigo-700 py-2.5 hover:bg-indigo-50 border-t border-gray-100 font-medium transition"
                     >
                       Бүгдийг харах →
                     </Link>
@@ -407,7 +408,7 @@ function Navbar() {
               <h3 className="font-bold text-gray-800">Мэдэгдлүүд</h3>
               <button onClick={() => setShowNotif(false)} className="text-gray-400 text-2xl leading-none">×</button>
             </div>
-            <div className="max-h-64 overflow-y-auto">
+            <div className="max-h-52 overflow-y-auto">
               {notifications.length === 0 ? (
                 <div className="py-8 text-center text-gray-400 text-sm">Мэдэгдэл байхгүй байна</div>
               ) : notifications.slice(0, 5).map((n) => (
@@ -424,11 +425,11 @@ function Navbar() {
                 </button>
               ))}
             </div>
-            {/* ← НЭМСЭН: Mobile "Бүгдийг харах" */}
+            {/* "Бүгдийг харах" — scroll-оос ГАДНА */}
             <Link
               to="/notifications"
               onClick={() => setShowNotif(false)}
-              className="block text-center text-xs text-indigo-600 hover:text-indigo-700 py-2.5 hover:bg-indigo-50 border-t border-gray-100 font-medium transition"
+              className="flex items-center justify-center gap-1 text-xs text-indigo-600 hover:text-indigo-700 py-2.5 hover:bg-indigo-50 border-t border-gray-100 font-medium transition"
             >
               Бүгдийг харах →
             </Link>
