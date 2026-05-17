@@ -1,7 +1,18 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import "leaflet/dist/leaflet.css";
+import L from "leaflet";
 import api from "../api/axiosInstance";
 import Navbar from "../components/Navbar";
+
+// Leaflet default marker icon fix
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
+  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
+  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+});
 
 // Tenant энэ байрыг идэвхтэй түрээсэлж байгаа эсэхийг шалгах
 const ACTIVE_RENTAL_STATUSES = ["signed", "payment_pending", "active"];
@@ -11,7 +22,8 @@ function PropertyDetail() {
   const navigate = useNavigate();
 
   const [property, setProperty] = useState(null);
-  const [myRental, setMyRental] = useState(null); // ← tenant-ийн идэвхтэй гэрээ
+  const [myRental, setMyRental] = useState(null);
+  const [mapCoords, setMapCoords] = useState(null); // [lat, lng]
   const [selectedImageIndex, setSelectedImageIndex] = useState(null);
   const [showApplyModal, setShowApplyModal] = useState(false);
   const [applySuccess, setApplySuccess] = useState(false);
@@ -38,6 +50,36 @@ function PropertyDetail() {
     };
     fetchProperty();
   }, [id]);
+
+  // Nominatim geocoding — хаяг → координат
+  useEffect(() => {
+    if (!property) return;
+    const address = [
+      property.location?.address,
+      property.location?.district,
+      property.location?.city || "Улаанбаатар",
+      "Монгол",
+    ].filter(Boolean).join(", ");
+
+    const geocode = async () => {
+      try {
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address)}&format=json&limit=1`,
+          { headers: { "Accept-Language": "mn" } }
+        );
+        const data = await res.json();
+        if (data && data.length > 0) {
+          setMapCoords([parseFloat(data[0].lat), parseFloat(data[0].lon)]);
+        } else {
+          // Хаяг олдохгүй бол Улаанбаатарын төв
+          setMapCoords([47.9077, 106.8832]);
+        }
+      } catch {
+        setMapCoords([47.9077, 106.8832]);
+      }
+    };
+    geocode();
+  }, [property]);
 
   // Tenant бол өөрийн энэ байртай холбоотой идэвхтэй гэрээ байгаа эсэхийг шалгана
   useEffect(() => {
@@ -77,9 +119,6 @@ function PropertyDetail() {
   const ownerId = typeof property.owner === "object" ? property.owner?._id : property.owner;
   const isOwner = currentUserId && ownerId && String(currentUserId) === String(ownerId);
   const isRented = property.status === "rented";
-
-  const fullAddress = `${property.location?.city || ""} ${property.location?.district || ""} ${property.location?.address || ""}`;
-  const mapUrl = `https://maps.google.com/maps?q=${encodeURIComponent(fullAddress)}&t=&z=15&ie=UTF8&iwloc=&output=embed`;
   const estimatedTotal = property.monthlyRent * Number(applyForm.leaseMonths || 0);
 
   const handleApply = async (e) => {
@@ -102,9 +141,7 @@ function PropertyDetail() {
     }
   };
 
-  // Sidebar-д харуулах хэсгийг тодорхойлох
   const renderSidebarAction = () => {
-    // 1. Энэ байрны эзэн
     if (isOwner) {
       return (
         <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 text-sm text-blue-700 text-center">
@@ -112,8 +149,6 @@ function PropertyDetail() {
         </div>
       );
     }
-
-    // 2. Tenant өөрөө энэ байрыг идэвхтэй түрээсэлж байна
     if (myRental) {
       return (
         <div className="bg-green-50 border border-green-200 rounded-2xl p-4 text-center space-y-3">
@@ -133,8 +168,6 @@ function PropertyDetail() {
         </div>
       );
     }
-
-    // 3. Байр түрээслэгдсэн (өөр хэн нэгнээр)
     if (isRented) {
       return (
         <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4 text-sm text-gray-500 text-center">
@@ -142,8 +175,6 @@ function PropertyDetail() {
         </div>
       );
     }
-
-    // 4. Хүсэлт илгээх товч (хэвийн тохиолдол)
     return (
       <button
         onClick={() => {
@@ -212,7 +243,6 @@ function PropertyDetail() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-          {/* Үндсэн мэдээлэл */}
           <div className="lg:col-span-2 space-y-5">
 
             <div className="bg-white p-5 md:p-8 rounded-2xl shadow">
@@ -227,7 +257,6 @@ function PropertyDetail() {
                 {property.monthlyRent?.toLocaleString()}₮
                 <span className="text-gray-400 text-base font-normal">/сар</span>
               </p>
-
               {applySuccess && (
                 <div className="mt-4 bg-green-50 border border-green-200 text-green-700 rounded-xl p-3 text-sm">
                   ✓ Таны хүсэлт амжилттай илгээгдлээ!
@@ -235,7 +264,6 @@ function PropertyDetail() {
               )}
             </div>
 
-            {/* Үзүүлэлтүүд */}
             <div className="bg-white p-5 md:p-8 rounded-2xl shadow">
               <h2 className="text-xl font-bold mb-4">Байрны мэдээлэл</h2>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
@@ -254,7 +282,6 @@ function PropertyDetail() {
               </div>
             </div>
 
-            {/* Дэлгэрэнгүй */}
             {property.details && (
               <div className="bg-white p-5 md:p-8 rounded-2xl shadow">
                 <h2 className="text-xl font-bold mb-3">Дэлгэрэнгүй мэдээлэл</h2>
@@ -264,19 +291,46 @@ function PropertyDetail() {
               </div>
             )}
 
-            {/* Газрын зураг */}
+            {/* Газрын зураг — Leaflet */}
             <div className="bg-white rounded-2xl shadow overflow-hidden">
               <div className="p-5 border-b border-gray-100">
                 <h2 className="text-xl font-bold">Байршил</h2>
+                <p className="text-sm text-gray-500 mt-0.5">
+                  📍 {property.location?.city}, {property.location?.district}
+                  {property.location?.address ? `, ${property.location.address}` : ""}
+                </p>
               </div>
-              <iframe title="map" src={mapUrl} className="w-full h-64 md:h-80" loading="lazy" />
+              {mapCoords ? (
+                <MapContainer
+                  center={mapCoords}
+                  zoom={15}
+                  style={{ height: "320px", width: "100%" }}
+                  scrollWheelZoom={false}
+                >
+                  <TileLayer
+                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                  />
+                  <Marker position={mapCoords}>
+                    <Popup>
+                      <strong>{property.title}</strong><br />
+                      {property.location?.city}, {property.location?.district}<br />
+                      {property.monthlyRent?.toLocaleString()}₮/сар
+                    </Popup>
+                  </Marker>
+                </MapContainer>
+              ) : (
+                <div className="h-80 flex items-center justify-center bg-gray-50">
+                  <div className="text-center text-gray-400">
+                    <div className="text-3xl mb-2">🗺️</div>
+                    <p className="text-sm">Газрын зураг ачааллаж байна...</p>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Sidebar */}
           <div className="space-y-4">
-
-            {/* Холбоо барих */}
             <div className="bg-white p-5 rounded-2xl shadow">
               <h3 className="font-bold text-lg mb-3">Холбоо барих</h3>
               <div className="space-y-2 text-sm">
@@ -298,10 +352,8 @@ function PropertyDetail() {
               </div>
             </div>
 
-            {/* ← ӨӨРЧЛӨЛТ: renderSidebarAction() */}
             {renderSidebarAction()}
 
-            {/* Төлбөрийн нөхцөл */}
             <div className="bg-white p-5 rounded-2xl shadow text-sm">
               <h3 className="font-bold mb-3">Төлбөрийн нөхцөл</h3>
               <div className="space-y-2 text-gray-600">
@@ -321,7 +373,6 @@ function PropertyDetail() {
         </div>
       </div>
 
-      {/* Apply Modal */}
       {showApplyModal && (
         <div
           className="fixed inset-0 bg-black/50 flex items-end md:items-center justify-center z-50 p-0 md:p-4"
@@ -388,7 +439,6 @@ function PropertyDetail() {
         </div>
       )}
 
-      {/* Зургийн fullscreen */}
       {selectedImageIndex !== null && (
         <div className="fixed inset-0 bg-black/95 z-50 flex items-center justify-center">
           <button onClick={() => setSelectedImageIndex(null)}
