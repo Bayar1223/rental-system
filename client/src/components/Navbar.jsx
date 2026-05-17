@@ -291,6 +291,13 @@ function Navbar() {
                         </>
                       )}
                     </div>
+                    {/* Admin link */}
+                    {user?.role === "admin" && (
+                      <Link to="/admin" onClick={() => setShowUserMenu(false)}
+                        className="flex items-center gap-3 px-4 py-2.5 text-sm text-purple-600 hover:bg-purple-50 transition">
+                        <span>⚙️</span> Admin Panel
+                      </Link>
+                    )}
                     <div className="border-t border-gray-100 py-1">
                       <button onClick={handleLogout}
                         className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition">
@@ -393,6 +400,12 @@ function Navbar() {
                       <span>➕</span> Байр нэмэх
                     </Link>
                   </>
+                )}
+                {user?.role === "admin" && (
+                  <Link to="/admin"
+                    className="flex items-center gap-3 px-3 py-2.5 text-sm text-purple-600 hover:bg-purple-50 rounded-xl transition">
+                    <span>⚙️</span> Admin Panel
+                  </Link>
                 )}
                 <div className="pt-2 border-t border-gray-100">
                   <button onClick={handleLogout}

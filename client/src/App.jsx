@@ -14,6 +14,7 @@ import Profile from "./pages/Profile";
 import MyRentals from "./pages/MyRentals";
 import Payment from "./pages/Payment";
 import Notifications from "./pages/Notifications";
+import AdminPanel from "./pages/AdminPanel";
 
 function App() {
   return (
@@ -34,6 +35,7 @@ function App() {
         <Route path="/my-rentals" element={<MyRentals />} />
         <Route path="/payments" element={<Payment />} />
         <Route path="/notifications" element={<Notifications />} />
+        <Route path="/admin" element={<AdminPanel />} />
       </Routes>
     </BrowserRouter>
   );
