@@ -103,14 +103,14 @@ function Profile() {
         setAvatarPreview(null);
       }
 
-      const res = await api.put("/api/users/profile", { ...formData, avatar: avatarUrl });
+      await api.put("/api/users/profile", { ...formData, avatar: avatarUrl });
 
       // localStorage шинэчлэх
       const updated = { ...currentUser, ...formData, avatar: avatarUrl };
       localStorage.setItem("user", JSON.stringify(updated));
-      setMessage(res.data.message || "Профайл амжилттай шинэчлэгдлээ");
-      // Navbar-д мэдэгдэх — custom event dispatch
-      window.dispatchEvent(new Event("userUpdated"));
+      setMessage("Профайл амжилттай шинэчлэгдлээ ✓");
+      // 1.2 секундын дараа reload — Navbar avatar шинэчлэгдэнэ
+      setTimeout(() => window.location.reload(), 1200);
     } catch (err) {
       setError(err.response?.data?.message || "Алдаа гарлаа");
       setUploadingAvatar(false);

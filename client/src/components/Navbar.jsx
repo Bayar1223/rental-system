@@ -48,7 +48,10 @@ function AvatarCircle({ avatar, firstName, size = "sm" }) {
 function Navbar() {
   const navigate = useNavigate();
 
-  const [currentUser, setCurrentUser]     = useState(() => JSON.parse(localStorage.getItem("user")));
+  const [currentUser, setCurrentUser]     = useState(() => {
+    try { return JSON.parse(localStorage.getItem("user")); }
+    catch { return null; }
+  });
   const [unreadCount, setUnreadCount]     = useState(0);
   const [notifications, setNotifications] = useState([]);
   const [showNotif, setShowNotif]         = useState(false);
