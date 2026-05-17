@@ -15,7 +15,7 @@ exports.getProfile = async (req, res) => {
 // PUT /api/users/profile — профайл засах
 exports.updateProfile = async (req, res) => {
   try {
-    const { firstName, lastName, phone, email } = req.body;
+    const { firstName, lastName, phone, email, avatar } = req.body; // ← avatar нэмсэн
     const userId = req.user._id || req.user.id;
 
     // Имэйл давхардаж байгаа эсэх шалгах
@@ -34,9 +34,13 @@ exports.updateProfile = async (req, res) => {
       }
     }
 
+    // ← ӨӨРЧЛӨЛТ: avatar-г тусад нь нэмэх
+    const updateFields = { firstName, lastName, phone, email };
+    if (avatar) updateFields.avatar = avatar;
+
     const updated = await User.findByIdAndUpdate(
       userId,
-      { firstName, lastName, phone, email },
+      updateFields,
       { new: true }
     ).select("-password");
 
