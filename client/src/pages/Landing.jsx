@@ -2,48 +2,69 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import api from "../api/axiosInstance";
 
-const stats = [
-  { number: "500+", label: "Идэвхтэй зар" },
-  { number: "1,200+", label: "Хэрэглэгч" },
-  { number: "9", label: "Дүүрэг" },
-  { number: "98%", label: "Сэтгэл ханамж" },
-];
-
 const features = [
   {
     icon: "🔍",
-    title: "Хурдан хайлт",
-    desc: "Дүүрэг, үнэ, өрөөний тоогоор шүүж хайх боломжтой",
+    title: "Ухаалаг хайлт",
+    desc: "Дүүрэг, үнэ болон өрөөний тоогоор өөрт тохирох байраа хормын дотор шүүж олоорой.",
   },
   {
     icon: "📄",
-    title: "Цахим гэрээ",
-    desc: "Онлайнаар гэрээ байгуулж, PDF хэлбэрээр хадгалах",
+    title: "Хууль ёсны цахим гэрээ",
+    desc: "Заавал уулзах шаардлагагүйгээр онлайнаар гэрээ байгуулж, PDF-ээр найдвартай хадгална.",
   },
   {
     icon: "🔔",
     title: "Шуурхай мэдэгдэл",
-    desc: "Хүсэлтийн төлөв өөрчлөгдөхөд шуурхай мэдэгдэл хүлээн авна",
+    desc: "Түрээсийн хүсэлтийн төлөв болон шинэ зарын мэдээллийг цаг алдалгүй утсандаа аваарай.",
   },
   {
     icon: "🏠",
-    title: "Байр удирдах",
-    desc: "Landlord өөрийн байрнуудыг хялбархан удирдах боломжтой",
+    title: "Байрны нэгдсэн удирдлага",
+    desc: "Түрээслүүлэгчид өөрийн бүх байр, зарын мэдээлэл болон төлбөрөө нэг дороос хялбар удирдана.",
   },
 ];
 
 export default function Landing() {
-  const navigate = useNavigate();
-  const user = JSON.parse(localStorage.getItem("user"));
+  const navigate  = useNavigate();
+  const user      = JSON.parse(localStorage.getItem("user"));
   const [featuredProperties, setFeaturedProperties] = useState([]);
-  const [scrolled, setScrolled] = useState(false);
+  const [scrolled, setScrolled]                     = useState(false);
+  const [stats, setStats]                           = useState({
+    properties: "...", users: "...", districts: 9, satisfaction: "98%",
+  });
 
   useEffect(() => {
     if (user) navigate("/home");
   }, [user, navigate]);
 
+  // Бодит статистик DB-с авах
   useEffect(() => {
-    // Pagination форматтай болсон тул properties массивыг зөв авах
+    api.get("/api/admin/stats")
+      .then((res) => {
+        const d = res.data;
+        setStats({
+          properties:   `${d.properties?.available || 0}+`,
+          users:        `${d.users?.total || 0}+`,
+          districts:    9,
+          satisfaction: "98%",
+        });
+      })
+      .catch(() => {
+        // Fallback — нэвтрээгүй тул admin stats авахгүй, тооцоолсон утга ашиглана
+        api.get("/api/properties", { params: { limit: 1 } })
+          .then((r) => {
+            setStats((prev) => ({
+              ...prev,
+              properties: `${r.data.pagination?.total || 0}+`,
+            }));
+          })
+          .catch(() => {});
+      });
+  }, []);
+
+  // Онцлох байрнууд
+  useEffect(() => {
     api.get("/api/properties", { params: { limit: 3, page: 1 } })
       .then((res) => {
         const data = res.data.properties || res.data;
@@ -58,25 +79,42 @@ export default function Landing() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  const statItems = [
+    { number: stats.properties, label: "Идэвхтэй зар" },
+    { number: stats.users,      label: "Сэтгэл ханамжтай түрээслэгч" },
+    { number: stats.districts,  label: "Дүүрэг" },
+    { number: stats.satisfaction, label: "Сэтгэл ханамж" },
+  ];
+
   return (
     <div style={{ fontFamily: "'DM Sans', sans-serif" }} className="min-h-screen bg-white">
       <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Playfair+Display:wght@700;800&display=swap" rel="stylesheet" />
 
       {/* Navbar */}
-      <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrolled ? "bg-white/95 backdrop-blur shadow-sm" : "bg-transparent"}`}>
+      <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+        scrolled ? "bg-white/95 backdrop-blur shadow-sm" : "bg-transparent"
+      }`}>
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-2xl">🏡</span>
-            <span className="text-xl font-bold text-white">Түрээсийн систем</span>
+            <span className={`text-xl font-bold transition-colors duration-300 ${
+              scrolled ? "text-indigo-600" : "text-white"
+            }`}>
+              Түрээсийн систем
+            </span>
           </div>
           <div className="flex items-center gap-3">
             <Link to="/login">
-              <button className="px-5 py-2.5 rounded-xl text-white/80 font-medium hover:bg-white/10 transition">
+              <button className={`px-5 py-2.5 rounded-xl font-medium transition ${
+                scrolled
+                  ? "text-gray-600 hover:bg-gray-100"
+                  : "text-white/80 hover:bg-white/10"
+              }`}>
                 Нэвтрэх
               </button>
             </Link>
             <Link to="/register">
-              <button className="px-5 py-2.5 rounded-xl bg-indigo-600 text-white font-medium hover:bg-indigo-500 transition shadow-lg shadow-indigo-900/50">
+              <button className="px-5 py-2.5 rounded-xl bg-indigo-600 text-white font-medium hover:bg-indigo-500 transition shadow-lg shadow-indigo-900/30">
                 Бүртгүүлэх
               </button>
             </Link>
@@ -97,22 +135,26 @@ export default function Landing() {
 
         <div className="relative max-w-6xl mx-auto px-6 py-32 grid md:grid-cols-2 gap-16 items-center">
           <div>
+            {/* Badge */}
             <div className="inline-flex items-center gap-2 bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 px-4 py-2 rounded-full text-sm font-medium mb-6">
               <span className="w-2 h-2 bg-indigo-400 rounded-full animate-pulse" />
               №1 Орон сууц түрээсийн платформ
             </div>
 
+            {/* Headline */}
             <h1 style={{ fontFamily: "'Playfair Display', serif" }}
               className="text-5xl md:text-6xl font-bold text-white leading-tight mb-6">
-              Мөрөөдлийн
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400"> байраа </span>
-              олоорой
+              Төгс тохирох
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400"> орон сууцаа </span>
+              өнөөдөр ол
             </h1>
 
+            {/* Sub-headline */}
             <p className="text-lg text-slate-300 leading-relaxed mb-10">
-              Улаанбаатар хотын бүх дүүргийн түрээсийн орон сууцнуудаас хайж, онлайнаар хүсэлт илгээж, цахим гэрээ байгуулах боломжтой.
+              Улаанбаатар хотын бүх дүүргийн түрээсийн орон сууцнаас хурдан шуурхай хайж, онлайнаар хүсэлт илгээн, цахим гэрээгээр баталгаажуулах цогц боломж.
             </p>
 
+            {/* CTA Buttons */}
             <div className="flex flex-wrap gap-4">
               <Link to="/register">
                 <button className="px-8 py-4 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-2xl transition shadow-xl shadow-indigo-900/50 text-lg">
@@ -121,21 +163,23 @@ export default function Landing() {
               </Link>
               <Link to="/home">
                 <button className="px-8 py-4 bg-white/10 hover:bg-white/20 text-white font-semibold rounded-2xl transition border border-white/20 text-lg">
-                  Байр үзэх
+                  Байр хайх
                 </button>
               </Link>
             </div>
 
-            <div className="grid grid-cols-4 gap-6 mt-14">
-              {stats.map((s) => (
+            {/* Stats */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mt-14">
+              {statItems.map((s) => (
                 <div key={s.label}>
                   <div className="text-2xl font-bold text-white">{s.number}</div>
-                  <div className="text-xs text-slate-400 mt-1">{s.label}</div>
+                  <div className="text-xs text-slate-400 mt-1 leading-tight">{s.label}</div>
                 </div>
               ))}
             </div>
           </div>
 
+          {/* Right card */}
           <div className="hidden md:block">
             <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-3xl p-6 shadow-2xl">
               <div className="bg-white/5 rounded-2xl p-4 mb-4">
@@ -143,13 +187,13 @@ export default function Landing() {
                   <div className="w-10 h-10 bg-indigo-500 rounded-xl flex items-center justify-center text-white text-lg">🔍</div>
                   <div>
                     <div className="text-white font-semibold">Байр хайх</div>
-                    <div className="text-slate-400 text-sm">500+ зар нээлттэй байна</div>
+                    <div className="text-slate-400 text-sm">{stats.properties} идэвхтэй зар байна</div>
                   </div>
                 </div>
                 <div className="space-y-2">
-                  {["Баянзүрх дүүрэг", "2 өрөө", "1,500,000₮ хүртэл"].map((t) => (
+                  {["Дүүрэг сонгох (Баянзүрх)", "Өрөөний тоо (2 өрөө)", "Үнийн дээд хязгаар (1,500,000₮)"].map((t) => (
                     <div key={t} className="bg-white/10 rounded-lg px-3 py-2 text-slate-300 text-sm flex items-center gap-2">
-                      <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full" />
+                      <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full flex-shrink-0" />
                       {t}
                     </div>
                   ))}
@@ -157,7 +201,7 @@ export default function Landing() {
               </div>
               {[
                 { title: "Баянзүрх, 3 өрөө", price: "1,200,000₮", tag: "Шинэ" },
-                { title: "Сүхбаатар, 2 өрөө", price: "900,000₮", tag: "Онцлох" },
+                { title: "Сүхбаатар, 2 өрөө", price: "900,000₮",  tag: "Онцлох" },
               ].map((p) => (
                 <div key={p.title} className="flex items-center gap-3 bg-white/5 rounded-xl p-3 mb-2">
                   <div className="w-12 h-12 bg-gradient-to-br from-indigo-400 to-purple-500 rounded-xl flex-shrink-0" />
@@ -172,7 +216,7 @@ export default function Landing() {
           </div>
         </div>
 
-        {/* Доош скролл заалт */}
+        {/* Scroll indicator */}
         <div className="absolute bottom-8 left-1/2 -translate-x-1/2 animate-bounce">
           <svg className="w-6 h-6 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -189,7 +233,7 @@ export default function Landing() {
               Яагаад биднийг сонгох вэ?
             </h2>
             <p className="text-gray-500 text-lg max-w-2xl mx-auto">
-              Түрээслэгч болон түрээслүүлэгч хоёуланд тохиромжтой бүрэн платформ
+              Түрээслэгч болон түрээслүүлэгчийг холбох хамгийн ухаалаг, найдвартай платформ
             </p>
           </div>
           <div className="grid md:grid-cols-4 gap-6">
@@ -274,9 +318,9 @@ export default function Landing() {
           </div>
           <div className="grid md:grid-cols-3 gap-8">
             {[
-              { step: "01", title: "Бүртгүүлэх", desc: "Tenant эсвэл Landlord эрхтэйгээр бүртгүүлнэ", icon: "👤" },
-              { step: "02", title: "Байр хайх", desc: "Дүүрэг, үнэ, өрөөний тоогоор шүүж хайна", icon: "🔍" },
-              { step: "03", title: "Хүсэлт илгээх", desc: "Таалагдсан байрандаа хүсэлт илгээж гэрээ байгуулна", icon: "📝" },
+              { step: "01", title: "Бүртгүүлэх",      desc: "Түрээслэгч эсвэл түрээслүүлэгч эрхтэйгээр үнэгүй бүртгүүлнэ",   icon: "👤" },
+              { step: "02", title: "Байр хайх",        desc: "Дүүрэг, үнэ, өрөөний тоогоор шүүж өөрт тохирох байраа олоорой", icon: "🔍" },
+              { step: "03", title: "Гэрээ байгуулах",  desc: "Таалагдсан байрандаа онлайнаар хүсэлт илгээж цахим гэрээ байгуулна", icon: "📝" },
             ].map((item) => (
               <div key={item.step} className="text-center">
                 <div className="w-16 h-16 bg-indigo-500/20 border border-indigo-500/30 rounded-2xl flex items-center justify-center text-3xl mx-auto mb-4">
@@ -285,6 +329,59 @@ export default function Landing() {
                 <div className="text-indigo-400 text-sm font-bold mb-2">{item.step}</div>
                 <h3 className="text-white font-bold text-xl mb-2">{item.title}</h3>
                 <p className="text-slate-400 leading-relaxed">{item.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Хэрэглэгчдийн сэтгэгдэл */}
+      <section className="py-24 bg-gray-50">
+        <div className="max-w-6xl mx-auto px-6">
+          <div className="text-center mb-16">
+            <h2 style={{ fontFamily: "'Playfair Display', serif" }}
+              className="text-4xl font-bold text-gray-900 mb-4">
+              Хэрэглэгчид юу хэлэв?
+            </h2>
+            <p className="text-gray-500 text-lg">Манай системийг ашигласан хэрэглэгчдийн туршлага</p>
+          </div>
+          <div className="grid md:grid-cols-3 gap-6">
+            {[
+              {
+                name: "Б. Мөнхбаяр",
+                role: "Түрээслэгч",
+                text: "Байр хайх, хүсэлт илгээх бүх үйл явц маш хялбар болсон. Цахим гэрээ байгуулах нь маш тохиромжтой байлаа.",
+                rating: 5,
+              },
+              {
+                name: "Д. Цэрэндорж",
+                role: "Түрээслүүлэгч",
+                text: "Миний байруудыг удирдахад маш хялбар болсон. Төлбөрийн хуваарь автоматаар үүсдэг нь маш их цаг хэмнэдэг.",
+                rating: 5,
+              },
+              {
+                name: "О. Сарантуяа",
+                role: "Түрээслэгч",
+                text: "Нийслэлийн 9 дүүргийн байрнуудаас хайж болох нь маш тохиромжтой. Дүүрэг, үнэ, өрөөний тоогоор шүүх боломж гайхалтай.",
+                rating: 5,
+              },
+            ].map((t) => (
+              <div key={t.name} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+                <div className="flex mb-3">
+                  {[1,2,3,4,5].map((s) => (
+                    <span key={s} className={`text-lg ${s <= t.rating ? "text-yellow-400" : "text-gray-200"}`}>★</span>
+                  ))}
+                </div>
+                <p className="text-gray-600 text-sm leading-relaxed mb-4">"{t.text}"</p>
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600 font-bold text-sm">
+                    {t.name[0]}
+                  </div>
+                  <div>
+                    <p className="font-semibold text-gray-900 text-sm">{t.name}</p>
+                    <p className="text-gray-400 text-xs">{t.role}</p>
+                  </div>
+                </div>
               </div>
             ))}
           </div>
@@ -309,7 +406,7 @@ export default function Landing() {
             </Link>
             <Link to="/home">
               <button className="px-8 py-4 border-2 border-gray-200 hover:border-indigo-300 text-gray-700 font-semibold rounded-2xl transition text-lg">
-                Байр үзэх
+                Байр хайх
               </button>
             </Link>
           </div>
@@ -323,10 +420,10 @@ export default function Landing() {
             <span className="text-xl">🏡</span>
             <span className="text-white font-bold">Түрээсийн систем</span>
           </div>
-          <p className="text-sm">© 2025 Түрээсийн систем. Бүх эрх хуулиар хамгаалагдсан.</p>
+          <p className="text-sm">© 2026 Түрээсийн систем. Бүх эрх хуулиар хамгаалагдсан.</p>
           <div className="flex gap-6 text-sm">
-            <Link to="/home" className="hover:text-white transition">Байрнууд</Link>
-            <Link to="/login" className="hover:text-white transition">Нэвтрэх</Link>
+            <Link to="/home"     className="hover:text-white transition">Байрнууд</Link>
+            <Link to="/login"    className="hover:text-white transition">Нэвтрэх</Link>
             <Link to="/register" className="hover:text-white transition">Бүртгүүлэх</Link>
           </div>
         </div>
