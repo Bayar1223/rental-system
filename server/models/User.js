@@ -35,6 +35,8 @@ const userSchema = new mongoose.Schema(
       default: "tenant",
     },
     isBlocked: { type: Boolean, default: false },
+    passwordResetToken:   { type: String },
+    passwordResetExpires: { type: Date },
   },
   {
     timestamps: true,
