@@ -36,12 +36,13 @@ exports.registerUser = async (req, res) => {
     res.status(201).json({
       message: "Хэрэглэгч амжилттай бүртгэгдлээ",
       user: {
-        id: user._id,
+        id:        user._id,
         firstName: user.firstName,
-        lastName: user.lastName,
-        phone: user.phone,
-        email: user.email,
-        role: user.role,
+        lastName:  user.lastName,
+        phone:     user.phone,
+        email:     user.email,
+        role:      user.role,
+        avatar:    user.avatar || "", // ← НЭМСЭН
       },
       token: generateToken(user._id),
     });
@@ -76,12 +77,13 @@ exports.loginUser = async (req, res) => {
     res.json({
       message: "Амжилттай нэвтэрлээ",
       user: {
-        id: user._id,
+        id:        user._id,
         firstName: user.firstName,
-        lastName: user.lastName,
-        phone: user.phone,
-        email: user.email,
-        role: user.role,
+        lastName:  user.lastName,
+        phone:     user.phone,
+        email:     user.email,
+        role:      user.role,
+        avatar:    user.avatar || "", // ← НЭМСЭН
       },
       token: generateToken(user._id),
     });
