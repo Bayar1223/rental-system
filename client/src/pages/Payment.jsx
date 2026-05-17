@@ -20,12 +20,17 @@ function daysUntilDue(dueDate) {
   return Math.ceil(diff / (1000 * 60 * 60 * 24));
 }
 
+// ← ӨӨРЧЛӨЛТ: "urgent" статус нэмсэн
 const STATUS_MAP = {
+  urgent:    { label: "Яаралтай ⚡",      cls: "bg-orange-100 text-orange-700" },
   pending:   { label: "Хүлээгдэж байна", cls: "bg-yellow-100 text-yellow-700" },
   paid:      { label: "Төлөгдсөн ✓",     cls: "bg-green-100 text-green-700"  },
-  overdue:   { label: "Хоцорсон ⚠️",     cls: "bg-red-100 text-red-600"     },
+  overdue:   { label: "Хоцорсон ⚠️",     cls: "bg-red-100 text-red-600"      },
   cancelled: { label: "Цуцлагдсан",       cls: "bg-gray-100 text-gray-500"   },
 };
+
+// Төлөгдөөгүй статусуудын жагсаалт
+const UNPAID_STATUSES = ["urgent", "pending", "overdue"];
 
 function PaymentCard({ payment, onPay, paying, isLandlord }) {
   const status = STATUS_MAP[payment.status] || STATUS_MAP.pending;
@@ -35,8 +40,9 @@ function PaymentCard({ payment, onPay, paying, isLandlord }) {
 
   return (
     <div className={`bg-white rounded-2xl shadow overflow-hidden border-l-4 ${
-      payment.status === "paid"    ? "border-green-400" :
-      payment.status === "overdue" ? "border-red-400"   :
+      payment.status === "paid"    ? "border-green-400"  :
+      payment.status === "overdue" ? "border-red-400"    :
+      payment.status === "urgent"  ? "border-orange-400" :
       isDueSoon                    ? "border-yellow-400" :
                                      "border-gray-200"
     }`}>
@@ -95,10 +101,11 @@ function PaymentCard({ payment, onPay, paying, isLandlord }) {
           <div>
             <p className="text-xs text-gray-400">Төлөх эцсийн огноо</p>
             <p className={`text-sm font-semibold ${
-              payment.status === "paid" ? "text-green-600" :
-              isOverdue                 ? "text-red-600"   :
-              isDueSoon                 ? "text-yellow-600" :
-                                          "text-gray-700"
+              payment.status === "paid"    ? "text-green-600"  :
+              isOverdue                    ? "text-red-600"    :
+              payment.status === "urgent"  ? "text-orange-600" :
+              isDueSoon                    ? "text-yellow-600" :
+                                             "text-gray-700"
             }`}>
               {payment.status === "paid"
                 ? `Төлөгдсөн: ${formatDate(payment.paidAt)}`
@@ -111,12 +118,16 @@ function PaymentCard({ payment, onPay, paying, isLandlord }) {
             </p>
           </div>
 
-          {/* Төлөх товч — зөвхөн tenant, pending/overdue */}
-          {!isLandlord && (payment.status === "pending" || payment.status === "overdue") && (
+          {/* Төлөх товч — зөвхөн tenant, төлөгдөөгүй */}
+          {!isLandlord && UNPAID_STATUSES.includes(payment.status) && (
             <button
               onClick={() => onPay(payment._id)}
               disabled={paying === payment._id}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl text-sm font-medium transition disabled:opacity-50"
+              className={`text-white px-5 py-2.5 rounded-xl text-sm font-medium transition disabled:opacity-50 ${
+                payment.status === "urgent"
+                  ? "bg-orange-500 hover:bg-orange-600"
+                  : "bg-indigo-600 hover:bg-indigo-700"
+              }`}
             >
               {paying === payment._id ? "Төлж байна..." : "💳 Төлбөр төлөх"}
             </button>
@@ -160,9 +171,7 @@ function Payment() {
     if (!showPayModal) return;
     setPaying(showPayModal);
     try {
-      await api.put(`/api/payments/${showPayModal}/pay`, {
-        paymentMethod: "demo",
-      });
+      await api.put(`/api/payments/${showPayModal}/pay`, { paymentMethod: "demo" });
       setPayments((prev) =>
         prev.map((p) =>
           p._id === showPayModal
@@ -178,18 +187,23 @@ function Payment() {
     }
   };
 
-  // Шүүлтүүр
+  // ← ӨӨРЧЛӨЛТ: "urgent" статусыг "pending" tab-д харуулна
   const filtered = payments.filter((p) => {
     if (filter === "all")     return true;
-    if (filter === "pending") return p.status === "pending" || p.status === "overdue";
+    if (filter === "pending") return UNPAID_STATUSES.includes(p.status);
     if (filter === "paid")    return p.status === "paid";
     return true;
   });
 
-  // Статистик
-  const totalPaid    = payments.filter(p => p.status === "paid").reduce((s, p) => s + p.totalAmount, 0);
-  const totalPending = payments.filter(p => p.status === "pending" || p.status === "overdue").reduce((s, p) => s + p.totalAmount, 0);
+  // ← ӨӨРЧЛӨЛТ: stat тооцоонд "urgent" оруулсан
+  const totalPaid    = payments
+    .filter(p => p.status === "paid")
+    .reduce((s, p) => s + p.totalAmount, 0);
+  const totalPending = payments
+    .filter(p => UNPAID_STATUSES.includes(p.status))
+    .reduce((s, p) => s + p.totalAmount, 0);
   const overdueCount = payments.filter(p => p.status === "overdue").length;
+  const urgentCount  = payments.filter(p => p.status === "urgent").length;
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -199,6 +213,19 @@ function Payment() {
         <h1 className="text-2xl md:text-3xl font-bold mb-6">
           {isLandlord ? "💰 Орлогын мэдээлэл" : "💳 Төлбөрийн мэдээлэл"}
         </h1>
+
+        {/* Яаралтай төлбөр сануулга */}
+        {!isLandlord && urgentCount > 0 && (
+          <div className="bg-orange-50 border border-orange-200 rounded-2xl p-4 mb-5 flex items-center gap-3">
+            <span className="text-2xl">⚡</span>
+            <div>
+              <p className="font-semibold text-orange-700">Яаралтай төлбөр байна!</p>
+              <p className="text-sm text-orange-600">
+                Эхний төлбөрөө төлснөөр гэрээ идэвхжинэ.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Статистик карт */}
         {payments.length > 0 && (
@@ -216,12 +243,16 @@ function Payment() {
               </p>
             </div>
             <div className={`rounded-2xl p-4 shadow text-center col-span-2 md:col-span-1 ${
-              overdueCount > 0 ? "bg-red-50" : "bg-white"
+              overdueCount > 0 ? "bg-red-50" : urgentCount > 0 ? "bg-orange-50" : "bg-white"
             }`}>
-              <p className={`text-2xl font-bold ${overdueCount > 0 ? "text-red-600" : "text-gray-700"}`}>
-                {overdueCount}
+              <p className={`text-2xl font-bold ${
+                overdueCount > 0 ? "text-red-600" : urgentCount > 0 ? "text-orange-600" : "text-gray-700"
+              }`}>
+                {overdueCount > 0 ? overdueCount : urgentCount > 0 ? urgentCount : 0}
               </p>
-              <p className="text-xs text-gray-500 mt-1">Хоцорсон төлбөр</p>
+              <p className="text-xs text-gray-500 mt-1">
+                {overdueCount > 0 ? "Хоцорсон төлбөр" : urgentCount > 0 ? "Яаралтай төлбөр" : "Хоцорсон төлбөр"}
+              </p>
             </div>
           </div>
         )}
@@ -231,7 +262,7 @@ function Payment() {
           <div className="flex gap-2 mb-5">
             {[
               { key: "all",     label: "Бүгд" },
-              { key: "pending", label: "Төлөгдөөгүй" },
+              { key: "pending", label: `Төлөгдөөгүй${payments.filter(p => UNPAID_STATUSES.includes(p.status)).length > 0 ? ` (${payments.filter(p => UNPAID_STATUSES.includes(p.status)).length})` : ""}` },
               { key: "paid",    label: "Төлөгдсөн" },
             ].map((f) => (
               <button
