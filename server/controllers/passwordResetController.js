@@ -24,8 +24,10 @@ exports.forgotPassword = async (req, res) => {
     await user.save();
 
     // Email илгээх
+    // Resend үнэгүй tier: зөвхөн өөрийн имэйл рүү илгээх боломжтой
+    // Production-д domain нэмсний дараа user.email ашиглана
     await sendPasswordResetEmail({
-      to:         user.email,
+      to:         process.env.RESEND_TEST_EMAIL || user.email,
       resetToken,
       firstName:  user.firstName,
     });
