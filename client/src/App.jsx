@@ -3,6 +3,7 @@ import Landing from "./pages/Landing";
 import Home from "./pages/Home";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import VerifyOtp from "./pages/VerifyOtp";          // ← НЭМСЭН
 import PropertyDetail from "./pages/PropertyDetail";
 import MyApplications from "./pages/MyApplications";
 import AddProperty from "./pages/AddProperty";
@@ -16,8 +17,7 @@ import Payment from "./pages/Payment";
 import Notifications from "./pages/Notifications";
 import AdminPanel from "./pages/AdminPanel";
 import ForgotPassword from "./pages/ForgotPassword";
-import ResetPassword  from "./pages/ResetPassword";
-
+import ResetPassword from "./pages/ResetPassword";
 
 function App() {
   return (
@@ -27,6 +27,7 @@ function App() {
         <Route path="/home" element={<Home />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/verify-otp" element={<VerifyOtp />} />   {/* ← НЭМСЭН */}
         <Route path="/properties/:id" element={<PropertyDetail />} />
         <Route path="/my-applications" element={<MyApplications />} />
         <Route path="/add-property" element={<AddProperty />} />
@@ -40,7 +41,7 @@ function App() {
         <Route path="/notifications" element={<Notifications />} />
         <Route path="/admin" element={<AdminPanel />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route path="/reset-password"  element={<ResetPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
       </Routes>
     </BrowserRouter>
   );
