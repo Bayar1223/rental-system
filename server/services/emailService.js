@@ -197,3 +197,87 @@ exports.sendPasswordResetEmail = async ({ to, resetToken, firstName }) => {
     `,
   });
 };
+
+// Түрээс дуусах сануулга имэйл
+exports.sendLeaseExpiryEmail = async ({ to, firstName, role, days, endDate, propertyTitle, tenantName }) => {
+  const urgencyColor = days <= 7 ? "#dc2626" : days <= 14 ? "#d97706" : "#16a34a";
+  const urgencyBg    = days <= 7 ? "#fef2f2" : days <= 14 ? "#fffbeb" : "#f0fdf4";
+  const urgencyIcon  = days <= 7 ? "🔴" : days <= 14 ? "🟡"  : "🟢";
+
+  const tenantHtml = `
+    <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px">
+      <h2 style="color:#4f46e5">🏡 Түрээсийн систем</h2>
+      <p>Сайн байна уу, <b>${firstName}</b>!</p>
+
+      <div style="background:${urgencyBg};border-radius:12px;padding:20px;margin:20px 0;text-align:center">
+        <div style="font-size:32px">${urgencyIcon}</div>
+        <div style="font-size:22px;font-weight:bold;color:${urgencyColor};margin:8px 0">
+          ${days} хоногийн дараа дуусна
+        </div>
+        <div style="color:#374151;font-size:15px">"${propertyTitle}" байрны түрээсийн гэрээ</div>
+        <div style="color:#6b7280;font-size:14px;margin-top:6px">Дуусах огноо: <b>${endDate}</b></div>
+      </div>
+
+      <div style="background:#f9fafb;border-radius:12px;padding:16px;margin:16px 0">
+        <p style="margin:0;color:#374151">
+          ${days <= 7
+            ? "⚠️ Гэрээ маш удахгүй дуусна. Түрээслүүлэгчтэй яаралтай холбогдоно уу."
+            : "Гэрээг сунгах эсвэл шинэ байр хайхаа урьдчилан шийдэж, түрээслүүлэгчтэй холбогдоно уу."
+          }
+        </p>
+      </div>
+
+      <div style="text-align:center;margin:24px 0">
+        <a href="${process.env.CLIENT_URL}/my-rentals" style="
+          background:${urgencyColor};color:white;padding:12px 28px;
+          text-decoration:none;border-radius:10px;font-weight:bold;font-size:15px
+        ">Миний түрээс харах →</a>
+      </div>
+
+      <p style="color:#9ca3af;font-size:12px;margin-top:24px">© 2026 Түрээсийн систем</p>
+    </div>
+  `;
+
+  const landlordHtml = `
+    <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px">
+      <h2 style="color:#4f46e5">🏡 Түрээсийн систем</h2>
+      <p>Сайн байна уу, <b>${firstName}</b>!</p>
+
+      <div style="background:${urgencyBg};border-radius:12px;padding:20px;margin:20px 0;text-align:center">
+        <div style="font-size:32px">${urgencyIcon}</div>
+        <div style="font-size:22px;font-weight:bold;color:${urgencyColor};margin:8px 0">
+          ${days} хоногийн дараа дуусна
+        </div>
+        <div style="color:#374151;font-size:15px">"${propertyTitle}" байрны түрээсийн гэрээ</div>
+        <div style="color:#6b7280;font-size:14px;margin-top:6px">
+          Түрээслэгч: <b>${tenantName}</b> | Дуусах огноо: <b>${endDate}</b>
+        </div>
+      </div>
+
+      <div style="background:#f9fafb;border-radius:12px;padding:16px;margin:16px 0">
+        <p style="margin:0;color:#374151">
+          ${days <= 7
+            ? "⚠️ Гэрээ маш удахгүй дуусна. Түрээслэгчтэй яаралтай холбогдон шийдвэрлэнэ үү."
+            : "Түрээслэгч гэрээг сунгах эсэхээ мэдэгдэхийг хүлээнэ үү."
+          }
+        </p>
+      </div>
+
+      <div style="text-align:center;margin:24px 0">
+        <a href="${process.env.CLIENT_URL}/my-rentals" style="
+          background:${urgencyColor};color:white;padding:12px 28px;
+          text-decoration:none;border-radius:10px;font-weight:bold;font-size:15px
+        ">Түрээсүүд харах →</a>
+      </div>
+
+      <p style="color:#9ca3af;font-size:12px;margin-top:24px">© 2026 Түрээсийн систем</p>
+    </div>
+  `;
+
+  await transporter.sendMail({
+    from:    `"Түрээсийн систем" <${process.env.GMAIL_USER}>`,
+    to,
+    subject: `${urgencyIcon} Түрээс ${days} хоногт дуусна — ${propertyTitle}`,
+    html:    role === "landlord" ? landlordHtml : tenantHtml,
+  });
+};

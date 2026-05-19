@@ -1,6 +1,7 @@
 const cron = require("node-cron");
 const { sendMonthlyReports, getLastWorkingDayOfMonth } = require("../services/reportService");
 const { updateOverduePayments } = require("../controllers/paymentController");
+const { sendLeaseExpiryReminders } = require("../services/leaseReminderService");
 
 function startSchedulers() {
   // ============================================================
@@ -32,6 +33,17 @@ function startSchedulers() {
   cron.schedule("0 0 * * *", async () => {
     console.log("⏰ Хугацаа хэтэрсэн төлбөрүүд шинэчлэгдэж байна...");
     await updateOverduePayments();
+  }, {
+    timezone: "Asia/Ulaanbaatar",
+  });
+
+  // ============================================================
+  // 3. ТҮРЭЭС ДУУСАХ САНУУЛГА
+  // Өдөр бүр 10:00-д шалгах (30, 14, 7 хоногийн өмнө)
+  // ============================================================
+  cron.schedule("0 10 * * *", async () => {
+    console.log("🏠 Түрээс дуусах сануулга шалгаж байна...");
+    await sendLeaseExpiryReminders();
   }, {
     timezone: "Asia/Ulaanbaatar",
   });
