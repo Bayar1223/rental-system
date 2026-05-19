@@ -3,12 +3,11 @@ const dotenv = require("dotenv");
 const cors = require("cors");
 const connectDB = require("./config/db");
 const { protect } = require("./middleware/authMiddleware");
+const { startSchedulers } = require("./schedulers/cronJobs");
 
 dotenv.config();
 
 const app = express();
-
-connectDB();
 
 // CORS — Vercel domain + локал зөвшөөрөх
 const allowedOrigins = [
@@ -38,14 +37,16 @@ app.get("/", (req, res) => {
     env: process.env.NODE_ENV,
   });
 });
-app.use("/api/admin", require("./routes/adminRoutes"));
-app.use("/api/auth", require("./routes/authRoutes"));
-app.use("/api/properties", require("./routes/propertyRoutes"));
-app.use("/api/applications", require("./routes/applicationRoutes"));
+
+app.use("/api/admin",         require("./routes/adminRoutes"));
+app.use("/api/auth",          require("./routes/authRoutes"));
+app.use("/api/properties",    require("./routes/propertyRoutes"));
+app.use("/api/applications",  require("./routes/applicationRoutes"));
 app.use("/api/notifications", require("./routes/notificationRoutes"));
-app.use("/api/users", require("./routes/userRoutes"));
-app.use("/api/payments", require("./routes/paymentRoutes")); // ← НЭМСЭН
-app.use("/api/reviews", require("./routes/reviewRoutes"));
+app.use("/api/users",         require("./routes/userRoutes"));
+app.use("/api/payments",      require("./routes/paymentRoutes"));
+app.use("/api/reviews",       require("./routes/reviewRoutes"));
+
 app.get("/api/test", protect, (req, res) => {
   res.json({
     message: "Token амжилттай шалгагдлаа",
@@ -71,6 +72,11 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
-  console.log(`✓ Server running on port ${PORT} [${process.env.NODE_ENV}]`);
+// DB холбогдсоны дараа server болон scheduler ажиллуулах
+connectDB().then(() => {
+  startSchedulers();
+
+  app.listen(PORT, () => {
+    console.log(`✓ Server running on port ${PORT} [${process.env.NODE_ENV}]`);
+  });
 });

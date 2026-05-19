@@ -12,6 +12,7 @@ const {
   getApplications,
   getPayments,
 } = require("../controllers/adminController");
+const { runReportNow } = require("../schedulers/cronJobs");
 
 router.get("/stats",               adminOnly, getStats);
 router.get("/users",               adminOnly, getUsers);
@@ -22,5 +23,10 @@ router.get("/properties",          adminOnly, getProperties);
 router.delete("/properties/:id",   adminOnly, deleteProperty);
 router.get("/applications",        adminOnly, getApplications);
 router.get("/payments",            adminOnly, getPayments);
+
+router.post("/run-report", adminOnly, async (req, res) => {
+  await runReportNow();
+  res.json({ message: "Тайлан илгээгдлээ" });
+});
 
 module.exports = router;
