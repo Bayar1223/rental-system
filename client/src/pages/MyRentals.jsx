@@ -151,7 +151,7 @@ function MyRentals() {
                   <p className={`text-2xl font-bold ${payDays <= 5 ? "text-red-600" : "text-green-600"}`}>
                     {payDays}
                   </p>
-                  <p className="text-xs text-gray-500 mt-1">Хоногт төлбөр</p>
+                  <p className="text-xs text-gray-500 mt-1">Төлбөр хүртэл хоног</p>
                 </div>
                 <div className="bg-gray-50 rounded-xl p-3 text-center col-span-2 md:col-span-1">
                   <p className="text-xl font-bold text-gray-700">
@@ -239,7 +239,6 @@ function MyRentals() {
 
               return (
                 <div key={rental._id} className="bg-white rounded-2xl shadow overflow-hidden">
-                  {/* Дээд хэсэг */}
                   <div className="flex gap-4 p-5">
                     <img
                       src={image}
@@ -273,7 +272,6 @@ function MyRentals() {
                     </div>
                   </div>
 
-                  {/* Огноо, төлбөр */}
                   <div className="px-5 pb-3 grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
                     <div className="bg-gray-50 rounded-xl p-3">
                       <p className="text-gray-400 text-xs mb-1">Эхлэх огноо</p>
@@ -297,7 +295,6 @@ function MyRentals() {
                     </div>
                   </div>
 
-                  {/* Progress bar */}
                   <div className="px-5 pb-4">
                     <div className="w-full bg-gray-100 rounded-full h-2">
                       <div
@@ -310,7 +307,6 @@ function MyRentals() {
                     <p className="text-xs text-gray-400 mt-1">{progress}% өнгөрсөн</p>
                   </div>
 
-                  {/* Үйлдлүүд */}
                   {rental.contractStatus !== "cancelled" && (
                     <div className="px-5 pb-5 flex flex-wrap gap-2 border-t border-gray-50 pt-3">
                       {rental.contractStatus === "pending_signatures" && !iSigned && (
@@ -355,7 +351,6 @@ function MyRentals() {
         )}
       </div>
 
-      {/* Cancel Modal */}
       {showCancelModal && (
         <div className="fixed inset-0 bg-black/50 flex items-end md:items-center justify-center z-50 p-0 md:p-4">
           <div className="bg-white rounded-t-3xl md:rounded-2xl w-full md:max-w-md p-6">
