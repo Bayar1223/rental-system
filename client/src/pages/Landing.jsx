@@ -1,418 +1,389 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import api from "../api/axiosInstance";
 
 const features = [
-  {
-    icon: "🔍",
-    title: "Ухаалаг хайлт",
-    desc: "Дүүрэг, үнэ болон өрөөний тоогоор өөрт тохирох байраа хормын дотор шүүж олоорой.",
-  },
-  {
-    icon: "📄",
-    title: "Хууль ёсны цахим гэрээ",
-    desc: "Заавал уулзах шаардлагагүйгээр онлайнаар гэрээ байгуулж, PDF-ээр найдвартай хадгална.",
-  },
-  {
-    icon: "🔔",
-    title: "Шуурхай мэдэгдэл",
-    desc: "Түрээсийн хүсэлтийн төлөв болон шинэ зарын мэдээллийг цаг алдалгүй утсандаа аваарай.",
-  },
-  {
-    icon: "🏠",
-    title: "Байрны нэгдсэн удирдлага",
-    desc: "Түрээслүүлэгчид өөрийн бүх байр, зарын мэдээлэл болон төлбөрөө нэг дороос хялбар удирдана.",
-  },
+  { icon: "◈", title: "Ухаалаг хайлт", desc: "Дүүрэг, үнэ, өрөөгөөр шүүж мөрөөдлийн байраа хайна уу" },
+  { icon: "◉", title: "Цахим гэрээ", desc: "Онлайнаар гарын үсэг зурж найдвартай хадгалагдана" },
+  { icon: "◎", title: "Шуурхай мэдэгдэл", desc: "Хүсэлтийн төлөв болон шинэ байрны мэдээлэл авна уу" },
+  { icon: "◍", title: "Нэгдсэн удирдлага", desc: "Байр, гэрээ, төлбөр бүгдийг нэг дороос харна уу" },
 ];
 
+const stats = [
+  { num: "500+", label: "Идэвхтэй зар" },
+  { num: "9", label: "Дүүрэг" },
+  { num: "98%", label: "Сэтгэл ханамж" },
+  { num: "24/7", label: "Тусламж" },
+];
+
+function useReveal() {
+  const ref = useRef(null);
+  useEffect(() => {
+    const obs = new IntersectionObserver(([e]) => {
+      if (e.isIntersecting) { e.target.classList.add("visible"); obs.disconnect(); }
+    }, { threshold: 0.15 });
+    if (ref.current) obs.observe(ref.current);
+    return () => obs.disconnect();
+  }, []);
+  return ref;
+}
+
+function RevealSection({ children, className = "", delay = 0 }) {
+  const ref = useReveal();
+  return (
+    <div ref={ref} className={`reveal ${className}`} style={{ transitionDelay: `${delay}s` }}>
+      {children}
+    </div>
+  );
+}
+
 export default function Landing() {
-  const navigate  = useNavigate();
-  const user      = JSON.parse(localStorage.getItem("user"));
+  const navigate = useNavigate();
+  const user = JSON.parse(localStorage.getItem("user"));
   const [featuredProperties, setFeaturedProperties] = useState([]);
-  const [scrolled, setScrolled]                     = useState(false);
-  const [stats, setStats]                           = useState({
-    properties: "...", users: "...", districts: 9, satisfaction: "98%",
-  });
+  const [heroVisible, setHeroVisible] = useState(false);
+  const [cursorPos, setCursorPos] = useState({ x: 0, y: 0 });
+
+  useEffect(() => { if (user) navigate("/home"); }, [user, navigate]);
+  useEffect(() => { setTimeout(() => setHeroVisible(true), 100); }, []);
 
   useEffect(() => {
-    if (user) navigate("/home");
-  }, [user, navigate]);
-
-  // Нийт байрны тоог public endpoint-оос авах
-  useEffect(() => {
-    api.get("/api/properties", { params: { limit: 1 } })
-      .then((r) => {
-        const total = r.data.pagination?.total || 0;
-        setStats((prev) => ({
-          ...prev,
-          properties: `${total}+`,
-        }));
-      })
+    api.get("/api/properties", { params: { limit: 3 } })
+      .then(r => setFeaturedProperties((r.data.properties || r.data).slice(0, 3)))
       .catch(() => {});
   }, []);
 
-  // Онцлох байрнууд
-  useEffect(() => {
-    api.get("/api/properties", { params: { limit: 3, page: 1 } })
-      .then((res) => {
-        const data = res.data.properties || res.data;
-        setFeaturedProperties(Array.isArray(data) ? data.slice(0, 3) : []);
-      })
-      .catch(() => {});
-  }, []);
-
-  useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > 50);
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
-
-  const statItems = [
-    { number: stats.properties, label: "Идэвхтэй зар" },
-    { number: stats.users,      label: "Сэтгэл ханамжтай түрээслэгч" },
-    { number: stats.districts,  label: "Дүүрэг" },
-    { number: stats.satisfaction, label: "Сэтгэл ханамж" },
-  ];
+  // Cursor parallax on hero
+  const handleMouseMove = (e) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    setCursorPos({
+      x: ((e.clientX - rect.left) / rect.width - 0.5) * 20,
+      y: ((e.clientY - rect.top) / rect.height - 0.5) * 20,
+    });
+  };
 
   return (
-    <div style={{ fontFamily: "'DM Sans', sans-serif" }} className="min-h-screen bg-white">
-      <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Playfair+Display:wght@700;800&display=swap" rel="stylesheet" />
+    <div style={{ fontFamily: "'DM Sans', sans-serif", background: "var(--cream)" }}>
 
-      {/* Navbar */}
-      <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        scrolled ? "bg-white/95 backdrop-blur shadow-sm" : "bg-transparent"
-      }`}>
-        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-2xl">🏡</span>
-            <span className={`text-xl font-bold transition-colors duration-300 ${
-              scrolled ? "text-indigo-600" : "text-white"
-            }`}>
-              Түрээсийн систем
-            </span>
+      {/* ── NAV ── */}
+      <nav className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-8 md:px-16"
+        style={{ height: 64, borderBottom: "1px solid rgba(201,168,76,0.15)" }}>
+        <div className="absolute inset-0 bg-[var(--ink)]/95 backdrop-blur-md" />
+        <div className="relative flex items-center gap-3">
+          <div className="relative w-7 h-7">
+            <div className="absolute inset-0 border border-[var(--gold)] rotate-45" />
+            <div className="absolute inset-1.5 bg-[var(--gold)] rotate-45" />
           </div>
-          <div className="flex items-center gap-2">
-            <Link to="/login">
-              <button className={`px-3 md:px-5 py-2 md:py-2.5 rounded-xl font-medium transition text-sm md:text-base ${
-                scrolled
-                  ? "text-gray-600 hover:bg-gray-100"
-                  : "text-white/80 hover:bg-white/10"
-              }`}>
-                Нэвтрэх
-              </button>
-            </Link>
-            <Link to="/register">
-              <button className="px-3 md:px-5 py-2 md:py-2.5 rounded-xl bg-indigo-600 text-white font-medium hover:bg-indigo-500 transition shadow-lg shadow-indigo-900/30 text-sm md:text-base">
-                Бүртгүүлэх
-              </button>
-            </Link>
-          </div>
+          <span className="font-display text-xl font-light tracking-wider text-white">
+            Mon<span style={{ color: "var(--gold)" }}>Rent</span>
+          </span>
+        </div>
+        <div className="relative flex items-center gap-3">
+          <Link to="/login" className="text-xs font-medium tracking-widest uppercase text-white/60 hover:text-white transition-colors px-4 py-2">
+            Нэвтрэх
+          </Link>
+          <Link to="/register" className="btn-gold" style={{ fontSize: 11, padding: "10px 24px" }}>
+            Бүртгүүлэх
+          </Link>
         </div>
       </nav>
 
-      {/* Hero */}
-      <section className="relative min-h-screen flex items-center overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900" />
-        <div className="absolute inset-0 opacity-20"
-          style={{
-            backgroundImage: "radial-gradient(circle at 20% 50%, #6366f1 0%, transparent 50%), radial-gradient(circle at 80% 20%, #8b5cf6 0%, transparent 50%)",
-          }}
-        />
-        <div className="absolute top-20 right-20 w-72 h-72 bg-indigo-500/10 rounded-full blur-3xl animate-pulse" />
-        <div className="absolute bottom-20 left-20 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: "1s" }} />
+      {/* ── HERO ── */}
+      <section
+        onMouseMove={handleMouseMove}
+        style={{ minHeight: "100vh", background: "var(--ink)", paddingTop: 64, overflow: "hidden", position: "relative" }}
+      >
+        {/* Grid lines */}
+        <div className="absolute inset-0" style={{
+          backgroundImage: "linear-gradient(rgba(201,168,76,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(201,168,76,0.06) 1px, transparent 1px)",
+          backgroundSize: "80px 80px"
+        }} />
 
-        <div className="relative max-w-6xl mx-auto px-6 py-32 grid md:grid-cols-2 gap-16 items-center">
-          <div>
-            {/* Badge */}
-            <div className="inline-flex items-center gap-2 bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 px-4 py-2 rounded-full text-sm font-medium mb-6">
-              <span className="w-2 h-2 bg-indigo-400 rounded-full animate-pulse" />
-              №1 Орон сууц түрээсийн платформ
-            </div>
+        {/* Floating orbs */}
+        <div className="absolute" style={{
+          width: 400, height: 400, borderRadius: "50%",
+          background: "radial-gradient(circle, rgba(201,168,76,0.12) 0%, transparent 70%)",
+          top: "10%", right: "-5%",
+          transform: `translate(${cursorPos.x * -0.5}px, ${cursorPos.y * -0.5}px)`,
+          transition: "transform 0.3s ease",
+          animation: "floatY 8s ease-in-out infinite",
+        }} />
+        <div className="absolute" style={{
+          width: 300, height: 300, borderRadius: "50%",
+          background: "radial-gradient(circle, rgba(201,168,76,0.08) 0%, transparent 70%)",
+          bottom: "15%", left: "-5%",
+          transform: `translate(${cursorPos.x * 0.3}px, ${cursorPos.y * 0.3}px)`,
+          transition: "transform 0.4s ease",
+          animation: "floatY 10s ease-in-out infinite reverse",
+        }} />
 
-            {/* Headline */}
-            <h1 style={{ fontFamily: "'Playfair Display', serif" }}
-              className="text-5xl md:text-6xl font-bold text-white leading-tight mb-6">
-              Мөрөөдлийн байраа
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400"> хялбараар </span>
-              олоорой
-            </h1>
+        <div className="relative max-w-7xl mx-auto px-8 md:px-16 flex items-center" style={{ minHeight: "calc(100vh - 64px)" }}>
+          <div className="w-full grid md:grid-cols-2 gap-16 items-center">
 
-            {/* Sub-headline */}
-            <p className="text-lg text-slate-300 leading-relaxed mb-10">
-              Улаанбаатар хотын бүх дүүргийн түрээсийн орон сууцнаас хурдан шуурхай хайж, онлайнаар хүсэлт илгээн, цахим гэрээгээр баталгаажуулах цогц боломж.
-            </p>
-
-            {/* CTA Buttons */}
-            <div className="flex flex-wrap gap-4">
-              <Link to="/register">
-                <button className="px-8 py-4 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-2xl transition shadow-xl shadow-indigo-900/50 text-lg">
-                  Үнэгүй бүртгүүлэх →
-                </button>
-              </Link>
-              <Link to="/home">
-                <button className="px-8 py-4 bg-white/10 hover:bg-white/20 text-white font-semibold rounded-2xl transition border border-white/20 text-lg">
-                  Байр хайх
-                </button>
-              </Link>
-            </div>
-
-            {/* Stats */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mt-14">
-              {statItems.map((s) => (
-                <div key={s.label}>
-                  <div className="text-2xl font-bold text-white">{s.number}</div>
-                  <div className="text-xs text-slate-400 mt-1 leading-tight">{s.label}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Right card */}
-          <div className="hidden md:block">
-            <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-3xl p-6 shadow-2xl">
-              <div className="bg-white/5 rounded-2xl p-4 mb-4">
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="w-10 h-10 bg-indigo-500 rounded-xl flex items-center justify-center text-white text-lg">🔍</div>
-                  <div>
-                    <div className="text-white font-semibold">Байр хайх</div>
-                    <div className="text-slate-400 text-sm">{stats.properties} идэвхтэй зар байна</div>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  {["Дүүрэг сонгох (Баянзүрх)", "Өрөөний тоо (2 өрөө)", "Үнийн дээд хязгаар (1,500,000₮)"].map((t) => (
-                    <div key={t} className="bg-white/10 rounded-lg px-3 py-2 text-slate-300 text-sm flex items-center gap-2">
-                      <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full flex-shrink-0" />
-                      {t}
-                    </div>
-                  ))}
+            {/* Left: Text */}
+            <div>
+              <div className={`transition-all duration-700 ${heroVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}>
+                <div className="flex items-center gap-3 mb-8">
+                  <div className="h-px w-8" style={{ background: "var(--gold)" }} />
+                  <span className="text-xs tracking-widest uppercase" style={{ color: "var(--gold)" }}>№1 Орон сууцны платформ</span>
                 </div>
               </div>
-              {[
-                { title: "Баянзүрх, 3 өрөө", price: "1,200,000₮", tag: "Шинэ" },
-                { title: "Сүхбаатар, 2 өрөө", price: "900,000₮",  tag: "Онцлох" },
-              ].map((p) => (
-                <div key={p.title} className="flex items-center gap-3 bg-white/5 rounded-xl p-3 mb-2">
-                  <div className="w-12 h-12 bg-gradient-to-br from-indigo-400 to-purple-500 rounded-xl flex-shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <div className="text-white text-sm font-medium truncate">{p.title}</div>
-                    <div className="text-indigo-300 text-sm font-bold">{p.price}/сар</div>
+
+              <h1 className={`font-display font-light text-white leading-tight mb-8 transition-all duration-700 delay-100 ${heroVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}
+                style={{ fontSize: "clamp(48px, 6vw, 80px)" }}>
+                Мөрөөдлийн<br />
+                байраа<br />
+                <span style={{ color: "var(--gold)", fontStyle: "italic" }}>олоорой</span>
+              </h1>
+
+              <p className={`text-white/50 mb-10 leading-relaxed text-sm transition-all duration-700 delay-200 ${heroVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}
+                style={{ maxWidth: 420 }}>
+                Улаанбаатар хотын 9 дүүргийн байруудаас хайж, онлайнаар гэрээ байгуулан, цахим төлбөр хийх боломжтой систем.
+              </p>
+
+              <div className={`flex flex-wrap gap-4 mb-16 transition-all duration-700 delay-300 ${heroVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}>
+                <Link to="/register" className="btn-gold">
+                  Үнэгүй эхлэх
+                  <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" d="M5 12h14m-7-7l7 7-7 7" />
+                  </svg>
+                </Link>
+                <Link to="/home" className="btn-outline-gold">Байр харах</Link>
+              </div>
+
+              {/* Stats */}
+              <div className={`grid grid-cols-4 gap-6 transition-all duration-700 delay-400 ${heroVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}>
+                {stats.map(({ num, label }) => (
+                  <div key={label}>
+                    <div className="stat-number text-3xl mb-1">{num}</div>
+                    <div className="text-white/40 text-xs tracking-wide">{label}</div>
                   </div>
-                  <span className="text-xs bg-indigo-500/30 text-indigo-300 px-2 py-1 rounded-lg">{p.tag}</span>
+                ))}
+              </div>
+            </div>
+
+            {/* Right: Preview card */}
+            <div className={`hidden md:block transition-all duration-1000 delay-500 ${heroVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-12"}`}>
+              <div style={{
+                background: "rgba(255,255,255,0.04)",
+                border: "1px solid rgba(201,168,76,0.2)",
+                backdropFilter: "blur(10px)",
+                padding: 32,
+                transform: `rotateX(${cursorPos.y * -0.3}deg) rotateY(${cursorPos.x * 0.3}deg)`,
+                transition: "transform 0.3s ease",
+              }}>
+                {/* Header */}
+                <div className="flex items-center justify-between mb-6">
+                  <span className="text-xs tracking-widest uppercase" style={{ color: "var(--gold)" }}>Байр хайх</span>
+                  <span className="badge-gold">500+ байр</span>
                 </div>
-              ))}
+
+                {/* Search mock */}
+                <div style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", padding: "14px 16px", marginBottom: 12 }}>
+                  <p className="text-white/60 text-sm">Баянзүрх дүүрэг, 2 өрөө...</p>
+                </div>
+
+                {/* Property previews */}
+                {[
+                  { title: "Баянзүрх, 2 өрөө тавилгатай", price: "1,200,000", tag: "Шинэ" },
+                  { title: "Сүхбаатар, 3 өрөө орон сууц", price: "1,800,000", tag: "Онцлох" },
+                  { title: "Хан-Уул, 1 өрөө studio", price: "750,000", tag: "" },
+                ].map((p, i) => (
+                  <div key={i} className="flex items-center gap-4 py-4"
+                    style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                    <div style={{ width: 48, height: 48, background: `rgba(201,168,76,${0.1 + i * 0.05})`, flexShrink: 0 }} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white text-sm font-light line-clamp-1">{p.title}</p>
+                      <p className="text-xs mt-0.5" style={{ color: "var(--gold)" }}>{p.price}₮/сар</p>
+                    </div>
+                    {p.tag && <span className="badge-gold text-[10px]">{p.tag}</span>}
+                  </div>
+                ))}
+
+                <Link to="/home" className="btn-gold w-full justify-center mt-6 text-xs">
+                  Бүгдийг харах →
+                </Link>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Scroll indicator */}
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 animate-bounce">
-          <svg className="w-6 h-6 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-          </svg>
-        </div>
+        {/* Bottom fade */}
+        <div className="absolute bottom-0 left-0 right-0 h-24"
+          style={{ background: "linear-gradient(transparent, var(--cream))" }} />
       </section>
 
-      {/* Features */}
-      <section className="py-24 bg-gray-50">
-        <div className="max-w-6xl mx-auto px-6">
-          <div className="text-center mb-16">
-            <h2 style={{ fontFamily: "'Playfair Display', serif" }}
-              className="text-4xl font-bold text-gray-900 mb-4">
-              Яагаад биднийг сонгох вэ?
-            </h2>
-            <p className="text-gray-500 text-lg max-w-2xl mx-auto">
-              Түрээслэгч болон түрээслүүлэгчийг холбох хамгийн ухаалаг, найдвартай платформ
-            </p>
-          </div>
-          <div className="grid md:grid-cols-4 gap-6">
-            {features.map((f) => (
-              <div key={f.title} className="bg-white rounded-2xl p-6 shadow-sm hover:shadow-md transition-all hover:-translate-y-1 border border-gray-100">
-                <div className="w-12 h-12 bg-indigo-50 rounded-xl flex items-center justify-center text-2xl mb-4">
-                  {f.icon}
+      {/* ── FEATURES ── */}
+      <section className="py-32 px-8 md:px-16" style={{ background: "var(--cream)" }}>
+        <div className="max-w-6xl mx-auto">
+          <RevealSection className="text-center mb-20">
+            <p className="text-xs tracking-widest uppercase text-[var(--gold)] mb-4">Онцлог</p>
+            <h2 className="font-display text-5xl font-light text-[var(--ink)]">Яагаад биднийг сонгох вэ?</h2>
+          </RevealSection>
+
+          <div className="grid md:grid-cols-4 gap-8">
+            {features.map(({ icon, title, desc }, i) => (
+              <RevealSection key={title} delay={i * 0.1}>
+                <div className="group">
+                  <div className="text-3xl text-[var(--gold)] mb-6 transition-transform duration-300 group-hover:scale-110" style={{ fontFamily: "monospace" }}>
+                    {icon}
+                  </div>
+                  <div className="h-px mb-6" style={{ background: "var(--border-subtle)" }} />
+                  <h3 className="font-display text-xl font-light text-[var(--ink)] mb-3">{title}</h3>
+                  <p className="text-sm text-[var(--text-muted)] leading-relaxed">{desc}</p>
                 </div>
-                <h3 className="font-bold text-gray-900 mb-2">{f.title}</h3>
-                <p className="text-gray-500 text-sm leading-relaxed">{f.desc}</p>
-              </div>
+              </RevealSection>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Онцлох байрнууд */}
+      {/* ── FEATURED PROPERTIES ── */}
       {featuredProperties.length > 0 && (
-        <section className="py-24 bg-white">
-          <div className="max-w-6xl mx-auto px-6">
-            <div className="flex items-end justify-between mb-12">
+        <section className="py-24 px-8 md:px-16" style={{ background: "white" }}>
+          <div className="max-w-7xl mx-auto">
+            <RevealSection className="flex items-end justify-between mb-12">
               <div>
-                <h2 style={{ fontFamily: "'Playfair Display', serif" }}
-                  className="text-4xl font-bold text-gray-900 mb-2">
-                  Онцлох байрнууд
-                </h2>
-                <p className="text-gray-500">Сүүлд нэмэгдсэн байрнуудаас</p>
+                <p className="text-xs tracking-widest uppercase text-[var(--gold)] mb-3">Онцлох байрнууд</p>
+                <h2 className="font-display text-4xl font-light text-[var(--ink)]">Сүүлд нэмэгдсэн</h2>
               </div>
-              <Link to="/home" className="text-indigo-600 font-medium hover:underline">
-                Бүгдийг харах →
-              </Link>
-            </div>
+              <Link to="/home" className="btn-outline-gold hidden md:flex">Бүгдийг харах →</Link>
+            </RevealSection>
+
             <div className="grid md:grid-cols-3 gap-6">
-              {featuredProperties.map((p) => (
-                <Link to={`/properties/${p._id}`} key={p._id}>
-                  <div className="group rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100">
-                    <div className="relative overflow-hidden h-52">
-                      <img
-                        src={p.images?.[0] || "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688"}
-                        alt={p.title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                      />
-                      <div className="absolute top-3 left-3 bg-white/90 backdrop-blur text-xs font-semibold px-3 py-1 rounded-full text-indigo-600">
-                        {p.rooms} өрөө
+              {featuredProperties.map((p, i) => (
+                <RevealSection key={p._id} delay={i * 0.1}>
+                  <Link to={`/properties/${p._id}`} className="block group">
+                    <div className="luxury-card overflow-hidden">
+                      <div className="relative overflow-hidden" style={{ aspectRatio: "16/10" }}>
+                        <img
+                          src={p.images?.[0] || "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688"}
+                          alt={p.title}
+                          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                        />
+                        <div className="absolute top-3 left-3">
+                          <span className="badge-gold">{p.rooms} өрөө</span>
+                        </div>
                       </div>
-                      <div className="absolute top-3 right-3 bg-green-500 text-white text-xs font-semibold px-2 py-1 rounded-full">
-                        Боломжтой
-                      </div>
-                    </div>
-                    <div className="p-5">
-                      <h3 className="font-bold text-gray-900 mb-1 truncate">{p.title}</h3>
-                      <p className="text-gray-500 text-sm mb-3 flex items-center gap-1">
-                        <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                        </svg>
-                        {p.location?.district}, {p.location?.city}
-                      </p>
-                      <div className="flex items-center justify-between">
-                        <span className="text-indigo-600 font-bold text-xl">
-                          {p.monthlyRent?.toLocaleString()}₮
-                        </span>
-                        <span className="text-gray-400 text-sm">/сар</span>
+                      <div className="p-5">
+                        <h3 className="font-display text-xl font-light text-[var(--ink)] line-clamp-1 mb-1">{p.title}</h3>
+                        <p className="text-xs text-[var(--text-muted)] mb-4">{p.location?.district}, {p.location?.city}</p>
+                        <div className="flex items-baseline justify-between">
+                          <span className="font-display text-2xl font-light" style={{ color: "var(--gold)" }}>{p.monthlyRent?.toLocaleString()}₮</span>
+                          <span className="text-xs text-[var(--text-soft)]">/сар</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </Link>
+                  </Link>
+                </RevealSection>
               ))}
             </div>
           </div>
         </section>
       )}
 
-      {/* Хэрхэн ажилладаг */}
-      <section className="py-24 bg-gradient-to-br from-indigo-950 to-slate-900">
-        <div className="max-w-6xl mx-auto px-6">
-          <div className="text-center mb-16">
-            <h2 style={{ fontFamily: "'Playfair Display', serif" }}
-              className="text-4xl font-bold text-white mb-4">
-              Хэрхэн ажилладаг вэ?
-            </h2>
-            <p className="text-slate-400 text-lg">3 хялбар алхамаар байраа олоорой</p>
-          </div>
-          <div className="grid md:grid-cols-3 gap-8">
+      {/* ── HOW IT WORKS ── */}
+      <section className="py-32 px-8 md:px-16" style={{ background: "var(--ink)" }}>
+        <div className="max-w-5xl mx-auto">
+          <RevealSection className="text-center mb-20">
+            <p className="text-xs tracking-widest uppercase text-[var(--gold)] mb-4">Процесс</p>
+            <h2 className="font-display text-5xl font-light text-white">Хэрхэн ажилладаг вэ?</h2>
+          </RevealSection>
+
+          <div className="grid md:grid-cols-3 gap-12">
             {[
-              { step: "01", title: "Бүртгүүлэх",      desc: "Түрээслэгч эсвэл түрээслүүлэгч эрхтэйгээр үнэгүй бүртгүүлнэ",   icon: "👤" },
-              { step: "02", title: "Байр хайх",        desc: "Дүүрэг, үнэ, өрөөний тоогоор шүүж өөрт тохирох байраа олоорой", icon: "🔍" },
-              { step: "03", title: "Гэрээ байгуулах",  desc: "Таалагдсан байрандаа онлайнаар хүсэлт илгээж цахим гэрээ байгуулна", icon: "📝" },
-            ].map((item) => (
-              <div key={item.step} className="text-center">
-                <div className="w-16 h-16 bg-indigo-500/20 border border-indigo-500/30 rounded-2xl flex items-center justify-center text-3xl mx-auto mb-4">
-                  {item.icon}
+              { num: "01", title: "Бүртгүүлэх", desc: "Хэдхэн минутын дотор бүртгэл үүсгэнэ" },
+              { num: "02", title: "Байр хайх", desc: "Шүүлтүүрээр тохирох байраа ол" },
+              { num: "03", title: "Гэрээ байгуулах", desc: "Онлайнаар гарын үсэг зурж баталгаажуулна" },
+            ].map(({ num, title, desc }, i) => (
+              <RevealSection key={num} delay={i * 0.15}>
+                <div className="text-center group">
+                  <div className="stat-number text-7xl font-light mb-6 transition-transform duration-300 group-hover:scale-110">
+                    {num}
+                  </div>
+                  <div className="h-px mb-6" style={{ background: "rgba(201,168,76,0.3)" }} />
+                  <h3 className="font-display text-2xl font-light text-white mb-3">{title}</h3>
+                  <p className="text-sm text-white/40 leading-relaxed">{desc}</p>
                 </div>
-                <div className="text-indigo-400 text-sm font-bold mb-2">{item.step}</div>
-                <h3 className="text-white font-bold text-xl mb-2">{item.title}</h3>
-                <p className="text-slate-400 leading-relaxed">{item.desc}</p>
-              </div>
+              </RevealSection>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Хэрэглэгчдийн сэтгэгдэл */}
-      <section className="py-24 bg-gray-50">
-        <div className="max-w-6xl mx-auto px-6">
-          <div className="text-center mb-16">
-            <h2 style={{ fontFamily: "'Playfair Display', serif" }}
-              className="text-4xl font-bold text-gray-900 mb-4">
-              Хэрэглэгчид юу хэлэв?
-            </h2>
-            <p className="text-gray-500 text-lg">Манай системийг ашигласан хэрэглэгчдийн туршлага</p>
-          </div>
+      {/* ── TESTIMONIALS ── */}
+      <section className="py-24 px-8 md:px-16" style={{ background: "var(--surface)" }}>
+        <div className="max-w-5xl mx-auto">
+          <RevealSection className="text-center mb-16">
+            <p className="text-xs tracking-widest uppercase text-[var(--gold)] mb-4">Сэтгэгдэл</p>
+            <h2 className="font-display text-4xl font-light text-[var(--ink)]">Хэрэглэгчид юу хэлэв?</h2>
+          </RevealSection>
           <div className="grid md:grid-cols-3 gap-6">
             {[
-              {
-                name: "Б. Мөнхбаяр",
-                role: "Түрээслэгч",
-                text: "Байр хайх, хүсэлт илгээх бүх үйл явц маш хялбар болсон. Цахим гэрээ байгуулах нь маш тохиромжтой байлаа.",
-                rating: 5,
-              },
-              {
-                name: "Д. Цэрэндорж",
-                role: "Түрээслүүлэгч",
-                text: "Миний байруудыг удирдахад маш хялбар болсон. Төлбөрийн хуваарь автоматаар үүсдэг нь маш их цаг хэмнэдэг.",
-                rating: 5,
-              },
-              {
-                name: "О. Сарантуяа",
-                role: "Түрээслэгч",
-                text: "Нийслэлийн 9 дүүргийн байрнуудаас хайж болох нь маш тохиромжтой. Дүүрэг, үнэ, өрөөний тоогоор шүүх боломж гайхалтай.",
-                rating: 5,
-              },
-            ].map((t) => (
-              <div key={t.name} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-                <div className="flex mb-3">
-                  {[1,2,3,4,5].map((s) => (
-                    <span key={s} className={`text-lg ${s <= t.rating ? "text-yellow-400" : "text-gray-200"}`}>★</span>
-                  ))}
-                </div>
-                <p className="text-gray-600 text-sm leading-relaxed mb-4">"{t.text}"</p>
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600 font-bold text-sm">
-                    {t.name[0]}
+              { name: "Б. Мөнхбаяр", role: "Түрээслэгч", text: "Байр хайх, цахим гэрээ байгуулах бүх зүйл маш хялбар болсон." },
+              { name: "Д. Цэрэндорж", role: "Түрээслүүлэгч", text: "Байруудаа удирдахад маш хялбар. Төлбөрийн хуваарь автоматаар үүснэ." },
+              { name: "О. Сарантуяа", role: "Түрээслэгч", text: "Нийслэлийн бүх дүүрэгт хайх боломж гайхалтай. Маш цаг хэмнэлттэй." },
+            ].map(({ name, role, text }, i) => (
+              <RevealSection key={name} delay={i * 0.1}>
+                <div className="luxury-card p-6">
+                  <div className="flex mb-4">
+                    {[1,2,3,4,5].map(s => (
+                      <span key={s} style={{ color: "var(--gold)", fontSize: 14 }}>★</span>
+                    ))}
                   </div>
-                  <div>
-                    <p className="font-semibold text-gray-900 text-sm">{t.name}</p>
-                    <p className="text-gray-400 text-xs">{t.role}</p>
+                  <p className="text-sm text-[var(--text-muted)] leading-relaxed mb-6 font-display font-light italic text-base">"{text}"</p>
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 bg-[var(--gold)] flex items-center justify-center text-[var(--ink)] text-xs font-medium">
+                      {name[0]}
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-[var(--ink)]">{name}</p>
+                      <p className="text-xs text-[var(--text-soft)]">{role}</p>
+                    </div>
                   </div>
                 </div>
-              </div>
+              </RevealSection>
             ))}
           </div>
         </div>
       </section>
 
-      {/* CTA */}
-      <section className="py-24 bg-white">
-        <div className="max-w-3xl mx-auto px-6 text-center">
-          <h2 style={{ fontFamily: "'Playfair Display', serif" }}
-            className="text-4xl font-bold text-gray-900 mb-4">
-            Өнөөдрөөс эхлэх үү?
+      {/* ── CTA ── */}
+      <section className="py-32 px-8 md:px-16 text-center" style={{ background: "var(--cream)" }}>
+        <RevealSection>
+          <p className="text-xs tracking-widest uppercase text-[var(--gold)] mb-6">Эхлэх</p>
+          <h2 className="font-display text-5xl md:text-6xl font-light text-[var(--ink)] mb-6">
+            Өнөөдрөөс эхэлнэ үү
           </h2>
-          <p className="text-gray-500 text-lg mb-8">
+          <p className="text-[var(--text-muted)] text-sm mb-10 max-w-md mx-auto">
             Бүртгэл үнэ төлбөргүй. Хэдхэн минутын дотор байраа олоорой.
           </p>
           <div className="flex flex-wrap justify-center gap-4">
-            <Link to="/register">
-              <button className="px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-2xl transition shadow-lg shadow-indigo-200 text-lg">
-                Үнэгүй бүртгүүлэх →
-              </button>
+            <Link to="/register" className="btn-gold">
+              Үнэгүй бүртгүүлэх →
             </Link>
-            <Link to="/home">
-              <button className="px-8 py-4 border-2 border-gray-200 hover:border-indigo-300 text-gray-700 font-semibold rounded-2xl transition text-lg">
-                Байр хайх
-              </button>
-            </Link>
+            <Link to="/home" className="btn-outline-gold">Байр харах</Link>
           </div>
-        </div>
+        </RevealSection>
       </section>
 
-      {/* Footer */}
-      <footer className="bg-slate-900 text-slate-400 py-10">
-        <div className="max-w-6xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-4">
-          <div className="flex items-center gap-2">
-            <span className="text-xl">🏡</span>
-            <span className="text-white font-bold">Түрээсийн систем</span>
+      {/* ── FOOTER ── */}
+      <footer className="px-8 md:px-16 py-10" style={{ background: "var(--ink)", borderTop: "1px solid rgba(201,168,76,0.15)" }}>
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className="flex items-center gap-3">
+            <div className="relative w-6 h-6">
+              <div className="absolute inset-0 border border-[var(--gold)] rotate-45" />
+              <div className="absolute inset-1.5 bg-[var(--gold)] rotate-45" />
+            </div>
+            <span className="font-display text-lg font-light text-white">
+              Mon<span style={{ color: "var(--gold)" }}>Rent</span>
+            </span>
           </div>
-          <p className="text-sm">© 2026 Түрээсийн систем. Бүх эрх хуулиар хамгаалагдсан.</p>
-          <div className="flex gap-6 text-sm">
-            <Link to="/home"     className="hover:text-white transition">Байрнууд</Link>
-            <Link to="/login"    className="hover:text-white transition">Нэвтрэх</Link>
-            <Link to="/register" className="hover:text-white transition">Бүртгүүлэх</Link>
+          <p className="text-white/30 text-xs tracking-wide">© 2026 MonRent. Бүх эрх хуулиар хамгаалагдсан.</p>
+          <div className="flex gap-6">
+            {[{ to: "/home", label: "Байрнууд" }, { to: "/login", label: "Нэвтрэх" }, { to: "/register", label: "Бүртгүүлэх" }].map(({ to, label }) => (
+              <Link key={to} to={to} className="text-white/40 hover:text-white text-xs tracking-widest uppercase transition-colors">{label}</Link>
+            ))}
           </div>
         </div>
       </footer>

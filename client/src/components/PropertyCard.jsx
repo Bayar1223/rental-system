@@ -1,121 +1,83 @@
 import { Link } from "react-router-dom";
 
-function PropertyCard({ property }) {
-  const image =
-    property.images && property.images.length > 0
-      ? property.images[0]
-      : "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688";
-
-  const statusConfig = {
-    available: { label: "Боломжтой", cls: "bg-green-100 text-green-700" },
-    rented:    { label: "Түрээслэгдсэн", cls: "bg-blue-100 text-blue-700" },
-    inactive:  { label: "Идэвхгүй", cls: "bg-gray-100 text-gray-500" },
-  };
-  const status = statusConfig[property.status] || statusConfig.available;
+function PropertyCard({ property, index = 0 }) {
+  const image = property.images?.[0] || "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688";
+  const isAvailable = property.status === "available";
 
   return (
-    <Link to={`/properties/${property._id}`}>
-      <div className="bg-white rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden group border border-gray-100 hover:-translate-y-1">
+    <Link to={`/properties/${property._id}`} className="block group">
+      <article className="luxury-card animate-fadeUp" style={{ animationDelay: `${index * 0.08}s` }}>
 
-        {/* Зураг */}
-        <div className="relative overflow-hidden h-52">
-          <img
-            src={image}
-            alt={property.title}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-          />
+        {/* Image */}
+        <div className="relative overflow-hidden" style={{ aspectRatio: "4/3" }}>
+          <img src={image} alt={property.title}
+            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
 
-          {/* Статус badge */}
-          <span className={`absolute top-3 left-3 text-xs font-semibold px-2.5 py-1 rounded-full ${status.cls}`}>
-            {status.label}
-          </span>
+          {/* Overlay gradient */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-400" />
 
-          {/* Зургийн тоо */}
+          {/* Status badge */}
+          <div className="absolute top-3 left-3">
+            {isAvailable
+              ? <span className="badge-gold">Боломжтой</span>
+              : <span className="badge-ink">Түрээслэгдсэн</span>}
+          </div>
+
+          {/* Image count */}
           {property.images?.length > 1 && (
-            <span className="absolute bottom-3 right-3 bg-black/50 text-white text-xs px-2 py-1 rounded-full">
-              +{property.images.length - 1} зураг
-            </span>
+            <div className="absolute bottom-3 right-3 bg-black/60 text-white text-xs px-2 py-1 font-light tracking-widest">
+              +{property.images.length - 1}
+            </div>
           )}
+
+          {/* Hover CTA */}
+          <div className="absolute inset-0 flex items-end justify-center pb-6 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0">
+            <span className="bg-[var(--gold)] text-[var(--ink)] text-xs font-medium tracking-widest uppercase px-6 py-2.5">
+              Дэлгэрэнгүй
+            </span>
+          </div>
         </div>
 
-        {/* Мэдээлэл */}
-        <div className="p-4">
+        {/* Content */}
+        <div className="p-5">
+          {/* Tags */}
+          <div className="flex gap-2 mb-3">
+            <span className="badge-outline">{property.rooms} өрөө</span>
+            <span className="badge-outline">{property.area} м²</span>
+            {property.isFurnished && <span className="badge-outline">Тавилгатай</span>}
+          </div>
 
-          {/* Гарчиг */}
-          <h3 className="font-bold text-gray-900 text-lg leading-snug line-clamp-1 mb-1">
+          {/* Title */}
+          <h3 className="font-display text-lg font-light leading-snug text-[var(--ink)] mb-1 line-clamp-1 group-hover:text-[var(--gold-dark)] transition-colors">
             {property.title}
           </h3>
 
-          {/* Байршил */}
-          <p className="text-gray-500 text-sm flex items-center gap-1 mb-3">
-            <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+          {/* Location */}
+          <p className="text-xs text-[var(--text-muted)] tracking-wide mb-4 flex items-center gap-1">
+            <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24" className="flex-shrink-0">
+              <path strokeLinecap="round" d="M12 21c0 0-7-6-7-11a7 7 0 0114 0c0 5-7 11-7 11z" />
+              <circle cx="12" cy="10" r="2" />
             </svg>
             {property.location?.district}, {property.location?.city}
           </p>
 
-          {/* Үзүүлэлтүүд */}
-          <div className="flex items-center gap-3 text-sm text-gray-600 mb-4">
-            <span className="flex items-center gap-1">
-              <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-              </svg>
-              {property.rooms} өрөө
-            </span>
-            <span className="text-gray-300">•</span>
-            <span className="flex items-center gap-1">
-              <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
-              </svg>
-              {property.area} м²
-            </span>
-            {property.floorNumber && (
-              <>
-                <span className="text-gray-300">•</span>
-                <span>{property.floorNumber} давхар</span>
-              </>
-            )}
-          </div>
+          {/* Gold divider */}
+          <div className="h-px mb-4" style={{ background: "linear-gradient(90deg, var(--gold-light), transparent)" }} />
 
-          {/* Нэмэлт шинж */}
-          <div className="flex gap-2 mb-4 flex-wrap">
-            {property.isFurnished && (
-              <span className="text-xs bg-indigo-50 text-indigo-600 px-2 py-1 rounded-lg">
-                Тавилгатай
-              </span>
-            )}
-            {property.hasOutdoorParking && (
-              <span className="text-xs bg-indigo-50 text-indigo-600 px-2 py-1 rounded-lg">
-                Зогсоолтой
-              </span>
-            )}
-            {property.balconyCount > 0 && (
-              <span className="text-xs bg-indigo-50 text-indigo-600 px-2 py-1 rounded-lg">
-                Тагттай
-              </span>
-            )}
-            {property.paymentConditionText && (
-              <span className="text-xs bg-gray-50 text-gray-600 px-2 py-1 rounded-lg">
-                {property.paymentConditionText}
-              </span>
-            )}
-          </div>
-
-          {/* Үнэ */}
-          <div className="flex items-center justify-between pt-3 border-t border-gray-100">
+          {/* Price */}
+          <div className="flex items-baseline justify-between">
             <div>
-              <span className="text-2xl font-bold text-indigo-600">
-                {property.monthlyRent?.toLocaleString()}₮
+              <span className="font-display text-2xl font-light text-[var(--ink)]">
+                {property.monthlyRent?.toLocaleString()}
               </span>
-              <span className="text-gray-400 text-sm">/сар</span>
+              <span className="text-xs text-[var(--text-muted)] ml-1">₮/сар</span>
             </div>
-            <span className="text-sm text-indigo-600 font-medium group-hover:underline">
-              Дэлгэрэнгүй →
-            </span>
+            {property.paymentConditionText && (
+              <span className="text-xs text-[var(--text-soft)]">{property.paymentConditionText}</span>
+            )}
           </div>
         </div>
-      </div>
+      </article>
     </Link>
   );
 }

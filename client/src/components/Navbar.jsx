@@ -1,62 +1,41 @@
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import api from "../api/axiosInstance";
 import { useState, useEffect, useRef } from "react";
 
 const timeAgo = (date) => {
-  const d = new Date(date).getTime();
-  const diff = (Date.now() - d) / 1000;
+  const diff = (Date.now() - new Date(date).getTime()) / 1000;
   if (diff < 60) return "Дөнгөж сая";
-  if (diff < 3600) return `${Math.floor(diff / 60)} минутын өмнө`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)} цагийн өмнө`;
-  return `${Math.floor(diff / 86400)} өдрийн өмнө`;
+  if (diff < 3600) return `${Math.floor(diff / 60)}м өмнө`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}ц өмнө`;
+  return `${Math.floor(diff / 86400)}ө өмнө`;
 };
-
-const typeIcon = (type) => {
-  if (type === "application_received") return "📨";
-  if (type === "application_approved") return "✅";
-  if (type === "application_rejected") return "❌";
-  return "🔔";
-};
-
-const ROLE_LABELS = {
-  tenant:   "Түрээслэгч",
-  landlord: "Түрээслүүлэгч",
-  admin:    "Админ",
-};
-
-function AvatarCircle({ avatar, firstName, size = "sm" }) {
-  const cls = size === "lg" ? "w-10 h-10 text-lg" : "w-7 h-7 text-sm";
-  if (avatar) {
-    return (
-      <img src={avatar} alt="avatar"
-        className={`${cls} rounded-full object-cover flex-shrink-0`} />
-    );
-  }
-  return (
-    <div className={`${cls} bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600 font-bold flex-shrink-0`}>
-      {firstName?.[0]?.toUpperCase()}
-    </div>
-  );
-}
 
 function Navbar() {
   const navigate = useNavigate();
-
+  const location = useLocation();
   const [currentUser, setCurrentUser] = useState(() => {
-    try { return JSON.parse(localStorage.getItem("user")); }
-    catch { return null; }
+    try {
+      return JSON.parse(localStorage.getItem("user"));
+    } catch {
+      return null;
+    }
   });
-  const [unreadCount, setUnreadCount]     = useState(0);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [notifications, setNotifications] = useState([]);
-  const [showNotif, setShowNotif]         = useState(false);
-  const [showUserMenu, setShowUserMenu]   = useState(false);
-  const [mobileOpen, setMobileOpen]       = useState(false);
-
-  const user  = currentUser;
+  const [showNotif, setShowNotif] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+  const notifRef = useRef(null);
+  const userMenuRef = useRef(null);
+  const user = currentUser;
   const token = localStorage.getItem("token");
 
-  const notifRef    = useRef(null);
-  const userMenuRef = useRef(null);
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 20);
+    window.addEventListener("scroll", onScroll);
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   useEffect(() => {
     if (!user || !token) return;
@@ -64,55 +43,59 @@ function Navbar() {
       try {
         const res = await api.get("/api/notifications/unread-count");
         setUnreadCount(res.data.count);
-      } catch { /* silent */ }
+      } catch {
+        /* silent */
+      }
     };
     load();
-    const interval = setInterval(load, 30000);
-    return () => clearInterval(interval);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    const i = setInterval(load, 30000);
+    return () => clearInterval(i);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
-    const handleStorageChange = () => {
-      const updated = JSON.parse(localStorage.getItem("user"));
-      setCurrentUser(updated);
+    const h = () => {
+      try {
+        setCurrentUser(JSON.parse(localStorage.getItem("user")));
+      } catch {
+        /* silent */
+      }
     };
-    window.addEventListener("storage", handleStorageChange);
-    window.addEventListener("userUpdated", handleStorageChange);
+    window.addEventListener("storage", h);
+    window.addEventListener("userUpdated", h);
     return () => {
-      window.removeEventListener("storage", handleStorageChange);
-      window.removeEventListener("userUpdated", handleStorageChange);
+      window.removeEventListener("storage", h);
+      window.removeEventListener("userUpdated", h);
     };
   }, []);
 
   useEffect(() => {
-    const handleClick = (e) => {
+    const h = (e) => {
       if (notifRef.current && !notifRef.current.contains(e.target)) setShowNotif(false);
       if (userMenuRef.current && !userMenuRef.current.contains(e.target)) setShowUserMenu(false);
     };
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
   }, []);
 
   const handleBellClick = async () => {
     if (!showNotif) {
       try {
-        const res = await api.get("/api/notifications");
-        setNotifications(res.data);
-      } catch { /* silent */ }
+        const r = await api.get("/api/notifications");
+        setNotifications(r.data);
+      } catch {
+        /* silent */
+      }
       if (unreadCount > 0) {
         try {
           await api.put("/api/notifications/mark-all-read", {});
           setUnreadCount(0);
-        } catch { /* silent */ }
+        } catch {
+          /* silent */
+        }
       }
     }
-    setShowNotif((prev) => !prev);
-  };
-
-  const handleNotifClick = (notif) => {
-    setShowNotif(false);
-    if (notif.link) navigate(notif.link);
+    setShowNotif((p) => !p);
   };
 
   const handleLogout = () => {
@@ -121,362 +104,231 @@ function Navbar() {
     navigate("/");
   };
 
+  const isActive = (path) => location.pathname === path;
+
+  const navLinks =
+    user?.role === "tenant"
+      ? [
+          { to: "/home", label: "Байр хайх" },
+          { to: "/my-applications", label: "Хүсэлтүүд" },
+          { to: "/payments", label: "Төлбөр" },
+        ]
+      : user?.role === "landlord"
+      ? [
+          { to: "/home", label: "Байрнууд" },
+          { to: "/my-properties", label: "Миний байр" },
+          { to: "/landlord-applications", label: "Хүсэлтүүд" },
+          { to: "/payments", label: "Орлого" },
+        ]
+      : [{ to: "/home", label: "Байрнууд" }];
+
+  const navCls = scrolled
+    ? "bg-white/95 backdrop-blur-md shadow-sm border-b border-black/5"
+    : "bg-transparent";
+
   return (
     <>
-      <nav className="bg-white shadow-sm sticky top-0 z-40">
-        <div className="px-4 md:px-8 py-3 flex justify-between items-center w-full">
+      <nav
+        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${navCls}`}
+        style={{ height: 64 }}
+      >
+        <div className="max-w-7xl mx-auto px-6 h-full flex items-center justify-between">
 
-          {/* Лого */}
-          <Link to={user ? "/home" : "/"}>
-            <div className="flex items-center gap-2">
-              <span className="text-xl">🏡</span>
-              <h1 className="text-lg md:text-xl font-bold text-indigo-600">Түрээсийн систем</h1>
+          {/* Logo */}
+          <Link to={user ? "/home" : "/"} className="flex items-center gap-3 group">
+            <div className="relative w-8 h-8">
+              <div className="absolute inset-0 border border-[var(--gold)] rotate-45 transition-transform duration-300 group-hover:rotate-[60deg]" />
+              <div className="absolute inset-1.5 bg-[var(--gold)] rotate-45 transition-all duration-300 group-hover:scale-90" />
+            </div>
+            <div className="hidden sm:block">
+              <span className="font-display text-xl font-light tracking-wider text-[var(--ink)]">
+                Mon<span className="text-[var(--gold)]">Rent</span>
+              </span>
             </div>
           </Link>
 
-          {/* ===== DESKTOP NAV ===== */}
-          <div className="hidden md:flex items-center gap-5">
-            {user?.role === "tenant" && (
-              <>
-                <Link to="/my-applications" className="text-gray-600 font-medium hover:text-indigo-600 transition text-sm">
-                  Миний хүсэлтүүд
-                </Link>
-                <Link to="/payments" className="text-gray-600 font-medium hover:text-indigo-600 transition text-sm">
-                  💳 Төлбөр
-                </Link>
-              </>
-            )}
-            {user?.role === "landlord" && (
-              <>
-                <Link to="/my-properties" className="text-gray-600 font-medium hover:text-indigo-600 transition text-sm">
-                  Миний байрнууд
-                </Link>
-                <Link to="/landlord-applications" className="text-gray-600 font-medium hover:text-indigo-600 transition text-sm">
-                  Ирсэн хүсэлтүүд
-                </Link>
-                <Link to="/payments" className="text-gray-600 font-medium hover:text-indigo-600 transition text-sm">
-                  💰 Орлого
-                </Link>
-              </>
-            )}
-
-            {/* Мэдэгдэл */}
-            {user && (
-              <div className="relative" ref={notifRef}>
-                <button onClick={handleBellClick}
-                  className="relative w-9 h-9 flex items-center justify-center rounded-xl hover:bg-gray-100 transition">
-                  <span className="text-xl">🔔</span>
-                  {unreadCount > 0 && (
-                    <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
-                      {unreadCount > 9 ? "9+" : unreadCount}
-                    </span>
-                  )}
-                </button>
-
-                {showNotif && (
-                  <div className="absolute right-0 top-12 w-80 bg-white rounded-2xl shadow-xl border border-gray-100 z-50 overflow-hidden">
-                    <div className="px-4 py-3 border-b flex items-center justify-between">
-                      <h3 className="font-bold text-gray-800">Мэдэгдлүүд</h3>
-                      <span className="text-xs text-gray-400">{notifications.length} мэдэгдэл</span>
-                    </div>
-                    <div className="max-h-60 overflow-y-auto">
-                      {notifications.length === 0 ? (
-                        <div className="py-10 text-center text-gray-400">
-                          <div className="text-3xl mb-2">🔔</div>
-                          <p className="text-sm">Мэдэгдэл байхгүй байна</p>
-                        </div>
-                      ) : notifications.slice(0, 5).map((n) => (
-                        <button key={n._id} onClick={() => handleNotifClick(n)}
-                          className={`w-full text-left px-4 py-3 hover:bg-gray-50 transition border-b border-gray-50 ${!n.isRead ? "bg-indigo-50/50" : ""}`}>
-                          <div className="flex gap-3">
-                            <span className="text-xl flex-shrink-0">{typeIcon(n.type)}</span>
-                            <div className="min-w-0">
-                              <p className={`text-sm font-semibold ${!n.isRead ? "text-indigo-700" : "text-gray-800"}`}>{n.title}</p>
-                              <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{n.message}</p>
-                              <p className="text-xs text-gray-400 mt-1">{timeAgo(n.createdAt)}</p>
-                            </div>
-                            {!n.isRead && <span className="w-2 h-2 bg-indigo-500 rounded-full flex-shrink-0 mt-1" />}
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                    <Link to="/notifications" onClick={() => setShowNotif(false)}
-                      className="flex items-center justify-center gap-1 text-xs text-indigo-600 hover:text-indigo-700 py-2.5 hover:bg-indigo-50 border-t border-gray-100 font-medium transition">
-                      Бүгдийг харах →
-                    </Link>
-                  </div>
+          {/* Desktop nav */}
+          <div className="hidden md:flex items-center gap-1">
+            {navLinks.map(({ to, label }) => (
+              <Link
+                key={to}
+                to={to}
+                className={`px-4 py-2 text-xs font-medium tracking-widest uppercase transition-all duration-200 relative ${
+                  isActive(to)
+                    ? "text-[var(--gold)]"
+                    : "text-[var(--text-muted)] hover:text-[var(--ink)]"
+                }`}
+              >
+                {label}
+                {isActive(to) && (
+                  <span
+                    className="absolute bottom-0 left-4 right-4 h-px bg-[var(--gold)]"
+                    style={{ animation: "slideRight 0.3s ease both" }}
+                  />
                 )}
-              </div>
-            )}
-
-            {/* User dropdown */}
-            {user ? (
-              <div className="relative" ref={userMenuRef}>
-                <button onClick={() => setShowUserMenu((p) => !p)}
-                  className="flex items-center gap-2 bg-gray-50 hover:bg-gray-100 px-3 py-2 rounded-xl transition">
-                  <AvatarCircle avatar={user?.avatar} firstName={user?.firstName} size="sm" />
-                  <span className="font-medium text-gray-800 text-sm">{user.firstName}</span>
-                  <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
-
-                {showUserMenu && (
-                  <div className="absolute right-0 top-12 w-56 bg-white rounded-2xl shadow-xl border border-gray-100 z-50 overflow-hidden">
-                    <div className="px-4 py-3 border-b border-gray-100">
-                      <p className="font-semibold text-gray-800 text-sm">{user.firstName} {user.lastName}</p>
-                      <p className="text-xs text-gray-400 mt-0.5">{ROLE_LABELS[user.role]}</p>
-                    </div>
-                    <div className="py-1">
-                      <Link to="/home" onClick={() => setShowUserMenu(false)}
-                        className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition">
-                        <span>🏠</span> Байр хайх
-                      </Link>
-                      <Link to="/profile" onClick={() => setShowUserMenu(false)}
-                        className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition">
-                        <span>👤</span> Профайл
-                      </Link>
-                      <Link to="/notifications" onClick={() => setShowUserMenu(false)}
-                        className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition">
-                        <span>🔔</span> Мэдэгдэлүүд
-                        {unreadCount > 0 && (
-                          <span className="ml-auto bg-red-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full">
-                            {unreadCount}
-                          </span>
-                        )}
-                      </Link>
-
-                      {/* ===== TENANT ===== */}
-                      {user.role === "tenant" && (
-                        <>
-                          <Link to="/my-rentals" onClick={() => setShowUserMenu(false)}
-                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition">
-                            <span>🏠</span> Миний түрээс
-                          </Link>
-                          <Link to="/payments" onClick={() => setShowUserMenu(false)}
-                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition">
-                            <span>💳</span> Төлбөр
-                          </Link>
-                          <Link to="/my-applications" onClick={() => setShowUserMenu(false)}
-                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition">
-                            <span>📋</span> Миний хүсэлтүүд
-                          </Link>
-                          <Link to="/maintenance" onClick={() => setShowUserMenu(false)}
-                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition">
-                            <span>🔧</span> Засварын хүсэлт
-                          </Link>
-                        </>
-                      )}
-
-                      {/* ===== LANDLORD ===== */}
-                      {user.role === "landlord" && (
-                        <>
-                          <Link to="/my-rentals" onClick={() => setShowUserMenu(false)}
-                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition">
-                            <span>📊</span> Түрээсийн мэдээлэл
-                          </Link>
-                          <Link to="/payments" onClick={() => setShowUserMenu(false)}
-                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition">
-                            <span>💰</span> Орлого
-                          </Link>
-                          <Link to="/my-properties" onClick={() => setShowUserMenu(false)}
-                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition">
-                            <span>🏘️</span> Миний байрнууд
-                          </Link>
-                          <Link to="/add-property" onClick={() => setShowUserMenu(false)}
-                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition">
-                            <span>➕</span> Байр нэмэх
-                          </Link>
-                          <Link to="/maintenance" onClick={() => setShowUserMenu(false)}
-                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition">
-                            <span>🔧</span> Засварын хүсэлт
-                          </Link>
-                        </>
-                      )}
-                    </div>
-
-                    {user?.role === "admin" && (
-                      <Link to="/admin" onClick={() => setShowUserMenu(false)}
-                        className="flex items-center gap-3 px-4 py-2.5 text-sm text-purple-600 hover:bg-purple-50 transition">
-                        <span>⚙️</span> Admin Panel
-                      </Link>
-                    )}
-                    <div className="border-t border-gray-100 py-1">
-                      <button onClick={handleLogout}
-                        className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition">
-                        <span>🚪</span> Гарах
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="flex items-center gap-2">
-                <Link to="/login">
-                  <button className="px-4 py-2 rounded-xl text-gray-600 hover:bg-gray-100 font-medium text-sm transition">
-                    Нэвтрэх
-                  </button>
-                </Link>
-                <Link to="/register">
-                  <button className="px-4 py-2 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 font-medium text-sm transition">
-                    Бүртгүүлэх
-                  </button>
-                </Link>
-              </div>
-            )}
+              </Link>
+            ))}
           </div>
 
-          {/* ===== MOBILE RIGHT ===== */}
-          <div className="flex md:hidden items-center gap-2">
-            {user && (
-              <button onClick={handleBellClick}
-                className="relative w-9 h-9 flex items-center justify-center rounded-xl hover:bg-gray-100 transition">
-                <span className="text-lg">🔔</span>
-                {unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
-                    {unreadCount > 9 ? "9+" : unreadCount}
-                  </span>
-                )}
-              </button>
+          {/* Right side */}
+          <div className="flex items-center gap-2">
+            {user ? (
+              <>
+                {/* Bell */}
+                <div className="relative" ref={notifRef}>
+                  <button
+                    onClick={handleBellClick}
+                    className="relative w-9 h-9 flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--ink)] transition-colors"
+                  >
+                    <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" d="M15 17H9m6 0a6 6 0 10-6 0m6 0v1a2 2 0 11-4 0v-1M12 3v1" />
+                    </svg>
+                    {unreadCount > 0 && (
+                      <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-[var(--gold)] rounded-full" />
+                    )}
+                  </button>
+
+                  {showNotif && (
+                    <div className="absolute right-0 top-12 w-80 bg-white border border-black/8 shadow-2xl z-50 animate-fadeIn">
+                      <div className="px-5 py-4 border-b border-black/5 flex items-center justify-between">
+                        <span className="text-xs font-medium tracking-widest uppercase text-[var(--text-muted)]">Мэдэгдлүүд</span>
+                        {unreadCount > 0 && <span className="badge-gold">{unreadCount} шинэ</span>}
+                      </div>
+                      <div className="max-h-72 overflow-y-auto">
+                        {notifications.length === 0 ? (
+                          <div className="py-12 text-center text-[var(--text-soft)] text-sm">Мэдэгдэл байхгүй</div>
+                        ) : (
+                          notifications.slice(0, 5).map((n) => (
+                            <button
+                              key={n._id}
+                              onClick={() => { setShowNotif(false); if (n.link) navigate(n.link); }}
+                              className={`w-full text-left px-5 py-4 hover:bg-[var(--surface)] border-b border-black/3 transition-colors ${!n.isRead ? "bg-amber-50/50" : ""}`}
+                            >
+                              <p className={`text-sm font-medium mb-0.5 ${!n.isRead ? "text-[var(--ink)]" : "text-[var(--text-muted)]"}`}>{n.title}</p>
+                              <p className="text-xs text-[var(--text-soft)] line-clamp-1">{n.message}</p>
+                              <p className="text-xs text-[var(--text-soft)] mt-1">{timeAgo(n.createdAt)}</p>
+                            </button>
+                          ))
+                        )}
+                      </div>
+                      <Link
+                        to="/notifications"
+                        onClick={() => setShowNotif(false)}
+                        className="flex items-center justify-center gap-2 py-3 text-xs font-medium tracking-widest uppercase text-[var(--gold)] hover:bg-[var(--surface)] transition-colors border-t border-black/5"
+                      >
+                        Бүгдийг харах →
+                      </Link>
+                    </div>
+                  )}
+                </div>
+
+                {/* User menu */}
+                <div className="relative" ref={userMenuRef}>
+                  <button
+                    onClick={() => setShowUserMenu((p) => !p)}
+                    className="flex items-center gap-2.5 px-3 py-1.5 hover:bg-black/5 transition-colors"
+                  >
+                    <div className="w-7 h-7 bg-[var(--gold)] flex items-center justify-center text-[var(--ink)] text-xs font-medium overflow-hidden">
+                      {user?.avatar
+                        ? <img src={user.avatar} className="w-full h-full object-cover" alt="" />
+                        : user?.firstName?.[0]?.toUpperCase()}
+                    </div>
+                    <span className="hidden sm:block text-xs font-medium text-[var(--ink)]">{user.firstName}</span>
+                    <svg
+                      className={`w-3 h-3 text-[var(--text-muted)] transition-transform ${showUserMenu ? "rotate-180" : ""}`}
+                      fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+
+                  {showUserMenu && (
+                    <div className="absolute right-0 top-12 w-52 bg-white border border-black/8 shadow-2xl z-50 animate-fadeIn">
+                      <div className="px-4 py-3 border-b border-black/5">
+                        <p className="text-sm font-medium text-[var(--ink)]">{user.firstName} {user.lastName}</p>
+                        <p className="text-xs text-[var(--text-soft)] mt-0.5">
+                          {user.role === "tenant" ? "Түрээслэгч" : user.role === "landlord" ? "Түрээслүүлэгч" : "Админ"}
+                        </p>
+                      </div>
+                      <div className="py-1">
+                        {[
+                          { to: "/profile", label: "Профайл" },
+                          { to: "/my-rentals", label: user.role === "landlord" ? "Түрээсийн мэдээлэл" : "Миний түрээс" },
+                          { to: "/notifications", label: "Мэдэгдлүүд" },
+                          ...(user.role === "tenant" ? [{ to: "/maintenance", label: "Засварын хүсэлт" }] : []),
+                          ...(user.role === "landlord" ? [{ to: "/add-property", label: "Байр нэмэх" }, { to: "/maintenance", label: "Суутгал" }] : []),
+                          ...(user.role === "admin" ? [{ to: "/admin", label: "Admin Panel" }] : []),
+                        ].map(({ to, label }) => (
+                          <Link
+                            key={to}
+                            to={to}
+                            onClick={() => setShowUserMenu(false)}
+                            className="flex items-center px-4 py-2.5 text-sm text-[var(--text-muted)] hover:text-[var(--ink)] hover:bg-[var(--surface)] transition-colors"
+                          >
+                            {label}
+                          </Link>
+                        ))}
+                      </div>
+                      <div className="border-t border-black/5 py-1">
+                        <button
+                          onClick={handleLogout}
+                          className="w-full flex items-center px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-colors"
+                        >
+                          Гарах
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Mobile burger */}
+                <button
+                  onClick={() => setMobileOpen((p) => !p)}
+                  className="md:hidden w-9 h-9 flex flex-col items-center justify-center gap-1"
+                >
+                  <span className={`block w-5 h-px bg-[var(--ink)] transition-all duration-300 ${mobileOpen ? "rotate-45 translate-y-1.5" : ""}`} />
+                  <span className={`block w-5 h-px bg-[var(--ink)] transition-all duration-300 ${mobileOpen ? "opacity-0" : ""}`} />
+                  <span className={`block w-5 h-px bg-[var(--ink)] transition-all duration-300 ${mobileOpen ? "-rotate-45 -translate-y-1.5" : ""}`} />
+                </button>
+              </>
+            ) : (
+              <div className="flex items-center gap-2">
+                <Link to="/login" className="btn-ghost text-xs">Нэвтрэх</Link>
+                <Link to="/register" className="btn-gold text-xs" style={{ padding: "10px 20px" }}>Бүртгүүлэх</Link>
+              </div>
             )}
-            <button onClick={() => setMobileOpen((p) => !p)}
-              className="w-9 h-9 flex flex-col items-center justify-center gap-1.5 rounded-xl hover:bg-gray-100 transition">
-              <span className={`block w-5 h-0.5 bg-gray-600 transition-all duration-200 ${mobileOpen ? "rotate-45 translate-y-2" : ""}`} />
-              <span className={`block w-5 h-0.5 bg-gray-600 transition-all duration-200 ${mobileOpen ? "opacity-0" : ""}`} />
-              <span className={`block w-5 h-0.5 bg-gray-600 transition-all duration-200 ${mobileOpen ? "-rotate-45 -translate-y-2" : ""}`} />
-            </button>
           </div>
         </div>
 
-        {/* ===== MOBILE MENU ===== */}
-        {mobileOpen && (
-          <div className="md:hidden border-t border-gray-100 bg-white px-4 py-3 space-y-1">
-            {user ? (
-              <>
-                <div className="flex items-center gap-3 px-3 py-3 mb-2 bg-gray-50 rounded-xl">
-                  <AvatarCircle avatar={user?.avatar} firstName={user?.firstName} size="lg" />
-                  <div>
-                    <p className="font-semibold text-gray-800 text-sm">{user.firstName} {user.lastName}</p>
-                    <p className="text-xs text-gray-400">{ROLE_LABELS[user.role]}</p>
-                  </div>
-                </div>
-                <Link to="/home" className="flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition">
-                  <span>🏠</span> Байр хайх
-                </Link>
-                <Link to="/profile" className="flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition">
-                  <span>👤</span> Профайл
-                </Link>
-                <Link to="/notifications" className="flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition">
-                  <span>🔔</span> Мэдэгдэлүүд
-                  {unreadCount > 0 && (
-                    <span className="ml-auto bg-red-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full">
-                      {unreadCount}
-                    </span>
-                  )}
-                </Link>
-
-                {/* Mobile — Tenant */}
-                {user.role === "tenant" && (
-                  <>
-                    <Link to="/my-rentals" className="flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition">
-                      <span>🏠</span> Миний түрээс
-                    </Link>
-                    <Link to="/payments" className="flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition">
-                      <span>💳</span> Төлбөр
-                    </Link>
-                    <Link to="/my-applications" className="flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition">
-                      <span>📋</span> Миний хүсэлтүүд
-                    </Link>
-                    <Link to="/maintenance" className="flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition">
-                      <span>🔧</span> Засварын хүсэлт
-                    </Link>
-                  </>
-                )}
-
-                {/* Mobile — Landlord */}
-                {user.role === "landlord" && (
-                  <>
-                    <Link to="/my-rentals" className="flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition">
-                      <span>📊</span> Түрээсийн мэдээлэл
-                    </Link>
-                    <Link to="/payments" className="flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition">
-                      <span>💰</span> Орлого
-                    </Link>
-                    <Link to="/my-properties" className="flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition">
-                      <span>🏘️</span> Миний байрнууд
-                    </Link>
-                    <Link to="/landlord-applications" className="flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition">
-                      <span>📬</span> Ирсэн хүсэлтүүд
-                    </Link>
-                    <Link to="/add-property" className="flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition">
-                      <span>➕</span> Байр нэмэх
-                    </Link>
-                    <Link to="/maintenance" className="flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition">
-                      <span>🔧</span> Засварын хүсэлт
-                    </Link>
-                  </>
-                )}
-
-                {user.role === "admin" && (
-                  <Link to="/admin" className="flex items-center gap-3 px-3 py-2.5 text-sm text-purple-600 hover:bg-purple-50 rounded-xl transition">
-                    <span>⚙️</span> Admin Panel
-                  </Link>
-                )}
-                <div className="pt-2 border-t border-gray-100">
-                  <button onClick={handleLogout}
-                    className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-red-500 hover:bg-red-50 rounded-xl transition">
-                    <span>🚪</span> Гарах
-                  </button>
-                </div>
-              </>
-            ) : (
-              <>
-                <Link to="/home" className="flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition">
-                  <span>🏠</span> Байр үзэх
-                </Link>
-                <Link to="/login" className="flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition">
-                  <span>🔑</span> Нэвтрэх
-                </Link>
-                <Link to="/register">
-                  <button className="w-full mt-1 bg-indigo-600 text-white py-2.5 rounded-xl text-sm font-medium hover:bg-indigo-700 transition">
-                    Бүртгүүлэх
-                  </button>
-                </Link>
-              </>
-            )}
-          </div>
-        )}
+        {/* Gold underline */}
+        <div
+          className="h-px"
+          style={{ background: "linear-gradient(90deg, transparent, var(--gold), transparent)", opacity: 0.3 }}
+        />
       </nav>
 
-      {/* Mobile notification panel */}
-      {showNotif && user && (
-        <div className="md:hidden fixed inset-x-4 top-16 z-50">
-          <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
-            <div className="px-4 py-3 border-b flex items-center justify-between">
-              <h3 className="font-bold text-gray-800">Мэдэгдлүүд</h3>
-              <button onClick={() => setShowNotif(false)} className="text-gray-400 text-2xl leading-none">×</button>
-            </div>
-            <div className="max-h-52 overflow-y-auto">
-              {notifications.length === 0 ? (
-                <div className="py-8 text-center text-gray-400 text-sm">Мэдэгдэл байхгүй байна</div>
-              ) : notifications.slice(0, 5).map((n) => (
-                <button key={n._id} onClick={() => handleNotifClick(n)}
-                  className={`w-full text-left px-4 py-3 hover:bg-gray-50 border-b border-gray-50 ${!n.isRead ? "bg-indigo-50/50" : ""}`}>
-                  <div className="flex gap-3">
-                    <span className="text-lg">{typeIcon(n.type)}</span>
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-gray-800">{n.title}</p>
-                      <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{n.message}</p>
-                      <p className="text-xs text-gray-400 mt-1">{timeAgo(n.createdAt)}</p>
-                    </div>
-                  </div>
-                </button>
-              ))}
-            </div>
-            <Link to="/notifications" onClick={() => setShowNotif(false)}
-              className="flex items-center justify-center gap-1 text-xs text-indigo-600 hover:text-indigo-700 py-2.5 hover:bg-indigo-50 border-t border-gray-100 font-medium transition">
-              Бүгдийг харах →
-            </Link>
+      {/* Mobile menu */}
+      {mobileOpen && user && (
+        <div className="md:hidden fixed inset-0 z-40 bg-white pt-16 animate-fadeIn">
+          <div className="px-6 py-8 space-y-1">
+            {navLinks.map(({ to, label }) => (
+              <Link
+                key={to}
+                to={to}
+                onClick={() => setMobileOpen(false)}
+                className={`block py-4 text-sm tracking-widest uppercase border-b border-black/5 transition-colors ${
+                  isActive(to) ? "text-[var(--gold)]" : "text-[var(--text-muted)]"
+                }`}
+              >
+                {label}
+              </Link>
+            ))}
+            <button
+              onClick={handleLogout}
+              className="block w-full text-left py-4 text-sm tracking-widest uppercase text-red-400 border-b border-black/5"
+            >
+              Гарах
+            </button>
           </div>
         </div>
       )}

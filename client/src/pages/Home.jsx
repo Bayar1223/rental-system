@@ -7,7 +7,6 @@ import api from "../api/axiosInstance";
 import Navbar from "../components/Navbar";
 import PropertyCard from "../components/PropertyCard";
 
-// Leaflet marker icon fix
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
@@ -15,400 +14,252 @@ L.Icon.Default.mergeOptions({
   shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
 });
 
-const districts = [
-  "Багануур","Багахангай","Баянгол","Баянзүрх",
-  "Налайх","Сонгинохайрхан","Сүхбаатар","Хан-Уул","Чингэлтэй",
-];
-
-// Координатгүй байрнуудад дүүргийн default координат ашиглана
+const districts = ["Багануур","Багахангай","Баянгол","Баянзүрх","Налайх","Сонгинохайрхан","Сүхбаатар","Хан-Уул","Чингэлтэй"];
 const DISTRICT_COORDS = {
-  "Баянзүрх":       [47.9184, 106.9612],
-  "Баянгол":        [47.9077, 106.8432],
-  "Сүхбаатар":      [47.9195, 106.9077],
-  "Чингэлтэй":      [47.9268, 106.8782],
-  "Хан-Уул":        [47.8748, 106.8815],
-  "Сонгинохайрхан": [47.9268, 106.7782],
-  "Налайх":         [47.7577, 107.2682],
-  "Багануур":       [47.7121, 108.2821],
-  "Багахангай":     [47.8241, 106.9121],
+  "Баянзүрх":[47.9184,106.9612],"Баянгол":[47.9077,106.8432],"Сүхбаатар":[47.9195,106.9077],
+  "Чингэлтэй":[47.9268,106.8782],"Хан-Уул":[47.8748,106.8815],"Сонгинохайрхан":[47.9268,106.7782],
+  "Налайх":[47.7577,107.2682],"Багануур":[47.7121,108.2821],"Багахангай":[47.8241,106.9121],
 };
-
-function getCoords(property) {
-  if (property.latitude && property.longitude) {
-    return [property.latitude, property.longitude];
-  }
-  const district = property.location?.district;
-  return DISTRICT_COORDS[district] || null;
-}
+const getCoords = (p) => (p.latitude && p.longitude) ? [p.latitude, p.longitude] : (DISTRICT_COORDS[p.location?.district] || null);
 
 function Home() {
-  const [properties, setProperties]   = useState([]);
-  const [pagination, setPagination]   = useState(null);
-  const [loading, setLoading]         = useState(false);
-  const [viewMode, setViewMode]       = useState("list"); // "list" | "map"
-
-  const [search, setSearch]           = useState("");
-  const [district, setDistrict]       = useState("");
-  const [rooms, setRooms]             = useState("");
-  const [minRent, setMinRent]         = useState("");
-  const [maxRent, setMaxRent]         = useState("");
-  const [showFilter, setShowFilter]   = useState(false);
-  const [page, setPage]               = useState(1);
-  const [selectedProperty, setSelectedProperty] = useState(null);
+  const [properties, setProperties] = useState([]);
+  const [pagination, setPagination] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [viewMode, setViewMode] = useState("list");
+  const [search, setSearch] = useState("");
+  const [district, setDistrict] = useState("");
+  const [rooms, setRooms] = useState("");
+  const [minRent, setMinRent] = useState("");
+  const [maxRent, setMaxRent] = useState("");
+  const [showFilter, setShowFilter] = useState(false);
+  const [page, setPage] = useState(1);
 
   const fetchProperties = useCallback(async () => {
     setLoading(true);
     try {
       const params = { page, limit: viewMode === "map" ? 50 : 9 };
-      if (search)   params.search   = search;
+      if (search) params.search = search;
       if (district) params.district = district;
-      if (rooms)    params.rooms    = rooms;
-      if (minRent)  params.minRent  = minRent;
-      if (maxRent)  params.maxRent  = maxRent;
-
+      if (rooms) params.rooms = rooms;
+      if (minRent) params.minRent = minRent;
+      if (maxRent) params.maxRent = maxRent;
       const res = await api.get("/api/properties", { params });
-      if (res.data.properties) {
-        setProperties(res.data.properties);
-        setPagination(res.data.pagination);
-      } else {
-        setProperties(res.data);
-        setPagination(null);
-      }
-    } catch (error) {
-      console.log(error);
-    } finally {
-      setLoading(false);
-    }
+      if (res.data.properties) { setProperties(res.data.properties); setPagination(res.data.pagination); }
+      else { setProperties(res.data); setPagination(null); }
+    } catch { /* empty */ } finally { setLoading(false); }
   }, [search, district, rooms, minRent, maxRent, page, viewMode]);
 
   useEffect(() => {
-    const timeout = setTimeout(() => { fetchProperties(); }, 400);
-    return () => clearTimeout(timeout);
+    const t = setTimeout(fetchProperties, 400);
+    return () => clearTimeout(t);
   }, [fetchProperties]);
 
-  const handleFilterChange = (setter) => (e) => {
-    setter(e.target.value);
-    setPage(1);
-  };
-
-  const handleReset = () => {
-    setSearch(""); setDistrict(""); setRooms("");
-    setMinRent(""); setMaxRent(""); setPage(1);
-  };
-
   const hasFilter = search || district || rooms || minRent || maxRent;
-
-  // Map-д харагдах байрнууд (координаттай)
-  const mappableProperties = properties.filter((p) => getCoords(p));
+  const reset = () => { setSearch(""); setDistrict(""); setRooms(""); setMinRent(""); setMaxRent(""); setPage(1); };
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen" style={{ background: "var(--cream)", paddingTop: 64 }}>
       <Navbar />
 
-      {/* Хайлтын хэсэг */}
-      <div className="bg-white border-b">
-        <div className="max-w-5xl mx-auto px-4 md:px-8 py-6 md:py-10">
-          <h2 className="text-2xl md:text-4xl font-bold mb-1 md:mb-2">
-            Түрээсийн байр хайх
-          </h2>
-          <p className="text-gray-500 text-sm md:text-base mb-4 md:mb-6">
-            Улаанбаатар хотын орон сууц түрээсийн систем
-          </p>
+      {/* Hero search section */}
+      <section style={{ background: "var(--ink)", padding: "60px 0 50px" }} className="relative overflow-hidden">
+        {/* Subtle grid pattern */}
+        <div className="absolute inset-0 opacity-5" style={{
+          backgroundImage: "linear-gradient(var(--gold) 1px, transparent 1px), linear-gradient(90deg, var(--gold) 1px, transparent 1px)",
+          backgroundSize: "60px 60px"
+        }} />
+        <div className="max-w-5xl mx-auto px-6 relative">
+          <div className="animate-fadeUp">
+            <p className="text-xs tracking-widest uppercase text-[var(--gold)] mb-3">Улаанбаатар</p>
+            <h1 className="font-display text-5xl md:text-6xl font-light text-white leading-tight mb-8">
+              Мөрөөдлийн байраа<br />
+              <span style={{ color: "var(--gold)" }}>хялбараар олоорой</span>
+            </h1>
+          </div>
 
-          <div className="flex gap-2 md:gap-3">
-            <div className="flex-1 relative">
-              <svg className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 w-4 h-4 md:w-5 md:h-5 text-gray-400"
-                fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
+          {/* Search bar */}
+          <div className="animate-fadeUp delay-200 flex gap-0 max-w-2xl">
+            <div className="relative flex-1">
               <input
                 type="text"
-                placeholder="Байрны нэр, хаяг хайх..."
+                placeholder="Байрны нэр, байршил..."
                 value={search}
                 onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-                className="w-full pl-9 md:pl-12 pr-3 md:pr-4 py-2.5 md:py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-400 text-sm md:text-base"
+                className="w-full bg-white text-[var(--ink)] text-sm px-5 py-4 outline-none border-0"
+                style={{ fontFamily: "'DM Sans', sans-serif" }}
               />
             </div>
             <button
-              onClick={() => setShowFilter(!showFilter)}
-              className={`flex items-center gap-1.5 md:gap-2 px-3 md:px-5 py-2.5 md:py-3 rounded-xl border font-medium transition text-sm md:text-base ${
-                showFilter || hasFilter
-                  ? "bg-indigo-600 text-white border-indigo-600"
-                  : "bg-white text-gray-700 hover:bg-gray-50"
+              onClick={() => setShowFilter(p => !p)}
+              className={`px-6 py-4 text-xs font-medium tracking-widest uppercase transition-all border-l border-black/10 ${
+                hasFilter ? "bg-[var(--gold)] text-[var(--ink)]" : "bg-white text-[var(--text-muted)] hover:bg-[var(--surface)]"
               }`}
+              style={{ fontFamily: "'DM Sans', sans-serif" }}
             >
-              <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                  d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707L13 13.414V19a1 1 0 01-.553.894l-4 2A1 1 0 017 21v-7.586L3.293 6.707A1 1 0 013 6V4z" />
-              </svg>
-              Шүүлтүүр
-              {hasFilter && (
-                <span className="bg-white text-indigo-600 text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
-                  {[district, rooms, minRent, maxRent].filter(Boolean).length}
-                </span>
-              )}
+              {hasFilter ? `Шүүлтүүр (${[district,rooms,minRent,maxRent].filter(Boolean).length})` : "Шүүлтүүр"}
             </button>
           </div>
 
-          {/* Шүүлтүүр панел */}
+          {/* Filter panel */}
           {showFilter && (
-            <div className="mt-3 md:mt-4 p-4 md:p-5 bg-gray-50 rounded-2xl border">
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-                <div>
-                  <label className="text-xs md:text-sm font-semibold text-gray-600 mb-1 block">Дүүрэг</label>
-                  <select value={district} onChange={handleFilterChange(setDistrict)}
-                    className="w-full border p-2 md:p-2.5 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400">
-                    <option value="">Бүгд</option>
-                    {districts.map((d) => <option key={d} value={d}>{d}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs md:text-sm font-semibold text-gray-600 mb-1 block">Өрөөний тоо</label>
-                  <select value={rooms} onChange={handleFilterChange(setRooms)}
-                    className="w-full border p-2 md:p-2.5 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400">
-                    <option value="">Бүгд</option>
-                    {[1,2,3,4,5].map(n => <option key={n} value={n}>{n} өрөө</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs md:text-sm font-semibold text-gray-600 mb-1 block">Мин үнэ (₮)</label>
-                  <input type="number" placeholder="0" value={minRent}
-                    onChange={handleFilterChange(setMinRent)}
-                    className="w-full border p-2 md:p-2.5 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
-                </div>
-                <div>
-                  <label className="text-xs md:text-sm font-semibold text-gray-600 mb-1 block">Макс үнэ (₮)</label>
-                  <input type="number" placeholder="10,000,000" value={maxRent}
-                    onChange={handleFilterChange(setMaxRent)}
-                    className="w-full border p-2 md:p-2.5 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
-                </div>
+            <div className="animate-fadeUp mt-0 bg-white max-w-2xl">
+              <div className="p-5 grid grid-cols-2 md:grid-cols-4 gap-4">
+                {[
+                  { label: "Дүүрэг", component: (
+                    <select value={district} onChange={(e) => { setDistrict(e.target.value); setPage(1); }} className="luxury-select text-sm">
+                      <option value="">Бүгд</option>
+                      {districts.map(d => <option key={d} value={d}>{d}</option>)}
+                    </select>
+                  )},
+                  { label: "Өрөө", component: (
+                    <select value={rooms} onChange={(e) => { setRooms(e.target.value); setPage(1); }} className="luxury-select text-sm">
+                      <option value="">Бүгд</option>
+                      {[1,2,3,4,5].map(n => <option key={n} value={n}>{n} өрөө</option>)}
+                    </select>
+                  )},
+                  { label: "Мин үнэ", component: (
+                    <input type="number" placeholder="0" value={minRent}
+                      onChange={(e) => { setMinRent(e.target.value); setPage(1); }} className="luxury-input text-sm" />
+                  )},
+                  { label: "Макс үнэ", component: (
+                    <input type="number" placeholder="∞" value={maxRent}
+                      onChange={(e) => { setMaxRent(e.target.value); setPage(1); }} className="luxury-input text-sm" />
+                  )},
+                ].map(({ label, component }) => (
+                  <div key={label}>
+                    <label className="block text-xs tracking-widest uppercase text-[var(--text-muted)] mb-2">{label}</label>
+                    {component}
+                  </div>
+                ))}
               </div>
               {hasFilter && (
-                <button onClick={handleReset}
-                  className="mt-3 text-sm text-red-500 hover:underline font-medium">
-                  Шүүлтүүр арилгах
-                </button>
+                <div className="px-5 pb-4">
+                  <button onClick={reset} className="text-xs text-[var(--gold)] hover:underline">Шүүлтүүр арилгах</button>
+                </div>
               )}
             </div>
           )}
         </div>
-      </div>
+      </section>
 
-      {/* Жагсаалт / Map харагдац */}
-      <div className="max-w-5xl mx-auto px-4 md:px-8 py-5 md:py-8">
-        <div className="flex items-center justify-between mb-4 md:mb-6">
-          <p className="text-gray-600 text-sm md:text-base">
-            {loading
-              ? "Хайж байна..."
-              : pagination
-                ? `Нийт ${pagination.total} байр — ${pagination.page} / ${pagination.totalPages} хуудас`
-                : `${properties.length} байр олдлоо`}
-          </p>
-
-          {/* View mode toggle */}
-          <div className="flex items-center bg-white border rounded-xl overflow-hidden shadow-sm">
-            <button
-              onClick={() => setViewMode("list")}
-              className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition whitespace-nowrap ${
-                viewMode === "list" ? "bg-indigo-600 text-white" : "text-gray-600 hover:bg-gray-50"
-              }`}
-            >
-              <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                  d="M4 6h16M4 10h16M4 14h16M4 18h16" />
-              </svg>
-              <span className="hidden sm:inline">Жагсаалт</span>
-              <span className="sm:hidden">Жагс</span>
-            </button>
-            <button
-              onClick={() => { setViewMode("map"); setPage(1); }}
-              className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition whitespace-nowrap ${
-                viewMode === "map" ? "bg-indigo-600 text-white" : "text-gray-600 hover:bg-gray-50"
-              }`}
-            >
-              <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                  d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
-              </svg>
-              <span className="hidden sm:inline">Газрын зураг</span>
-              <span className="sm:hidden">Зураг</span>
-            </button>
+      {/* Main content */}
+      <div className="max-w-7xl mx-auto px-6 py-10">
+        {/* Toolbar */}
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <p className="text-xs tracking-widest uppercase text-[var(--text-muted)]">
+              {loading ? "Хайж байна..." : pagination ? `${pagination.total} байр — ${pagination.page}/${pagination.totalPages} хуудас` : `${properties.length} байр`}
+            </p>
+          </div>
+          <div className="flex border border-black/10">
+            {[
+              { key: "list", icon: <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><path strokeLinecap="round" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>, label: "Жагсаалт" },
+              { key: "map", icon: <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><path strokeLinecap="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>, label: "Зураг" },
+            ].map(({ key, icon, label }) => (
+              <button key={key} onClick={() => { setViewMode(key); setPage(1); }}
+                className={`flex items-center gap-2 px-4 py-2 text-xs tracking-wide transition-all ${
+                  viewMode === key ? "bg-[var(--ink)] text-white" : "text-[var(--text-muted)] hover:bg-[var(--surface)]"
+                }`} style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                {icon} <span className="hidden sm:inline">{label}</span>
+              </button>
+            ))}
           </div>
         </div>
 
-        {/* ====== LIST VIEW ====== */}
+        {/* LIST VIEW */}
         {viewMode === "list" && (
           <>
             {loading ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-                {[1,2,3,4,5,6].map((i) => (
-                  <div key={i} className="bg-white rounded-2xl shadow animate-pulse">
-                    <div className="h-44 md:h-48 bg-gray-200 rounded-t-2xl" />
-                    <div className="p-4 md:p-5 space-y-3">
-                      <div className="h-5 bg-gray-200 rounded w-3/4" />
-                      <div className="h-4 bg-gray-200 rounded w-1/2" />
-                      <div className="h-6 bg-gray-200 rounded w-1/3" />
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {[1,2,3,4,5,6].map(i => (
+                  <div key={i} className="bg-white animate-pulse">
+                    <div className="bg-gray-100" style={{ aspectRatio: "4/3" }} />
+                    <div className="p-5 space-y-3">
+                      <div className="h-3 bg-gray-100 w-1/4 rounded" />
+                      <div className="h-4 bg-gray-100 w-3/4 rounded" />
+                      <div className="h-3 bg-gray-100 w-1/2 rounded" />
                     </div>
                   </div>
                 ))}
               </div>
             ) : properties.length === 0 ? (
-              <div className="text-center py-16 md:py-20">
-                <div className="text-5xl md:text-6xl mb-4">🏠</div>
-                <h3 className="text-lg md:text-xl font-bold text-gray-700 mb-2">Байр олдсонгүй</h3>
-                <p className="text-gray-500 text-sm md:text-base">Шүүлтүүрийг өөрчилж дахин хайна уу</p>
-                {hasFilter && (
-                  <button onClick={handleReset}
-                    className="mt-4 text-indigo-600 hover:underline font-medium text-sm">
-                    Шүүлтүүр арилгах
-                  </button>
-                )}
+              <div className="py-24 text-center">
+                <p className="font-display text-4xl font-light text-[var(--text-soft)] mb-4">Байр олдсонгүй</p>
+                <p className="text-sm text-[var(--text-soft)]">Шүүлтүүрийг өөрчилж дахин хайна уу</p>
+                {hasFilter && <button onClick={reset} className="btn-outline-gold mt-6">Шүүлтүүр арилгах</button>}
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-                {properties.map((property) => (
-                  <PropertyCard key={property._id} property={property} />
-                ))}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {properties.map((p, i) => <PropertyCard key={p._id} property={p} index={i} />)}
               </div>
             )}
 
             {/* Pagination */}
             {pagination && pagination.totalPages > 1 && (
-              <div className="flex justify-center items-center gap-1.5 md:gap-2 mt-8 md:mt-10">
-                <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}
-                  className="px-3 md:px-4 py-2 rounded-xl border text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50 transition">
-                  ← Өмнөх
+              <div className="flex items-center justify-center gap-1 mt-12">
+                <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
+                  className="w-10 h-10 flex items-center justify-center border border-black/10 text-[var(--text-muted)] hover:border-[var(--gold)] hover:text-[var(--gold)] disabled:opacity-30 transition-all text-xs">
+                  ←
                 </button>
                 {Array.from({ length: pagination.totalPages }, (_, i) => i + 1)
-                  .filter((p) => p === 1 || p === pagination.totalPages || Math.abs(p - page) <= 1)
-                  .reduce((acc, p, idx, arr) => {
-                    if (idx > 0 && p - arr[idx - 1] > 1) acc.push("...");
-                    acc.push(p);
-                    return acc;
-                  }, [])
-                  .map((p, idx) =>
-                    p === "..." ? (
-                      <span key={`dot-${idx}`} className="px-2 text-gray-400 text-sm">...</span>
-                    ) : (
-                      <button key={p} onClick={() => setPage(p)}
-                        className={`w-9 h-9 md:w-10 md:h-10 rounded-xl text-sm font-medium transition ${
-                          p === page ? "bg-indigo-600 text-white" : "border hover:bg-gray-50 text-gray-700"
-                        }`}>
-                        {p}
-                      </button>
-                    )
-                  )}
-                <button onClick={() => setPage((p) => Math.min(pagination.totalPages, p + 1))}
-                  disabled={page === pagination.totalPages}
-                  className="px-3 md:px-4 py-2 rounded-xl border text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50 transition">
-                  Дараах →
+                  .filter(p => p === 1 || p === pagination.totalPages || Math.abs(p - page) <= 1)
+                  .reduce((acc, p, i, arr) => { if (i > 0 && p - arr[i-1] > 1) acc.push("..."); acc.push(p); return acc; }, [])
+                  .map((p, i) => p === "..." ? (
+                    <span key={`d${i}`} className="w-10 h-10 flex items-center justify-center text-[var(--text-soft)] text-xs">…</span>
+                  ) : (
+                    <button key={p} onClick={() => setPage(p)}
+                      className={`w-10 h-10 flex items-center justify-center border text-xs font-medium transition-all ${
+                        p === page ? "bg-[var(--ink)] text-white border-[var(--ink)]" : "border-black/10 text-[var(--text-muted)] hover:border-[var(--gold)] hover:text-[var(--gold)]"
+                      }`}>{p}</button>
+                  ))}
+                <button onClick={() => setPage(p => Math.min(pagination.totalPages, p + 1))} disabled={page === pagination.totalPages}
+                  className="w-10 h-10 flex items-center justify-center border border-black/10 text-[var(--text-muted)] hover:border-[var(--gold)] hover:text-[var(--gold)] disabled:opacity-30 transition-all text-xs">
+                  →
                 </button>
               </div>
             )}
           </>
         )}
 
-        {/* ====== MAP VIEW ====== */}
+        {/* MAP VIEW */}
         {viewMode === "map" && (
-          <div className="flex flex-col md:flex-row gap-4" style={{ height: "600px" }}>
-
-            {/* Map */}
-            <div className="flex-1 rounded-2xl overflow-hidden shadow-md" style={{ minHeight: "400px" }}>
+          <div className="flex flex-col md:flex-row gap-6" style={{ height: 600 }}>
+            <div className="flex-1 overflow-hidden" style={{ border: "1px solid var(--border-subtle)" }}>
               {loading ? (
-                <div className="w-full h-full bg-gray-200 animate-pulse flex items-center justify-center">
-                  <p className="text-gray-400">Газрын зураг ачааллаж байна...</p>
+                <div className="w-full h-full bg-gray-50 animate-pulse flex items-center justify-center">
+                  <p className="text-[var(--text-soft)] text-sm">Ачааллаж байна...</p>
                 </div>
               ) : (
-                <MapContainer
-                  center={[47.9077, 106.8832]}
-                  zoom={12}
-                  style={{ height: "100%", width: "100%" }}
-                  scrollWheelZoom={true}
-                >
-                  <TileLayer
-                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                  />
-                  {mappableProperties.map((property) => {
-                    const coords = getCoords(property);
-                    if (!coords) return null;
-                    return (
-                      <Marker
-                        key={property._id}
-                        position={coords}
-                        eventHandlers={{
-                          click: () => setSelectedProperty(property),
-                        }}
-                      >
-                        <Popup>
-                          <div className="text-sm min-w-[160px]">
-                            <p className="font-bold text-gray-900 mb-1">{property.title}</p>
-                            <p className="text-gray-500 text-xs mb-1">
-                              {property.location?.district}, {property.location?.city}
-                            </p>
-                            <p className="text-indigo-600 font-bold">
-                              {property.monthlyRent?.toLocaleString()}₮/сар
-                            </p>
-                            <Link
-                              to={`/properties/${property._id}`}
-                              className="block mt-2 text-center bg-indigo-600 text-white text-xs py-1 px-2 rounded-lg hover:bg-indigo-700"
-                            >
-                              Дэлгэрэнгүй →
-                            </Link>
-                          </div>
-                        </Popup>
-                      </Marker>
-                    );
-                  })}
+                <MapContainer center={[47.9077, 106.8832]} zoom={12} style={{ height: "100%", width: "100%" }} scrollWheelZoom>
+                  <TileLayer attribution='© OpenStreetMap' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                  {properties.filter(getCoords).map(p => (
+                    <Marker key={p._id} position={getCoords(p)}>
+                      <Popup>
+                        <div className="text-sm min-w-[160px]">
+                          <p className="font-medium text-[var(--ink)] mb-1">{p.title}</p>
+                          <p className="text-xs text-[var(--text-muted)] mb-1">{p.location?.district}</p>
+                          <p className="font-medium" style={{ color: "var(--gold)" }}>{p.monthlyRent?.toLocaleString()}₮/сар</p>
+                          <Link to={`/properties/${p._id}`} className="block mt-2 text-center text-xs text-white py-1.5" style={{ background: "var(--ink)" }}>Үзэх →</Link>
+                        </div>
+                      </Popup>
+                    </Marker>
+                  ))}
                 </MapContainer>
               )}
             </div>
-
-            {/* Sidebar — сонгосон байрны жагсаалт */}
-            <div className="w-full md:w-72 overflow-y-auto space-y-3 pr-1">
-              {mappableProperties.length === 0 ? (
-                <div className="text-center py-10 text-gray-400">
-                  <div className="text-4xl mb-2">🗺️</div>
-                  <p className="text-sm">Газрын зураг дээр харагдах байр байхгүй байна</p>
-                  <p className="text-xs mt-1 text-gray-300">Байр нэмэхдээ байршил тэмдэглэнэ үү</p>
-                </div>
-              ) : (
-                mappableProperties.map((property) => {
-                  const image = property.images?.[0] ||
-                    "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688";
-                  const isSelected = selectedProperty?._id === property._id;
-                  return (
-                    <Link
-                      key={property._id}
-                      to={`/properties/${property._id}`}
-                      onClick={() => setSelectedProperty(property)}
-                      className={`block bg-white rounded-xl shadow-sm hover:shadow-md transition border-2 overflow-hidden ${
-                        isSelected ? "border-indigo-500" : "border-transparent"
-                      }`}
-                    >
-                      <img src={image} alt={property.title}
-                        className="w-full h-28 object-cover" />
-                      <div className="p-3">
-                        <p className="font-semibold text-sm text-gray-900 line-clamp-1">
-                          {property.title}
-                        </p>
-                        <p className="text-xs text-gray-500 mt-0.5">
-                          📍 {property.location?.district}, {property.location?.city}
-                        </p>
-                        <p className="text-indigo-600 font-bold text-sm mt-1">
-                          {property.monthlyRent?.toLocaleString()}₮/сар
-                        </p>
-                        <div className="flex gap-2 mt-1 text-xs text-gray-400">
-                          <span>{property.rooms} өрөө</span>
-                          <span>•</span>
-                          <span>{property.area} м²</span>
-                        </div>
-                      </div>
-                    </Link>
-                  );
-                })
-              )}
+            <div className="w-full md:w-64 overflow-y-auto space-y-2">
+              {properties.filter(getCoords).map(p => (
+                <Link key={p._id} to={`/properties/${p._id}`}
+                  className="block bg-white hover:shadow-md transition-all overflow-hidden" style={{ border: "1px solid var(--border-subtle)" }}>
+                  <img src={p.images?.[0] || "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688"} alt={p.title} className="w-full h-28 object-cover" />
+                  <div className="p-3">
+                    <p className="text-sm font-medium text-[var(--ink)] line-clamp-1">{p.title}</p>
+                    <p className="text-xs text-[var(--text-muted)] mt-0.5">{p.location?.district}</p>
+                    <p className="text-sm font-medium mt-1" style={{ color: "var(--gold)" }}>{p.monthlyRent?.toLocaleString()}₮/сар</p>
+                  </div>
+                </Link>
+              ))}
             </div>
           </div>
         )}
