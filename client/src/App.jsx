@@ -19,6 +19,7 @@ import Notifications from "./pages/Notifications";
 import AdminPanel from "./pages/AdminPanel";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
+import MaintenanceRequests from "./pages/MaintenanceRequests";
 
 // Нэвтэрсэн хэрэглэгчийн idle timeout-г хянах wrapper
 const PUBLIC_PATHS = ["/", "/login", "/register", "/verify-otp", "/forgot-password", "/reset-password"];
@@ -54,6 +55,7 @@ function App() {
         <Route path="/admin" element={<AdminPanel />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/maintenance" element={<MaintenanceRequests />} />
       </Routes>
     </BrowserRouter>
   );

@@ -483,6 +483,7 @@ function Navbar() {
             >
               Бүгдийг харах →
             </Link>
+            <Link to="/maintenance">🔧 Засварын хүсэлт</Link>
           </div>
         </div>
       )}

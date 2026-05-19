@@ -46,6 +46,7 @@ app.use("/api/notifications", require("./routes/notificationRoutes"));
 app.use("/api/users",         require("./routes/userRoutes"));
 app.use("/api/payments",      require("./routes/paymentRoutes"));
 app.use("/api/reviews",       require("./routes/reviewRoutes"));
+app.use("/api/maintenance", require("./routes/maintenanceRoutes"));
 
 app.get("/api/test", protect, (req, res) => {
   res.json({
