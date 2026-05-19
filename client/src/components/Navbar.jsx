@@ -24,18 +24,12 @@ const ROLE_LABELS = {
   admin:    "Админ",
 };
 
-// ← NAVBAR-ААС ГАДНА тодорхойлсон — render үед шинээр үүсгэхгүй
 function AvatarCircle({ avatar, firstName, size = "sm" }) {
-  const cls = size === "lg"
-    ? "w-10 h-10 text-lg"
-    : "w-7 h-7 text-sm";
+  const cls = size === "lg" ? "w-10 h-10 text-lg" : "w-7 h-7 text-sm";
   if (avatar) {
     return (
-      <img
-        src={avatar}
-        alt="avatar"
-        className={`${cls} rounded-full object-cover flex-shrink-0`}
-      />
+      <img src={avatar} alt="avatar"
+        className={`${cls} rounded-full object-cover flex-shrink-0`} />
     );
   }
   return (
@@ -48,7 +42,7 @@ function AvatarCircle({ avatar, firstName, size = "sm" }) {
 function Navbar() {
   const navigate = useNavigate();
 
-  const [currentUser, setCurrentUser]     = useState(() => {
+  const [currentUser, setCurrentUser] = useState(() => {
     try { return JSON.parse(localStorage.getItem("user")); }
     catch { return null; }
   });
@@ -58,7 +52,6 @@ function Navbar() {
   const [showUserMenu, setShowUserMenu]   = useState(false);
   const [mobileOpen, setMobileOpen]       = useState(false);
 
-  // State-аас гаргаж авна
   const user  = currentUser;
   const token = localStorage.getItem("token");
 
@@ -79,14 +72,12 @@ function Navbar() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // localStorage өөрчлөгдөхөд (Profile хадгалах үед) Navbar шинэчлэгдэнэ
   useEffect(() => {
     const handleStorageChange = () => {
       const updated = JSON.parse(localStorage.getItem("user"));
       setCurrentUser(updated);
     };
     window.addEventListener("storage", handleStorageChange);
-    // Custom event — same tab дотор ажиллана
     window.addEventListener("userUpdated", handleStorageChange);
     return () => {
       window.removeEventListener("storage", handleStorageChange);
@@ -188,7 +179,6 @@ function Navbar() {
                       <h3 className="font-bold text-gray-800">Мэдэгдлүүд</h3>
                       <span className="text-xs text-gray-400">{notifications.length} мэдэгдэл</span>
                     </div>
-                    {/* Scroll container — тогтмол өндөртэй */}
                     <div className="max-h-60 overflow-y-auto">
                       {notifications.length === 0 ? (
                         <div className="py-10 text-center text-gray-400">
@@ -210,12 +200,8 @@ function Navbar() {
                         </button>
                       ))}
                     </div>
-                    {/* "Бүгдийг харах" — scroll-оос ГАДНА, үргэлж харагдана */}
-                    <Link
-                      to="/notifications"
-                      onClick={() => setShowNotif(false)}
-                      className="flex items-center justify-center gap-1 text-xs text-indigo-600 hover:text-indigo-700 py-2.5 hover:bg-indigo-50 border-t border-gray-100 font-medium transition"
-                    >
+                    <Link to="/notifications" onClick={() => setShowNotif(false)}
+                      className="flex items-center justify-center gap-1 text-xs text-indigo-600 hover:text-indigo-700 py-2.5 hover:bg-indigo-50 border-t border-gray-100 font-medium transition">
                       Бүгдийг харах →
                     </Link>
                   </div>
@@ -228,7 +214,6 @@ function Navbar() {
               <div className="relative" ref={userMenuRef}>
                 <button onClick={() => setShowUserMenu((p) => !p)}
                   className="flex items-center gap-2 bg-gray-50 hover:bg-gray-100 px-3 py-2 rounded-xl transition">
-                  {/* ← ӨӨРЧЛӨЛТ: Avatar зураг харуулах */}
                   <AvatarCircle avatar={user?.avatar} firstName={user?.firstName} size="sm" />
                   <span className="font-medium text-gray-800 text-sm">{user.firstName}</span>
                   <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -253,15 +238,15 @@ function Navbar() {
                       </Link>
                       <Link to="/notifications" onClick={() => setShowUserMenu(false)}
                         className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition">
-                        <span>🔔</span>
-                        Мэдэгдэлүүд
+                        <span>🔔</span> Мэдэгдэлүүд
                         {unreadCount > 0 && (
                           <span className="ml-auto bg-red-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full">
                             {unreadCount}
                           </span>
                         )}
                       </Link>
-                      {/* Tenant-д зориулсан links */}
+
+                      {/* ===== TENANT ===== */}
                       {user.role === "tenant" && (
                         <>
                           <Link to="/my-rentals" onClick={() => setShowUserMenu(false)}
@@ -276,9 +261,14 @@ function Navbar() {
                             className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition">
                             <span>📋</span> Миний хүсэлтүүд
                           </Link>
+                          <Link to="/maintenance" onClick={() => setShowUserMenu(false)}
+                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition">
+                            <span>🔧</span> Засварын хүсэлт
+                          </Link>
                         </>
                       )}
-                      {/* Landlord-д зориулсан links */}
+
+                      {/* ===== LANDLORD ===== */}
                       {user.role === "landlord" && (
                         <>
                           <Link to="/my-rentals" onClick={() => setShowUserMenu(false)}
@@ -297,10 +287,14 @@ function Navbar() {
                             className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition">
                             <span>➕</span> Байр нэмэх
                           </Link>
+                          <Link to="/maintenance" onClick={() => setShowUserMenu(false)}
+                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition">
+                            <span>🔧</span> Засварын хүсэлт
+                          </Link>
                         </>
                       )}
                     </div>
-                    {/* Admin link */}
+
                     {user?.role === "admin" && (
                       <Link to="/admin" onClick={() => setShowUserMenu(false)}
                         className="flex items-center gap-3 px-4 py-2.5 text-sm text-purple-600 hover:bg-purple-50 transition">
@@ -360,14 +354,12 @@ function Navbar() {
             {user ? (
               <>
                 <div className="flex items-center gap-3 px-3 py-3 mb-2 bg-gray-50 rounded-xl">
-                  {/* ← ӨӨРЧЛӨЛТ: Avatar зураг */}
                   <AvatarCircle avatar={user?.avatar} firstName={user?.firstName} size="lg" />
                   <div>
                     <p className="font-semibold text-gray-800 text-sm">{user.firstName} {user.lastName}</p>
                     <p className="text-xs text-gray-400">{ROLE_LABELS[user.role]}</p>
                   </div>
                 </div>
-
                 <Link to="/home" className="flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition">
                   <span>🏠</span> Байр хайх
                 </Link>
@@ -375,15 +367,15 @@ function Navbar() {
                   <span>👤</span> Профайл
                 </Link>
                 <Link to="/notifications" className="flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition">
-                  <span>🔔</span>
-                  Мэдэгдэлүүд
+                  <span>🔔</span> Мэдэгдэлүүд
                   {unreadCount > 0 && (
                     <span className="ml-auto bg-red-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full">
                       {unreadCount}
                     </span>
                   )}
                 </Link>
-                {/* Tenant-д зориулсан links */}
+
+                {/* Mobile — Tenant */}
                 {user.role === "tenant" && (
                   <>
                     <Link to="/my-rentals" className="flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition">
@@ -395,9 +387,13 @@ function Navbar() {
                     <Link to="/my-applications" className="flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition">
                       <span>📋</span> Миний хүсэлтүүд
                     </Link>
+                    <Link to="/maintenance" className="flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition">
+                      <span>🔧</span> Засварын хүсэлт
+                    </Link>
                   </>
                 )}
-                {/* Landlord-д зориулсан links */}
+
+                {/* Mobile — Landlord */}
                 {user.role === "landlord" && (
                   <>
                     <Link to="/my-rentals" className="flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition">
@@ -415,12 +411,14 @@ function Navbar() {
                     <Link to="/add-property" className="flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition">
                       <span>➕</span> Байр нэмэх
                     </Link>
+                    <Link to="/maintenance" className="flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition">
+                      <span>🔧</span> Засварын хүсэлт
+                    </Link>
                   </>
                 )}
-                {/* Admin-д зориулсан link */}
+
                 {user.role === "admin" && (
-                  <Link to="/admin"
-                    className="flex items-center gap-3 px-3 py-2.5 text-sm text-purple-600 hover:bg-purple-50 rounded-xl transition">
+                  <Link to="/admin" className="flex items-center gap-3 px-3 py-2.5 text-sm text-purple-600 hover:bg-purple-50 rounded-xl transition">
                     <span>⚙️</span> Admin Panel
                   </Link>
                 )}
@@ -475,15 +473,10 @@ function Navbar() {
                 </button>
               ))}
             </div>
-            {/* "Бүгдийг харах" — scroll-оос ГАДНА */}
-            <Link
-              to="/notifications"
-              onClick={() => setShowNotif(false)}
-              className="flex items-center justify-center gap-1 text-xs text-indigo-600 hover:text-indigo-700 py-2.5 hover:bg-indigo-50 border-t border-gray-100 font-medium transition"
-            >
+            <Link to="/notifications" onClick={() => setShowNotif(false)}
+              className="flex items-center justify-center gap-1 text-xs text-indigo-600 hover:text-indigo-700 py-2.5 hover:bg-indigo-50 border-t border-gray-100 font-medium transition">
               Бүгдийг харах →
             </Link>
-            <Link to="/maintenance">🔧 Засварын хүсэлт</Link>
           </div>
         </div>
       )}
