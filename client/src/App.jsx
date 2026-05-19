@@ -1,4 +1,5 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+import { useIdleTimeout } from "./hooks/useIdleTimeout";
 import Landing from "./pages/Landing";
 import Home from "./pages/Home";
 import Login from "./pages/Login";
@@ -19,9 +20,20 @@ import AdminPanel from "./pages/AdminPanel";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 
+// Нэвтэрсэн хэрэглэгчийн idle timeout-г хянах wrapper
+const PUBLIC_PATHS = ["/", "/login", "/register", "/verify-otp", "/forgot-password", "/reset-password"];
+
+function IdleGuard() {
+  const location = useLocation();
+  const isPublic = PUBLIC_PATHS.some((p) => location.pathname.startsWith(p));
+  useIdleTimeout(!isPublic);
+  return null;
+}
+
 function App() {
   return (
     <BrowserRouter>
+      <IdleGuard />
       <Routes>
         <Route path="/" element={<Landing />} />
         <Route path="/home" element={<Home />} />

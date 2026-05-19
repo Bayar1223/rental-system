@@ -1,6 +1,6 @@
 import { useState } from "react";
 import api from "../api/axiosInstance";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useLocation } from "react-router-dom";
 
 function Login() {
   const [email, setEmail]       = useState("");
@@ -8,7 +8,9 @@ function Login() {
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState("");
 
-  const navigate = useNavigate();
+  const navigate   = useNavigate();
+  const location   = useLocation();
+  const idleLogout = location.state?.reason === "idle";
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -28,11 +30,8 @@ function Login() {
 
   const handleBack = () => {
     const user = JSON.parse(localStorage.getItem("user") || "null");
-    if (user) {
-      navigate("/home");
-    } else {
-      navigate("/");
-    }
+    if (user) navigate("/home");
+    else navigate("/");
   };
 
   return (
@@ -70,6 +69,14 @@ function Login() {
             Тавтай морил! Хаягаараа нэвтэрнэ үү.
           </p>
 
+          {/* Idle logout мэдэгдэл */}
+          {idleLogout && (
+            <div className="bg-yellow-50 border border-yellow-200 text-yellow-700 rounded-xl p-3 mb-4 text-sm text-center">
+              ⏰ 30 минут идэвхгүй байсан тул автоматаар гарлаа
+            </div>
+          )}
+
+          {/* Алдааны мэдэгдэл */}
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-600 rounded-xl p-3 mb-5 text-sm text-center">
               {error}
@@ -104,7 +111,7 @@ function Login() {
             />
           </div>
 
-          {/* ← НЭМСЭН: Нууц үг мартсан холбоос */}
+          {/* Нууц үг мартсан */}
           <div className="flex justify-end mb-6">
             <Link to="/forgot-password" className="text-sm text-indigo-600 hover:underline">
               Нууц үг мартсан уу?
