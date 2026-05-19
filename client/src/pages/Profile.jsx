@@ -128,8 +128,8 @@ function Profile() {
       setPwError("Шинэ нууц үг таарахгүй байна");
       return;
     }
-    if (passwords.newPassword.length < 6) {
-      setPwError("Нууц үг хамгийн багадаа 6 тэмдэгт байх ёстой");
+    if (passwords.newPassword.length < 8) {
+      setPwError("Нууц үг хамгийн багадаа 8 тэмдэгт байх ёстой");
       return;
     }
 

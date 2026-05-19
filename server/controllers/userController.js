@@ -60,7 +60,7 @@ exports.changePassword = async (req, res) => {
       return res.status(400).json({ message: "Бүх талбарыг бөглөнө үү" });
     }
 
-    if (newPassword.length < 6) {
+    if (newPassword.length < 8) {
       return res.status(400).json({ message: "Нууц үг хамгийн багадаа 6 тэмдэгт байх ёстой" });
     }
 
