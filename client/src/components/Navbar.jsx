@@ -124,8 +124,8 @@ function Navbar() {
               <div className="absolute inset-1.5 bg-[var(--gold)] rotate-45 transition-all duration-300 group-hover:scale-90" />
             </div>
             <div className="hidden sm:block">
-              <span className="font-display text-xl font-light tracking-wider text-[var(--ink)]">
-                Rental<span className="text-[var(--gold)]">Sy</span>
+              <span className="text-xl font-light tracking-wider" style={{ fontFamily: "'DM Sans', sans-serif", color: "var(--ink)" }}>
+                Rental<span style={{ color: "var(--gold)" }}>Sy</span>
               </span>
             </div>
           </Link>
