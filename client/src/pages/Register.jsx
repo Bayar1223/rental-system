@@ -45,7 +45,7 @@ export default function Register() {
             <div className="absolute inset-1.5 bg-[var(--gold)] rotate-45" />
           </div>
           <span className="font-display text-2xl font-light text-white">
-            Mon<span style={{ color: "var(--gold)" }}>Rent</span>
+            Rental<span style={{ color: "var(--gold)" }}>Sy</span>
           </span>
         </Link>
         <div className="relative">
@@ -103,10 +103,17 @@ export default function Register() {
 
             <div>
               <label className="block text-xs tracking-widest uppercase text-[var(--text-muted)] mb-2">Утас</label>
-              <div className="flex">
-                <div className="luxury-input flex-shrink-0 w-16 text-[var(--text-muted)] text-center border-r-0">+976</div>
-                <input type="tel" value={phone} onChange={e => setPhone(e.target.value.replace(/\D/g,"").slice(0,8))}
-                  placeholder="99001234" required className="luxury-input flex-1" style={{ borderLeft: "none" }} />
+              <div className="relative">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)] text-sm font-medium">+976</span>
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={e => setPhone(e.target.value.replace(/\D/g, "").slice(0, 8))}
+                  placeholder="99001234"
+                  required
+                  className="luxury-input w-full"
+                  style={{ paddingLeft: "56px" }}
+                />
               </div>
             </div>
 
