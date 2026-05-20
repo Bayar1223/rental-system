@@ -44,7 +44,7 @@ function Login() {
             <div className="absolute inset-1.5 bg-[var(--gold)] rotate-45" />
           </div>
           <span className="font-display text-2xl font-light text-white">
-            Mon<span style={{ color: "var(--gold)" }}>Rent</span>
+            Rental<span style={{ color: "var(--gold)" }}>Sy</span>
           </span>
         </Link>
 
@@ -80,7 +80,7 @@ function Login() {
                 <div className="absolute inset-1.5 bg-[var(--gold)] rotate-45" />
               </div>
               <span className="font-display text-xl font-light text-[var(--ink)]">
-                Mon<span style={{ color: "var(--gold)" }}>Rent</span>
+                Rental<span style={{ color: "var(--gold)" }}>Sy</span>
               </span>
             </Link>
             <p className="text-xs tracking-widest uppercase text-[var(--gold)] mb-3">Нэвтрэх</p>

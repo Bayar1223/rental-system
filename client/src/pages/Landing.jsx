@@ -53,7 +53,6 @@ export default function Landing() {
       .catch(() => {});
   }, []);
 
-  // Cursor parallax on hero
   const handleMouseMove = (e) => {
     const rect = e.currentTarget.getBoundingClientRect();
     setCursorPos({
@@ -75,7 +74,7 @@ export default function Landing() {
             <div className="absolute inset-1.5 bg-[var(--gold)] rotate-45" />
           </div>
           <span className="font-display text-xl font-light tracking-wider text-white">
-            Mon<span style={{ color: "var(--gold)" }}>Rent</span>
+            Rental<span style={{ color: "var(--gold)" }}>Sy</span>
           </span>
         </div>
         <div className="relative flex items-center gap-3">
@@ -93,13 +92,11 @@ export default function Landing() {
         onMouseMove={handleMouseMove}
         style={{ minHeight: "100vh", background: "var(--ink)", paddingTop: 64, overflow: "hidden", position: "relative" }}
       >
-        {/* Grid lines */}
         <div className="absolute inset-0" style={{
           backgroundImage: "linear-gradient(rgba(201,168,76,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(201,168,76,0.06) 1px, transparent 1px)",
           backgroundSize: "80px 80px"
         }} />
 
-        {/* Floating orbs */}
         <div className="absolute" style={{
           width: 400, height: 400, borderRadius: "50%",
           background: "radial-gradient(circle, rgba(201,168,76,0.12) 0%, transparent 70%)",
@@ -119,8 +116,6 @@ export default function Landing() {
 
         <div className="relative max-w-7xl mx-auto px-8 md:px-16 flex items-center" style={{ minHeight: "calc(100vh - 64px)" }}>
           <div className="w-full grid md:grid-cols-2 gap-16 items-center">
-
-            {/* Left: Text */}
             <div>
               <div className={`transition-all duration-700 ${heroVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}>
                 <div className="flex items-center gap-3 mb-8">
@@ -151,7 +146,6 @@ export default function Landing() {
                 <Link to="/home" className="btn-outline-gold">Байр харах</Link>
               </div>
 
-              {/* Stats */}
               <div className={`grid grid-cols-4 gap-6 transition-all duration-700 delay-400 ${heroVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}>
                 {stats.map(({ num, label }) => (
                   <div key={label}>
@@ -162,7 +156,6 @@ export default function Landing() {
               </div>
             </div>
 
-            {/* Right: Preview card */}
             <div className={`hidden md:block transition-all duration-1000 delay-500 ${heroVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-12"}`}>
               <div style={{
                 background: "rgba(255,255,255,0.04)",
@@ -172,18 +165,13 @@ export default function Landing() {
                 transform: `rotateX(${cursorPos.y * -0.3}deg) rotateY(${cursorPos.x * 0.3}deg)`,
                 transition: "transform 0.3s ease",
               }}>
-                {/* Header */}
                 <div className="flex items-center justify-between mb-6">
                   <span className="text-xs tracking-widest uppercase" style={{ color: "var(--gold)" }}>Байр хайх</span>
                   <span className="badge-gold">500+ байр</span>
                 </div>
-
-                {/* Search mock */}
                 <div style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", padding: "14px 16px", marginBottom: 12 }}>
                   <p className="text-white/60 text-sm">Баянзүрх дүүрэг, 2 өрөө...</p>
                 </div>
-
-                {/* Property previews */}
                 {[
                   { title: "Баянзүрх, 2 өрөө тавилгатай", price: "1,200,000", tag: "Шинэ" },
                   { title: "Сүхбаатар, 3 өрөө орон сууц", price: "1,800,000", tag: "Онцлох" },
@@ -199,7 +187,6 @@ export default function Landing() {
                     {p.tag && <span className="badge-gold text-[10px]">{p.tag}</span>}
                   </div>
                 ))}
-
                 <Link to="/home" className="btn-gold w-full justify-center mt-6 text-xs">
                   Бүгдийг харах →
                 </Link>
@@ -208,7 +195,6 @@ export default function Landing() {
           </div>
         </div>
 
-        {/* Bottom fade */}
         <div className="absolute bottom-0 left-0 right-0 h-24"
           style={{ background: "linear-gradient(transparent, var(--cream))" }} />
       </section>
@@ -220,7 +206,6 @@ export default function Landing() {
             <p className="text-xs tracking-widest uppercase text-[var(--gold)] mb-4">Онцлог</p>
             <h2 className="font-display text-5xl font-light text-[var(--ink)]">Яагаад биднийг сонгох вэ?</h2>
           </RevealSection>
-
           <div className="grid md:grid-cols-4 gap-8">
             {features.map(({ icon, title, desc }, i) => (
               <RevealSection key={title} delay={i * 0.1}>
@@ -249,7 +234,6 @@ export default function Landing() {
               </div>
               <Link to="/home" className="btn-outline-gold hidden md:flex">Бүгдийг харах →</Link>
             </RevealSection>
-
             <div className="grid md:grid-cols-3 gap-6">
               {featuredProperties.map((p, i) => (
                 <RevealSection key={p._id} delay={i * 0.1}>
@@ -289,7 +273,6 @@ export default function Landing() {
             <p className="text-xs tracking-widest uppercase text-[var(--gold)] mb-4">Процесс</p>
             <h2 className="font-display text-5xl font-light text-white">Хэрхэн ажилладаг вэ?</h2>
           </RevealSection>
-
           <div className="grid md:grid-cols-3 gap-12">
             {[
               { num: "01", title: "Бүртгүүлэх", desc: "Хэдхэн минутын дотор бүртгэл үүсгэнэ" },
@@ -376,10 +359,10 @@ export default function Landing() {
               <div className="absolute inset-1.5 bg-[var(--gold)] rotate-45" />
             </div>
             <span className="font-display text-lg font-light text-white">
-              Mon<span style={{ color: "var(--gold)" }}>Rent</span>
+              Rental<span style={{ color: "var(--gold)" }}>Sy</span>
             </span>
           </div>
-          <p className="text-white/30 text-xs tracking-wide">© 2026 MonRent. Бүх эрх хуулиар хамгаалагдсан.</p>
+          <p className="text-white/30 text-xs tracking-wide">© 2026 RentalSy. Бүх эрх хуулиар хамгаалагдсан.</p>
           <div className="flex gap-6">
             {[{ to: "/home", label: "Байрнууд" }, { to: "/login", label: "Нэвтрэх" }, { to: "/register", label: "Бүртгүүлэх" }].map(({ to, label }) => (
               <Link key={to} to={to} className="text-white/40 hover:text-white text-xs tracking-widest uppercase transition-colors">{label}</Link>
