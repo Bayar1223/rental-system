@@ -14,21 +14,14 @@ L.Icon.Default.mergeOptions({
 });
 
 function MapPinSelector({ onSelect }) {
-  useMapEvents({
-    click(e) {
-      onSelect([e.latlng.lat, e.latlng.lng]);
-    },
-  });
+  useMapEvents({ click(e) { onSelect([e.latlng.lat, e.latlng.lng]); } });
   return null;
 }
 
-const districts = [
-  "Багануур","Багахангай","Баянгол","Баянзүрх",
-  "Налайх","Сонгинохайрхан","Сүхбаатар","Хан-Уул","Чингэлтэй",
-];
-const khoroos  = Array.from({ length: 30 }, (_, i) => `${i + 1}-р хороо`);
-const years    = Array.from({ length: 40 }, (_, i) => 2026 - i);
-const numbers  = Array.from({ length: 30 }, (_, i) => i + 1);
+const districts = ["Багануур","Багахангай","Баянгол","Баянзүрх","Налайх","Сонгинохайрхан","Сүхбаатар","Хан-Уул","Чингэлтэй"];
+const khoroos   = Array.from({ length: 30 }, (_, i) => `${i + 1}-р хороо`);
+const years     = Array.from({ length: 40 }, (_, i) => 2026 - i);
+const numbers   = Array.from({ length: 30 }, (_, i) => i + 1);
 
 const districtCoords = {
   "Баянзүрх":       [47.9184, 106.9612],
@@ -60,20 +53,20 @@ function EditProperty() {
   const [newImageFiles, setNewImageFiles]       = useState([]);
   const [newImagePreviews, setNewImagePreviews] = useState([]);
   const [loading, setLoading]                   = useState(true);
+  const [submitting, setSubmitting]             = useState(false);
+  const [deleting, setDeleting]                 = useState(false);
   const [showLocationModal, setShowLocationModal] = useState(false);
   const [showMapModal, setShowMapModal]         = useState(false);
-  const [pinCoords, setPinCoords]               = useState(null); // [lat, lng]
+  const [pinCoords, setPinCoords]               = useState(null);
 
   useEffect(() => {
     const fetchProperty = async () => {
       try {
         const res = await api.get(`/api/properties/${id}`);
         const p = res.data;
-
         const khorooMatch = p.location?.address?.match(/\d+-р хороо/);
         const khoroo  = khorooMatch ? khorooMatch[0] : "";
         const address = p.location?.address?.replace(khoroo, "").trim() || "";
-
         setFormData({
           title: p.title || "",
           city: p.location?.city || "Улаанбаатар",
@@ -100,12 +93,7 @@ function EditProperty() {
           contactPhone: p.contactPhone || "",
           contactEmail: p.contactEmail || "",
         });
-
-        // ← Хадгалсан координат байвал ачаална
-        if (p.latitude && p.longitude) {
-          setPinCoords([p.latitude, p.longitude]);
-        }
-
+        if (p.latitude && p.longitude) setPinCoords([p.latitude, p.longitude]);
         setExistingImages(p.images || []);
       } catch {
         alert("Байрны мэдээлэл авахад алдаа гарлаа");
@@ -133,12 +121,11 @@ function EditProperty() {
     setNewImagePreviews(newImagePreviews.filter((_, i) => i !== index));
   };
 
-  const handlePinSelect = useCallback((coords) => {
-    setPinCoords(coords);
-  }, []);
+  const handlePinSelect = useCallback((coords) => setPinCoords(coords), []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setSubmitting(true);
     try {
       const data = new FormData();
       data.append("title", formData.title);
@@ -166,20 +153,29 @@ function EditProperty() {
       data.append("contactEmail", formData.contactEmail);
       data.append("details", formData.details);
       data.append("description", formData.details);
-      // ← НЭМСЭН: Координат
       if (pinCoords) {
         data.append("latitude", pinCoords[0]);
         data.append("longitude", pinCoords[1]);
       }
       existingImages.forEach((img) => data.append("existingImages", img));
       newImageFiles.forEach((file) => data.append("images", file));
-
       await api.put(`/api/properties/${id}`, data);
-      alert("Байрны мэдээлэл амжилттай шинэчлэгдлээ");
       navigate(`/properties/${id}`);
     } catch (error) {
       alert(error.response?.data?.message || "Алдаа гарлаа");
+    } finally {
+      setSubmitting(false);
     }
+  };
+
+  const handleDelete = async () => {
+    if (!window.confirm("Энэ байрыг устгах уу?")) return;
+    setDeleting(true);
+    try {
+      await api.delete(`/api/properties/${id}`);
+      navigate("/my-properties");
+    } catch { alert("Алдаа гарлаа"); }
+    finally { setDeleting(false); }
   };
 
   const selectedLocation = `${formData.city}${formData.district ? " — " + formData.district : ""}${formData.khoroo ? " — " + formData.khoroo : ""}`;
@@ -187,249 +183,356 @@ function EditProperty() {
     ? districtCoords[formData.district]
     : pinCoords || [47.9077, 106.8832];
 
-  const inputCls  = "w-full border p-4 rounded-xl focus:outline-none focus:border-indigo-400";
-  const selectCls = "border p-4 rounded-xl focus:outline-none focus:border-indigo-400 bg-white w-full";
+  const inputCls  = "luxury-input w-full";
+  const selectCls = "luxury-select w-full";
+  const labelCls  = "block text-xs tracking-widest uppercase mb-2";
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-100">
-        <Navbar />
-        <div className="flex items-center justify-center h-64">
-          <p className="text-gray-500">Ачааллаж байна...</p>
-        </div>
+  if (loading) return (
+    <div className="min-h-screen flex items-center justify-center" style={{ background: "var(--cream)" }}>
+      <Navbar />
+      <div className="text-center">
+        <div className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin mx-auto mb-4"
+          style={{ borderColor: "var(--gold)", borderTopColor: "transparent" }} />
+        <p className="text-xs tracking-widest uppercase" style={{ color: "var(--text-muted)" }}>Ачааллаж байна</p>
       </div>
-    );
-  }
+    </div>
+  );
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div style={{ minHeight: "100vh", background: "var(--cream)", paddingTop: 64 }}>
       <Navbar />
-      <div className="max-w-5xl mx-auto p-8">
-        <div className="flex items-center gap-4 mb-6">
-          <button onClick={() => navigate("/my-properties")} className="bg-white px-5 py-3 rounded-xl shadow hover:bg-gray-50 font-medium">
-            ← Буцах
+      <div className="max-w-3xl mx-auto px-6 py-10">
+
+        <div className="flex items-start justify-between mb-8">
+          <div>
+            <p className="text-xs tracking-widest uppercase mb-2" style={{ color: "var(--gold)" }}>Байр засах</p>
+            <h1 className="font-display text-4xl font-light" style={{ color: "var(--ink)" }}>Мэдээлэл шинэчлэх</h1>
+          </div>
+          <button onClick={handleDelete} disabled={deleting}
+            className="text-xs px-4 py-2 border transition-colors"
+            style={{ borderColor: "#FCA5A5", color: "#EF4444", background: "white" }}>
+            {deleting ? "Устгаж байна..." : "Байр устгах"}
           </button>
-          <h1 className="text-3xl font-bold">Байрны мэдээлэл засах</h1>
         </div>
 
-        <div className="bg-white rounded-3xl shadow-xl p-8">
-          <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-6">
 
-            {/* Байршил */}
+          <div className="bg-white border p-6" style={{ borderColor: "var(--border-subtle)" }}>
+            <p className="text-xs tracking-widest uppercase mb-4" style={{ color: "var(--gold)" }}>Байршил</p>
             <button type="button" onClick={() => setShowLocationModal(true)}
-              className="w-full bg-gray-100 border p-4 rounded-xl text-left font-semibold hover:bg-gray-200 transition">
-              📍 Байршил: {selectedLocation}
+              className="luxury-input w-full text-left mb-3"
+              style={{ color: formData.district ? "var(--ink)" : "var(--text-soft)" }}>
+              {formData.district ? `📍 ${selectedLocation}` : "📍 Дүүрэг, хороо сонгох..."}
             </button>
-
-            {/* Map pin товч */}
             <button type="button" onClick={() => setShowMapModal(true)}
-              className={`w-full p-4 rounded-xl border-2 text-left font-medium transition ${
-                pinCoords
-                  ? "border-green-400 bg-green-50 text-green-700"
-                  : "border-dashed border-gray-300 text-gray-500 hover:border-indigo-300"
-              }`}>
+              className="w-full p-4 text-left text-sm border-2 transition-all mb-4"
+              style={{
+                borderStyle: "dashed",
+                borderColor: pinCoords ? "var(--gold)" : "var(--border-subtle)",
+                background: pinCoords ? "var(--cream)" : "white",
+                color: pinCoords ? "var(--gold)" : "var(--text-soft)",
+              }}>
               {pinCoords
                 ? `🗺️ Байршил тэмдэглэгдсэн (${pinCoords[0].toFixed(4)}, ${pinCoords[1].toFixed(4)}) — өөрчлөх`
                 : "🗺️ Газрын зураг дээр байршил тэмдэглэх"}
             </button>
-
-            <input name="title" placeholder="Зарын гарчиг" value={formData.title} onChange={handleChange} className={inputCls} required />
-            <input name="address" placeholder="Дэлгэрэнгүй хаяг" value={formData.address} onChange={handleChange} className={inputCls} required />
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-              <select name="rooms" value={formData.rooms} onChange={handleChange} className={selectCls} required>
-                <option value="">Өрөө сонгох</option>
-                {[1,2,3,4,5].map(n => <option key={n} value={n}>{n} өрөө</option>)}
-              </select>
-              <select name="balconyCount" value={formData.balconyCount} onChange={handleChange} className={selectCls}>
-                <option value="">Тагт</option>
-                <option value="0">Тагтгүй</option>
-                <option value="1">1 тагттай</option>
-                <option value="2">2 тагттай</option>
-                <option value="3">3+ тагттай</option>
-              </select>
-              <select name="doorType" value={formData.doorType} onChange={handleChange} className={selectCls}>
-                <option value="">Хаалга</option>
-                {["Мод","Төмөр","Бүргэд","Вакум"].map(v => <option key={v} value={v}>{v}</option>)}
-              </select>
-              <select name="garageInfo" value={formData.garageInfo} onChange={handleChange} className={selectCls}>
-                <option value="">Гараж</option>
-                <option value="Байгаа">Байгаа</option>
-                <option value="Байхгүй">Байхгүй</option>
-              </select>
-              <select name="windowType" value={formData.windowType} onChange={handleChange} className={selectCls}>
-                <option value="">Цонх</option>
-                {["Мод","Вакум","Төмөр вакум","Модон вакум"].map(v => <option key={v} value={v}>{v}</option>)}
-              </select>
-              <select name="floorMaterial" value={formData.floorMaterial} onChange={handleChange} className={selectCls}>
-                <option value="">Шал</option>
-                {["Мод","Паркет","Ламинат","Чулуу","Плита"].map(v => <option key={v} value={v}>{v}</option>)}
-              </select>
-              <input name="area" inputMode="numeric" placeholder="Талбай м²" value={formData.area} onChange={handleChange} className={inputCls} required />
-              <select name="windowCount" value={formData.windowCount} onChange={handleChange} className={selectCls}>
-                <option value="">Цонхны тоо</option>
-                {numbers.slice(0,10).map(n => <option key={n} value={n}>{n}</option>)}
-              </select>
-              <select name="floorNumber" value={formData.floorNumber} onChange={handleChange} className={selectCls}>
-                <option value="">Хэдэн давхарт</option>
-                {numbers.map(n => <option key={n} value={n}>{n}</option>)}
-              </select>
-              <select name="builtYear" value={formData.builtYear} onChange={handleChange} className={selectCls}>
-                <option value="">Ашиглалтад орсон он</option>
-                {years.map(y => <option key={y} value={y}>{y}</option>)}
-              </select>
-              <select name="totalFloors" value={formData.totalFloors} onChange={handleChange} className={selectCls}>
-                <option value="">Барилгын давхар</option>
-                {numbers.map(n => <option key={n} value={n}>{n}</option>)}
-              </select>
-              <select name="paymentConditionText" value={formData.paymentConditionText} onChange={handleChange} className={selectCls}>
-                <option value="">Төлбөрийн нөхцөл</option>
-                {["Барьцаа байхгүй","1+1","2+1","3+1","4+1","5+1","6+1","12+1"].map(v => <option key={v} value={v}>{v}</option>)}
-              </select>
-              <select name="isFurnished" value={formData.isFurnished} onChange={handleChange} className={selectCls} required>
-                <option value="">Тавилга</option>
-                <option value="Тавилгатай">Тавилгатай</option>
-                <option value="Тавилгагүй">Тавилгагүй</option>
-              </select>
-              <select name="hasOutdoorParking" value={formData.hasOutdoorParking} onChange={handleChange} className={selectCls} required>
-                <option value="">Гадна зогсоол</option>
-                <option value="Байгаа">Байгаа</option>
-                <option value="Байхгүй">Байхгүй</option>
-              </select>
-            </div>
-
-            <input name="monthlyRent" inputMode="numeric" placeholder="Үнэ ₮" value={formData.monthlyRent} onChange={handleChange} className={inputCls} required />
-
             <div>
-              <h2 className="text-xl font-bold mb-4">Холбоо барих мэдээлэл</h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                <input name="contactName" placeholder="Нэр" value={formData.contactName} onChange={handleChange} className={inputCls} required />
-                <input name="contactPhone" placeholder="Утасны дугаар" value={formData.contactPhone} onChange={handleChange} className={inputCls} required />
-                <input name="contactEmail" placeholder="Имэйл" value={formData.contactEmail} onChange={handleChange} className={inputCls} />
+              <label className={labelCls} style={{ color: "var(--text-muted)" }}>Дэлгэрэнгүй хаяг</label>
+              <input name="address" className={inputCls} placeholder="Гудамж, байр, орц, тоот"
+                value={formData.address} onChange={handleChange} />
+            </div>
+          </div>
+
+          <div className="bg-white border p-6" style={{ borderColor: "var(--border-subtle)" }}>
+            <p className="text-xs tracking-widest uppercase mb-4" style={{ color: "var(--gold)" }}>Үндсэн мэдээлэл</p>
+            <div className="space-y-4">
+              <div>
+                <label className={labelCls} style={{ color: "var(--text-muted)" }}>Гарчиг *</label>
+                <input name="title" className={inputCls} placeholder="Зарын гарчиг"
+                  value={formData.title} onChange={handleChange} required />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className={labelCls} style={{ color: "var(--text-muted)" }}>Өрөө *</label>
+                  <select name="rooms" className={selectCls} value={formData.rooms} onChange={handleChange} required>
+                    <option value="">Сонгох</option>
+                    {[1,2,3,4,5].map(n => <option key={n} value={n}>{n} өрөө</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className={labelCls} style={{ color: "var(--text-muted)" }}>Талбай (м²) *</label>
+                  <input name="area" inputMode="numeric" className={inputCls} placeholder="60"
+                    value={formData.area} onChange={handleChange} required />
+                </div>
+              </div>
+              <div>
+                <label className={labelCls} style={{ color: "var(--text-muted)" }}>Сарын түрээс (₮) *</label>
+                <input name="monthlyRent" inputMode="numeric" className={inputCls} placeholder="800,000"
+                  value={formData.monthlyRent} onChange={handleChange} required />
+              </div>
+              <div>
+                <label className={labelCls} style={{ color: "var(--text-muted)" }}>Төлбөрийн нөхцөл</label>
+                <select name="paymentConditionText" className={selectCls} value={formData.paymentConditionText} onChange={handleChange}>
+                  <option value="">Сонгох</option>
+                  {["Барьцаа байхгүй","1+1","2+1","3+1","4+1","5+1","6+1","12+1"].map(v => <option key={v} value={v}>{v}</option>)}
+                </select>
               </div>
             </div>
+          </div>
 
-            {existingImages.length > 0 && (
+          <div className="bg-white border p-6" style={{ borderColor: "var(--border-subtle)" }}>
+            <p className="text-xs tracking-widest uppercase mb-4" style={{ color: "var(--gold)" }}>Дэлгэрэнгүй мэдээлэл</p>
+            <div className="grid grid-cols-2 gap-4">
               <div>
-                <h2 className="text-xl font-bold mb-3">Одоогийн зургууд</h2>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {existingImages.map((img, index) => (
-                    <div key={index} className="relative">
-                      <img src={img} alt="" className="h-32 w-full object-cover rounded-xl" />
-                      <button type="button" onClick={() => removeExistingImage(index)}
-                        className="absolute top-2 right-2 bg-red-500 text-white w-7 h-7 rounded-full text-lg leading-none">×</button>
+                <label className={labelCls} style={{ color: "var(--text-muted)" }}>Тагт</label>
+                <select name="balconyCount" className={selectCls} value={formData.balconyCount} onChange={handleChange}>
+                  <option value="">Сонгох</option>
+                  <option value="0">Тагтгүй</option>
+                  <option value="1">1 тагт</option>
+                  <option value="2">2 тагт</option>
+                  <option value="3">3+ тагт</option>
+                </select>
+              </div>
+              <div>
+                <label className={labelCls} style={{ color: "var(--text-muted)" }}>Хаалга</label>
+                <select name="doorType" className={selectCls} value={formData.doorType} onChange={handleChange}>
+                  <option value="">Сонгох</option>
+                  {["Мод","Төмөр","Бүргэд","Вакум"].map(v => <option key={v} value={v}>{v}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className={labelCls} style={{ color: "var(--text-muted)" }}>Гараж</label>
+                <select name="garageInfo" className={selectCls} value={formData.garageInfo} onChange={handleChange}>
+                  <option value="">Сонгох</option>
+                  <option value="Байгаа">Байгаа</option>
+                  <option value="Байхгүй">Байхгүй</option>
+                </select>
+              </div>
+              <div>
+                <label className={labelCls} style={{ color: "var(--text-muted)" }}>Цонхны төрөл</label>
+                <select name="windowType" className={selectCls} value={formData.windowType} onChange={handleChange}>
+                  <option value="">Сонгох</option>
+                  {["Мод","Вакум","Төмөр вакум","Модон вакум"].map(v => <option key={v} value={v}>{v}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className={labelCls} style={{ color: "var(--text-muted)" }}>Цонхны тоо</label>
+                <select name="windowCount" className={selectCls} value={formData.windowCount} onChange={handleChange}>
+                  <option value="">Сонгох</option>
+                  {numbers.slice(0,10).map(n => <option key={n} value={n}>{n}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className={labelCls} style={{ color: "var(--text-muted)" }}>Шалны материал</label>
+                <select name="floorMaterial" className={selectCls} value={formData.floorMaterial} onChange={handleChange}>
+                  <option value="">Сонгох</option>
+                  {["Мод","Паркет","Ламинат","Чулуу","Плита"].map(v => <option key={v} value={v}>{v}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className={labelCls} style={{ color: "var(--text-muted)" }}>Давхар</label>
+                <select name="floorNumber" className={selectCls} value={formData.floorNumber} onChange={handleChange}>
+                  <option value="">Сонгох</option>
+                  {numbers.map(n => <option key={n} value={n}>{n}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className={labelCls} style={{ color: "var(--text-muted)" }}>Нийт давхар</label>
+                <select name="totalFloors" className={selectCls} value={formData.totalFloors} onChange={handleChange}>
+                  <option value="">Сонгох</option>
+                  {numbers.map(n => <option key={n} value={n}>{n}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className={labelCls} style={{ color: "var(--text-muted)" }}>Ашиглалтад орсон он</label>
+                <select name="builtYear" className={selectCls} value={formData.builtYear} onChange={handleChange}>
+                  <option value="">Сонгох</option>
+                  {years.map(y => <option key={y} value={y}>{y}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className={labelCls} style={{ color: "var(--text-muted)" }}>Тавилга *</label>
+                <select name="isFurnished" className={selectCls} value={formData.isFurnished} onChange={handleChange} required>
+                  <option value="">Сонгох</option>
+                  <option value="Тавилгатай">Тавилгатай</option>
+                  <option value="Тавилгагүй">Тавилгагүй</option>
+                </select>
+              </div>
+              <div>
+                <label className={labelCls} style={{ color: "var(--text-muted)" }}>Гадна зогсоол *</label>
+                <select name="hasOutdoorParking" className={selectCls} value={formData.hasOutdoorParking} onChange={handleChange} required>
+                  <option value="">Сонгох</option>
+                  <option value="Байгаа">Байгаа</option>
+                  <option value="Байхгүй">Байхгүй</option>
+                </select>
+              </div>
+            </div>
+            <div className="mt-4">
+              <label className={labelCls} style={{ color: "var(--text-muted)" }}>Тайлбар *</label>
+              <textarea name="details" rows={4} className="luxury-input w-full resize-none"
+                placeholder="Байрны онцлог, давуу талуудаа тайлбарлана уу..."
+                value={formData.details} onChange={handleChange} required />
+            </div>
+          </div>
+
+          <div className="bg-white border p-6" style={{ borderColor: "var(--border-subtle)" }}>
+            <p className="text-xs tracking-widest uppercase mb-4" style={{ color: "var(--gold)" }}>Холбоо барих мэдээлэл</p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className={labelCls} style={{ color: "var(--text-muted)" }}>Нэр *</label>
+                <input name="contactName" className={inputCls} placeholder="Нэр"
+                  value={formData.contactName} onChange={handleChange} required />
+              </div>
+              <div>
+                <label className={labelCls} style={{ color: "var(--text-muted)" }}>Утас *</label>
+                <input name="contactPhone" className={inputCls} placeholder="99001122"
+                  value={formData.contactPhone} onChange={handleChange} required />
+              </div>
+              <div>
+                <label className={labelCls} style={{ color: "var(--text-muted)" }}>Имэйл</label>
+                <input name="contactEmail" type="email" className={inputCls} placeholder="email@example.com"
+                  value={formData.contactEmail} onChange={handleChange} />
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white border p-6" style={{ borderColor: "var(--border-subtle)" }}>
+            <p className="text-xs tracking-widest uppercase mb-4" style={{ color: "var(--gold)" }}>Зурагнууд</p>
+            {existingImages.length > 0 && (
+              <>
+                <p className="text-xs mb-3" style={{ color: "var(--text-muted)" }}>Одоогийн зурагнууд</p>
+                <div className="grid grid-cols-3 md:grid-cols-4 gap-3 mb-5">
+                  {existingImages.map((img, i) => (
+                    <div key={i} className="relative group aspect-video overflow-hidden">
+                      <img src={img} alt="" className="w-full h-full object-cover" />
+                      <button type="button" onClick={() => removeExistingImage(i)}
+                        className="absolute top-1 right-1 w-6 h-6 bg-black/60 text-white text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">x</button>
+                      {i === 0 && <span className="absolute bottom-1 left-1 text-xs px-2 py-0.5" style={{ background: "var(--gold)", color: "var(--ink)" }}>Үндсэн</span>}
                     </div>
                   ))}
                 </div>
+              </>
+            )}
+            <label className="block border-2 border-dashed p-6 text-center cursor-pointer"
+              style={{ borderColor: "var(--gold-light)", background: "var(--cream)" }}>
+              <input type="file" accept="image/*" multiple onChange={handleNewImages} className="hidden" />
+              <p className="text-sm" style={{ color: "var(--text-muted)" }}>+ Шинэ зураг нэмэх</p>
+              <p className="text-xs mt-1" style={{ color: "var(--text-soft)" }}>JPG, PNG, WEBP</p>
+            </label>
+            {newImagePreviews.length > 0 && (
+              <div className="grid grid-cols-3 md:grid-cols-4 gap-3 mt-3">
+                {newImagePreviews.map((src, i) => (
+                  <div key={i} className="relative group aspect-video overflow-hidden">
+                    <img src={src} alt="" className="w-full h-full object-cover" />
+                    <button type="button" onClick={() => removeNewImage(i)}
+                      className="absolute top-1 right-1 w-6 h-6 bg-black/60 text-white text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">x</button>
+                  </div>
+                ))}
               </div>
             )}
+          </div>
 
-            <div>
-              <h2 className="text-xl font-bold mb-3">Шинэ зураг нэмэх</h2>
-              <label className="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-2xl p-8 cursor-pointer hover:border-indigo-500 transition">
-                <span className="text-gray-600 mb-1">Зургаа сонгох</span>
-                <input type="file" accept="image/*" multiple onChange={handleNewImages} className="hidden" />
-              </label>
-              {newImagePreviews.length > 0 && (
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
-                  {newImagePreviews.map((img, index) => (
-                    <div key={index} className="relative">
-                      <img src={img} alt="" className="h-32 w-full object-cover rounded-xl" />
-                      <button type="button" onClick={() => removeNewImage(index)}
-                        className="absolute top-2 right-2 bg-red-500 text-white w-7 h-7 rounded-full text-lg leading-none">×</button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <textarea name="details" placeholder="Тайлбар" value={formData.details} onChange={handleChange} className="w-full border p-4 rounded-xl h-40" required />
-
-            <button type="submit" className="w-full bg-indigo-600 text-white py-4 rounded-xl hover:bg-indigo-700 text-lg font-semibold">
-              Мэдээлэл шинэчлэх
+          <div className="flex gap-3">
+            <button type="button" onClick={() => navigate("/my-properties")} className="btn-ghost flex-1">Болих</button>
+            <button type="submit" disabled={submitting} className="btn-gold flex-1 justify-center" style={{ padding: "14px 0" }}>
+              {submitting ? "Хадгалж байна..." : "Мэдээлэл шинэчлэх"}
             </button>
-          </form>
-        </div>
+          </div>
+        </form>
       </div>
 
-      {/* Дүүрэг/Хороо Modal */}
       {showLocationModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-3xl p-8 w-[90%] max-w-4xl">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold">Байршил сонгох</h2>
-              <button onClick={() => setShowLocationModal(false)} className="text-3xl">×</button>
-            </div>
-            <div className="grid grid-cols-3 gap-5">
-              <button type="button" className="w-full bg-yellow-200 p-4 rounded-xl text-left font-medium">
-                Улаанбаатар
-              </button>
-              <div className="space-y-2 max-h-80 overflow-y-auto">
-                {districts.map((d) => (
-                  <button key={d} type="button"
-                    onClick={() => setFormData((prev) => ({ ...prev, city: "Улаанбаатар", district: d, khoroo: "" }))}
-                    className={`w-full p-3 rounded-xl text-left ${formData.district === d ? "bg-yellow-200" : "bg-gray-100"}`}>
-                    {d}
-                  </button>
-                ))}
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
+          onClick={e => { if (e.target === e.currentTarget) setShowLocationModal(false); }}>
+          <div className="bg-white w-full max-w-2xl p-6 max-h-[80vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-5">
+              <div>
+                <p className="text-xs tracking-widest uppercase mb-1" style={{ color: "var(--gold)" }}>Байршил</p>
+                <h2 className="font-display text-xl font-light" style={{ color: "var(--ink)" }}>Дүүрэг, хороо сонгох</h2>
               </div>
-              <div className="space-y-2 max-h-80 overflow-y-auto">
-                {khoroos.map((k) => (
-                  <button key={k} type="button"
-                    onClick={() => setFormData((prev) => ({ ...prev, khoroo: k }))}
-                    className={`w-full p-3 rounded-xl text-left ${formData.khoroo === k ? "bg-yellow-200" : "bg-gray-100"}`}>
-                    {k}
-                  </button>
-                ))}
+              <button onClick={() => setShowLocationModal(false)} className="text-2xl" style={{ color: "var(--text-soft)" }}>x</button>
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <p className="text-xs tracking-widest uppercase mb-2" style={{ color: "var(--gold)" }}>Хот</p>
+                <button type="button" className="w-full p-3 text-sm text-left border"
+                  style={{ borderColor: "var(--gold)", background: "var(--cream)", color: "var(--gold)" }}>
+                  Улаанбаатар
+                </button>
+              </div>
+              <div>
+                <p className="text-xs tracking-widest uppercase mb-2" style={{ color: "var(--gold)" }}>Дүүрэг</p>
+                <div className="space-y-1 max-h-64 overflow-y-auto">
+                  {districts.map((d) => (
+                    <button key={d} type="button"
+                      onClick={() => setFormData(prev => ({ ...prev, district: d, khoroo: "" }))}
+                      className="w-full p-2.5 text-sm text-left border transition-all"
+                      style={{
+                        borderColor: formData.district === d ? "var(--gold)" : "var(--border-subtle)",
+                        background: formData.district === d ? "var(--cream)" : "white",
+                        color: formData.district === d ? "var(--gold)" : "var(--ink)",
+                      }}>
+                      {d}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <p className="text-xs tracking-widest uppercase mb-2" style={{ color: "var(--gold)" }}>Хороо</p>
+                <div className="space-y-1 max-h-64 overflow-y-auto">
+                  {khoroos.map((k) => (
+                    <button key={k} type="button"
+                      onClick={() => setFormData(prev => ({ ...prev, khoroo: k }))}
+                      className="w-full p-2.5 text-sm text-left border transition-all"
+                      style={{
+                        borderColor: formData.khoroo === k ? "var(--gold)" : "var(--border-subtle)",
+                        background: formData.khoroo === k ? "var(--cream)" : "white",
+                        color: formData.khoroo === k ? "var(--gold)" : "var(--ink)",
+                      }}>
+                      {k}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
             <button type="button" onClick={() => setShowLocationModal(false)}
-              className="mt-6 w-full bg-yellow-400 py-4 rounded-xl font-bold">
-              Үргэлжлүүлэх
+              className="btn-gold w-full justify-center mt-6" style={{ padding: "12px 0" }}>
+              Батлах
             </button>
           </div>
         </div>
       )}
 
-      {/* Leaflet Map Modal */}
       {showMapModal && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl">
-            <div className="p-4 border-b flex items-center justify-between">
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
+          onClick={e => { if (e.target === e.currentTarget) setShowMapModal(false); }}>
+          <div className="bg-white w-full max-w-2xl overflow-hidden">
+            <div className="p-5 border-b flex items-center justify-between" style={{ borderColor: "var(--border-subtle)" }}>
               <div>
-                <h2 className="font-bold text-lg">Байршил тэмдэглэх</h2>
-                <p className="text-sm text-gray-500">Map дээр байрны байршил дээр дарна уу</p>
+                <p className="text-xs tracking-widest uppercase mb-1" style={{ color: "var(--gold)" }}>Газрын зураг</p>
+                <h2 className="font-display text-xl font-light" style={{ color: "var(--ink)" }}>Байршил тэмдэглэх</h2>
+                <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>Map дээр байрны байршил дээр дарна уу</p>
               </div>
-              <button onClick={() => setShowMapModal(false)} className="text-2xl text-gray-400">×</button>
+              <button onClick={() => setShowMapModal(false)} className="text-2xl" style={{ color: "var(--text-soft)" }}>x</button>
             </div>
             {pinCoords && (
-              <div className="px-4 py-2 bg-green-50 text-green-700 text-sm">
-                📍 Сонгосон: {pinCoords[0].toFixed(5)}, {pinCoords[1].toFixed(5)}
+              <div className="px-5 py-2 text-xs" style={{ background: "var(--cream)", color: "var(--gold)" }}>
+                Сонгосон: {pinCoords[0].toFixed(5)}, {pinCoords[1].toFixed(5)}
               </div>
             )}
-            <MapContainer
-              center={pinCoords || mapCenter}
-              zoom={14}
-              style={{ height: "400px", width: "100%" }}
-              scrollWheelZoom={true}
-            >
-              <TileLayer
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              />
+            <MapContainer center={pinCoords || mapCenter} zoom={14}
+              style={{ height: 380, width: "100%", zIndex: 0 }} scrollWheelZoom={true}>
+              <TileLayer attribution="OpenStreetMap" url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
               <MapPinSelector onSelect={handlePinSelect} />
               {pinCoords && <Marker position={pinCoords} />}
             </MapContainer>
-            <div className="p-4 flex gap-3">
+            <div className="p-4 flex gap-3" style={{ borderTop: "1px solid var(--border-subtle)" }}>
               {pinCoords && (
-                <button type="button" onClick={() => setPinCoords(null)}
-                  className="flex-1 border border-gray-200 py-3 rounded-xl text-gray-600 hover:bg-gray-50 text-sm">
-                  Арилгах
-                </button>
+                <button type="button" onClick={() => setPinCoords(null)} className="btn-ghost flex-1">Арилгах</button>
               )}
               <button type="button" onClick={() => setShowMapModal(false)}
-                className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-medium text-sm">
-                {pinCoords ? "✓ Хадгалах" : "Хаах"}
+                className="btn-gold flex-1 justify-center" style={{ padding: "12px 0" }}>
+                {pinCoords ? "Хадгалах" : "Хаах"}
               </button>
             </div>
           </div>
