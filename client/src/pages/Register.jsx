@@ -10,6 +10,7 @@ export default function Register() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPw, setShowPw] = useState(false);
+  const [otpMethod, setOtpMethod] = useState("email"); // "email" | "phone"
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const navigate = useNavigate();
@@ -24,8 +25,10 @@ export default function Register() {
     if (!/^[789]\d{7}$/.test(phone)) { setError("Монгол дугаар оруулна уу (7/8/9-ээр эхлэх, 8 оронтой)"); return; }
     setLoading(true);
     try {
-      await api.post("/api/auth/register", { firstName, lastName, phone, email, password, role });
-      navigate("/verify-otp", { state: { email } });
+      await api.post("/api/auth/register", {
+        firstName, lastName, phone, email, password, role, otpMethod,
+      });
+      navigate("/verify-otp", { state: { email, phone, otpMethod } });
     } catch (err) { setError(err.response?.data?.message || "Бүртгэл амжилтгүй боллоо"); }
     finally { setLoading(false); }
   };
@@ -145,9 +148,39 @@ export default function Register() {
               )}
             </div>
 
+            {/* OTP арга сонгогч */}
+            <div>
+              <label className="block text-xs tracking-widest uppercase text-[var(--text-muted)] mb-2">
+                Баталгаажуулах арга
+              </label>
+              <div className="grid grid-cols-2 gap-0 border border-black/10">
+                {[
+                  { v: "email", l: "✉️ Имэйл" },
+                  { v: "phone", l: "📱 Утас" },
+                ].map(({ v, l }) => (
+                  <button key={v} type="button" onClick={() => setOtpMethod(v)}
+                    className="py-3 text-xs font-medium tracking-widest uppercase transition-all"
+                    style={{
+                      background: otpMethod === v ? "var(--ink)" : "transparent",
+                      color: otpMethod === v ? "var(--gold)" : "var(--text-muted)",
+                      fontFamily: "'DM Sans', sans-serif",
+                    }}>
+                    {l}
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs mt-1.5" style={{ color: "var(--text-soft)" }}>
+                {otpMethod === "phone"
+                  ? `+976 ${phone || "..."} утас руу SMS код илгээгдэнэ`
+                  : `${email || "..."} имэйл рүү код илгээгдэнэ`}
+              </p>
+            </div>
+
             <div className="pt-2">
               <button type="submit" disabled={loading} className="btn-gold w-full justify-center" style={{ padding: "16px 0" }}>
-                {loading ? "Код явуулж байна..." : "Үргэлжлүүлэх →"}
+                {loading
+                  ? "Код явуулж байна..."
+                  : otpMethod === "phone" ? "SMS код авах →" : "Имэйл код авах →"}
               </button>
             </div>
           </form>

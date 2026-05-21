@@ -6,7 +6,10 @@ function VerifyOtp() {
   const navigate  = useNavigate();
   const location  = useLocation();
   const email     = location.state?.email || "";
+  const phone     = location.state?.phone || "";
+  const initMethod = location.state?.otpMethod || "email";
 
+  const [otpMethod, setOtpMethod] = useState(initMethod);
   const [otp, setOtp]             = useState(["", "", "", "", "", ""]);
   const [loading, setLoading]     = useState(false);
   const [resending, setResending] = useState(false);
@@ -14,7 +17,7 @@ function VerifyOtp() {
   const [countdown, setCountdown] = useState(60);
   const inputRefs = useRef([]);
 
-  useEffect(() => { if (!email) navigate("/register"); }, [email, navigate]);
+  useEffect(() => { if (!email && !phone) navigate("/register"); }, [email, phone, navigate]);
 
   useEffect(() => {
     if (countdown <= 0) return;
@@ -47,7 +50,9 @@ function VerifyOtp() {
     if (code.length < 6) { setError("6 оронтой кодыг бүрэн оруулна уу"); return; }
     setLoading(true); setError("");
     try {
-      const res = await api.post("/api/auth/verify-otp", { email, code });
+      const res = await api.post("/api/auth/verify-otp", {
+        email, phone, code, otpMethod,
+      });
       localStorage.setItem("token", res.data.token);
       localStorage.setItem("user", JSON.stringify(res.data.user));
       navigate("/");
@@ -61,12 +66,24 @@ function VerifyOtp() {
     if (countdown > 0) return;
     setResending(true); setError("");
     try {
-      await api.post("/api/auth/resend-otp", { email, purpose: "register" });
+      await api.post("/api/auth/resend-otp", { email, phone, purpose: "register", otpMethod });
       setCountdown(60); setOtp(["", "", "", "", "", ""]);
       inputRefs.current[0]?.focus();
     } catch (err) { setError(err.response?.data?.message || "Дахин явуулахад алдаа гарлаа"); }
     finally { setResending(false); }
   };
+
+  // Арга солих — шинэ OTP явуулна
+  const switchMethod = async (method) => {
+    if (method === otpMethod) return;
+    setOtpMethod(method); setOtp(["", "", "", "", "", ""]); setError("");
+    try {
+      await api.post("/api/auth/resend-otp", { email, phone, purpose: "register", otpMethod: method });
+      setCountdown(60);
+    } catch (err) { setError(err.response?.data?.message || "Алдаа гарлаа"); }
+  };
+
+  const target = otpMethod === "phone" ? `+976${phone}` : email;
 
   return (
     <div className="min-h-screen flex flex-col" style={{ background: "var(--cream)" }}>
@@ -93,14 +110,37 @@ function VerifyOtp() {
           <div className="text-center mb-6">
             <div className="w-14 h-14 mx-auto mb-4 flex items-center justify-center rounded-full"
               style={{ background: "var(--cream)", border: "1px solid var(--gold-light)" }}>
-              <svg width="24" height="24" fill="none" stroke="var(--gold)" strokeWidth="1.5" viewBox="0 0 24 24">
-                <path strokeLinecap="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-              </svg>
+              {otpMethod === "phone" ? (
+                <svg width="24" height="24" fill="none" stroke="var(--gold)" strokeWidth="1.5" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                </svg>
+              ) : (
+                <svg width="24" height="24" fill="none" stroke="var(--gold)" strokeWidth="1.5" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+              )}
             </div>
-            <h1 className="font-display text-2xl font-light mb-1" style={{ color: "var(--ink)" }}>Имэйл баталгаажуулах</h1>
+            <h1 className="font-display text-2xl font-light mb-1" style={{ color: "var(--ink)" }}>
+              {otpMethod === "phone" ? "Утас баталгаажуулах" : "Имэйл баталгаажуулах"}
+            </h1>
             <p className="text-sm" style={{ color: "var(--text-muted)" }}>
-              <span className="font-medium" style={{ color: "var(--ink)" }}>{email}</span> рүү 6 оронтой код илгээгдлээ
+              <span className="font-medium" style={{ color: "var(--ink)" }}>{target}</span> рүү<br />
+              6 оронтой код илгээгдлээ
             </p>
+          </div>
+
+          {/* Арга солих */}
+          <div className="grid grid-cols-2 gap-0 mb-5 border border-black/10">
+            {[{ v: "email", l: "✉️ Имэйл" }, { v: "phone", l: "📱 Утас" }].map(({ v, l }) => (
+              <button key={v} type="button" onClick={() => switchMethod(v)}
+                className="py-2.5 text-xs font-medium tracking-widest uppercase transition-all"
+                style={{
+                  background: otpMethod === v ? "var(--ink)" : "transparent",
+                  color: otpMethod === v ? "var(--gold)" : "var(--text-muted)",
+                }}>
+                {l}
+              </button>
+            ))}
           </div>
 
           {error && (
@@ -116,9 +156,9 @@ function VerifyOtp() {
                   type="text" inputMode="numeric" maxLength={1} value={digit}
                   onChange={(e) => handleChange(index, e.target.value)}
                   onKeyDown={(e) => handleKeyDown(index, e)}
-                  className="w-11 h-13 text-center text-xl font-medium border-2 transition-all outline-none"
+                  className="text-center text-xl font-medium border-2 transition-all outline-none"
                   style={{
-                    height: 52,
+                    width: 44, height: 52,
                     borderColor: digit ? "var(--gold)" : "var(--border-subtle)",
                     background: digit ? "var(--cream)" : "white",
                     color: "var(--ink)",
@@ -144,7 +184,9 @@ function VerifyOtp() {
             )}
           </div>
 
-          <p className="text-center text-xs mt-3" style={{ color: "var(--text-soft)" }}>Спам хавтасаа шалгана уу</p>
+          <p className="text-center text-xs mt-3" style={{ color: "var(--text-soft)" }}>
+            {otpMethod === "phone" ? "Spam дохиогоо шалгана уу" : "Spam хавтасаа шалгана уу"}
+          </p>
         </div>
       </div>
     </div>

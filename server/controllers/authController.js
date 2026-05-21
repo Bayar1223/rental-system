@@ -1,7 +1,13 @@
 const User = require("../models/User");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-const { createOtp, sendEmailOtp, verifyOtp } = require("../services/otpService");
+const {
+  createOtp,
+  sendEmailOtp,
+  sendSmsOtp,
+  verifySmsOtp,
+  verifyOtp,
+} = require("../services/otpService");
 
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: "7d" });
@@ -13,7 +19,9 @@ const generateToken = (id) => {
 // ============================================================
 exports.registerUser = async (req, res) => {
   try {
-    const { firstName, lastName, phone, email, password, role } = req.body;
+    const { firstName, lastName, phone, email, password, role, otpMethod } = req.body;
+    // otpMethod: "email" | "phone"  (frontend-оос ирнэ, default: "email")
+    const method = otpMethod || "email";
 
     // Монгол дугаарын validation
     const mnPhoneRegex = /^[789]\d{7}$/;
@@ -39,27 +47,34 @@ exports.registerUser = async (req, res) => {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-
-    // Хэрэглэгчийн мэдээллийг OTP-тэй хамт түр хадгалах
     const userData = { firstName, lastName, phone, email, password: hashedPassword, role };
 
-    const otp = await createOtp({
-      identifier: email,
-      type: "email",
-      purpose: "register",
-      userData,
-    });
-
-    await sendEmailOtp({
-      email,
-      code: otp.code,
-      purpose: "register",
-      firstName,
-    });
+    if (method === "phone") {
+      // SMS — Twilio Verify (өөрөө OTP үүсгэж явуулна, DB хэрэггүй)
+      await sendSmsOtp({ phone, purpose: "register" });
+    } else {
+      // Email — Resend + DB-д хадгалах
+      const otp = await createOtp({
+        identifier: email,
+        type: "email",
+        purpose: "register",
+        userData,
+      });
+      await sendEmailOtp({
+        email,
+        code: otp.code,
+        purpose: "register",
+        firstName,
+      });
+    }
 
     res.status(200).json({
-      message: "OTP код таны имэйл рүү илгээгдлээ. 5 минутын дотор оруулна уу.",
-      email, // frontend-д харуулахад хэрэгтэй
+      message: method === "phone"
+        ? `OTP код +976${phone} утас руу илгээгдлээ. 5 минутын дотор оруулна уу.`
+        : "OTP код таны имэйл рүү илгээгдлээ. 5 минутын дотор оруулна уу.",
+      email,
+      phone,
+      otpMethod: method,
     });
   } catch (error) {
     console.error("registerUser error:", error);
@@ -76,21 +91,39 @@ exports.registerUser = async (req, res) => {
 // ============================================================
 exports.verifyRegisterOtp = async (req, res) => {
   try {
-    const { email, code } = req.body;
+    const { email, phone, code, otpMethod } = req.body;
+    const method = otpMethod || "email";
 
-    if (!email || !code) {
-      return res.status(400).json({ message: "Имэйл болон OTP код шаардлагатай" });
+    if (!code) {
+      return res.status(400).json({ message: "OTP код шаардлагатай" });
     }
 
-    const result = await verifyOtp({ identifier: email, code, purpose: "register" });
+    let userData = null;
 
-    if (!result.valid) {
-      return res.status(400).json({ message: result.message });
+    if (method === "phone") {
+      // Twilio Verify-аар шалгах
+      const approved = await verifySmsOtp({ phone, code });
+      if (!approved) {
+        return res.status(400).json({ message: "OTP код буруу байна" });
+      }
+      // SMS хувилбарт userData-г req.body-оос авна
+      // (frontend register үедээ localStorage-д хадгалсан)
+      const { firstName, lastName, password, role } = req.body;
+      const hashedPassword = await bcrypt.hash(password, 10);
+      userData = { firstName, lastName, phone, email, password: hashedPassword, role };
+    } else {
+      // Email — DB-д хадгалсан OTP шалгах
+      if (!email) {
+        return res.status(400).json({ message: "Имэйл болон OTP код шаардлагатай" });
+      }
+      const result = await verifyOtp({ identifier: email, code, purpose: "register" });
+      if (!result.valid) {
+        return res.status(400).json({ message: result.message });
+      }
+      userData = result.userData;
     }
 
-    const { userData } = result;
-
-    // Давхардлыг дахин шалгах (OTP хүлээх хугацаанд бүртгэсэн байж болно)
+    // Давхардлыг дахин шалгах
     const existing = await User.findOne({
       $or: [{ email: userData.email }, { phone: userData.phone }],
     });
@@ -128,37 +161,39 @@ exports.verifyRegisterOtp = async (req, res) => {
 // ============================================================
 exports.resendOtp = async (req, res) => {
   try {
-    const { email, purpose = "register" } = req.body;
+    const { email, phone, purpose = "register", otpMethod } = req.body;
+    const method = otpMethod || "email";
 
-    if (!email) {
-      return res.status(400).json({ message: "Имэйл хаяг шаардлагатай" });
+    if (method === "phone") {
+      if (!phone) return res.status(400).json({ message: "Утасны дугаар шаардлагатай" });
+      await sendSmsOtp({ phone, purpose });
+      return res.json({ message: "OTP код дахин утас руу илгээгдлээ" });
     }
 
-    // Хуучин OTP-г авч userData-г хадгалах
+    // Email хувилбар — хуучин userData хадгалах
+    if (!email) return res.status(400).json({ message: "Имэйл хаяг шаардлагатай" });
+
     const Otp = require("../models/Otp");
     const oldOtp = await Otp.findOne({ identifier: email, purpose, isUsed: false });
-
     if (!oldOtp) {
       return res.status(400).json({ message: "Бүртгэлийн мэдээлэл олдсонгүй. Дахин бүртгүүлнэ үү." });
     }
 
-    const { createOtp: co, sendEmailOtp: se } = require("../services/otpService");
-
-    const newOtp = await co({
+    const newOtp = await createOtp({
       identifier: email,
       type: "email",
       purpose,
       userData: oldOtp.userData,
     });
 
-    await se({
+    await sendEmailOtp({
       email,
       code: newOtp.code,
       purpose,
       firstName: oldOtp.userData?.firstName,
     });
 
-    res.json({ message: "OTP код дахин илгээгдлээ" });
+    res.json({ message: "OTP код дахин имэйл рүү илгээгдлээ" });
   } catch (error) {
     res.status(500).json({ message: "Алдаа гарлаа", error: error.message });
   }
