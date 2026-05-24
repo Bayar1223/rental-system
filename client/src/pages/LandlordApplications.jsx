@@ -3,285 +3,211 @@ import { Link } from "react-router-dom";
 import api from "../api/axiosInstance";
 import Navbar from "../components/Navbar";
 
-const CONTRACT_STATUS = {
-  none:               { label: "Гэрээ байхгүй",              color: "#9CA3AF", bg: "#F3F4F6" },
-  pending_signatures: { label: "Гарын үсэг хүлээгдэж байна", color: "#D97706", bg: "#FFFBEB" },
-  signed:             { label: "Гэрээ баталгаажсан",         color: "#16A34A", bg: "#F0FDF4" },
-  payment_pending:    { label: "Төлбөр хүлээгдэж байна",     color: "#D97706", bg: "#FFFBEB" },
-  active:             { label: "Идэвхтэй",                   color: "#16A34A", bg: "#F0FDF4" },
-  cancelled:          { label: "Цуцлагдсан",                 color: "#EF4444", bg: "#FEF2F2" },
-  completed:          { label: "Дууссан",                    color: "#6B7280", bg: "#F9FAFB" },
+const STATUS_CONFIG = {
+  pending:   { label: "Хүлээгдэж байна", color: "var(--gold)"     },
+  approved:  { label: "Зөвшөөрсөн",     color: "#22C55E"          },
+  rejected:  { label: "Татгалзсан",      color: "#EF4444"          },
+  cancelled: { label: "Цуцлагдсан",      color: "var(--text-soft)" },
 };
 
-const APP_STATUS = {
-  pending:  { label: "Хүлээгдэж байна", color: "#D97706" },
-  approved: { label: "Зөвшөөрсөн",      color: "#16A34A" },
-  rejected: { label: "Татгалзсан",      color: "#EF4444" },
-};
+function timeAgo(date) {
+  const diff = (Date.now() - new Date(date).getTime()) / 1000;
+  if (diff < 3600) return `${Math.floor(diff / 60)}м өмнө`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}ц өмнө`;
+  return `${Math.floor(diff / 86400)}ө өмнө`;
+}
 
-function LandlordApplications() {
+export default function LandlordApplications() {
   const [applications, setApplications] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeRentals, setActiveRentals] = useState([]);
-
-  const fetchApplications = async () => {
-    setLoading(true);
-    try {
-      const res = await api.get("/api/applications/landlord");
-      const all = res.data;
-      setApplications(all);
-      setActiveRentals(all.filter(a =>
-        ["signed","payment_pending","active"].includes(a.contractStatus)
-      ));
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [filter, setFilter] = useState("all");
+  const [acting, setActing] = useState(null);
 
   useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setLoading(true);
-      try {
-        const res = await api.get("/api/applications/landlord");
-        if (!cancelled) {
-          const all = res.data;
-          setApplications(all);
-          setActiveRentals(all.filter(a =>
-            ["signed","payment_pending","active"].includes(a.contractStatus)
-          ));
-        }
-      } catch (err) {
-        console.error(err);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
-    load();
-    return () => { cancelled = true; };
+    api.get("/api/applications/landlord")
+      .then(r => setApplications(r.data))
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, []);
 
-  const updateStatus = async (id, status) => {
+  const handleAction = async (id, action) => {
+    const label = action === "approve" ? "зөвшөөрөх" : "татгалзах";
+    if (!window.confirm(`Хүсэлтийг ${label} уу?`)) return;
+    setActing(id + action);
     try {
-      await api.put(`/api/applications/${id}/status`, { status });
-      fetchApplications();
-    } catch (err) {
-      alert(err.response?.data?.message || "Алдаа гарлаа");
-    }
+      const res = await api.put(`/api/applications/${id}/${action}`);
+      setApplications(prev => prev.map(a => a._id === id ? { ...a, status: res.data.application?.status || (action === "approve" ? "approved" : "rejected") } : a));
+    } catch { alert("Алдаа гарлаа"); }
+    finally { setActing(null); }
   };
 
-  // Шийдвэрлэх шаардлагатай (pending)
-  const pending = applications.filter(a => a.status === "pending");
-  // Гэрээ зурагдаж байгаа / идэвхтэй
-  const withContract = applications.filter(a =>
-    a.status === "approved" && a.contractStatus && a.contractStatus !== "none"
-  );
-
-  const formatDate = (d) => d ? new Date(d).toLocaleDateString("mn-MN") : "—";
-
-  const AppCard = ({ app }) => {
-    const cs = CONTRACT_STATUS[app.contractStatus] || CONTRACT_STATUS.none;
-    const as = APP_STATUS[app.status] || APP_STATUS.pending;
-    const image = app.property?.images?.[0] || "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688";
-
-    return (
-      <div className="bg-white border overflow-hidden" style={{ borderColor: "var(--border-subtle)" }}>
-        <div className="flex">
-          <div className="w-1 flex-shrink-0" style={{ background: app.status === "pending" ? "#D97706" : cs.color }} />
-          <div className="flex flex-col md:flex-row flex-1">
-            <img src={image} alt="" className="w-full md:w-36 h-28 object-cover flex-shrink-0" />
-            <div className="p-5 flex-1">
-              <div className="flex items-start justify-between gap-3 mb-3">
-                <div>
-                  <h3 className="font-medium text-sm mb-0.5" style={{ color: "var(--ink)" }}>
-                    {app.property?.title}
-                  </h3>
-                  <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-                    {app.property?.location?.district}, {app.property?.location?.city}
-                  </p>
-                  <p className="font-display text-base font-light mt-1" style={{ color: "var(--gold)" }}>
-                    {app.property?.monthlyRent?.toLocaleString()}₮/сар
-                  </p>
-                </div>
-                <div className="flex flex-col items-end gap-1.5">
-                  <span className="text-xs px-2 py-1 font-medium" style={{ color: as.color, background: as.color + "15" }}>
-                    {as.label}
-                  </span>
-                  {app.contractStatus && app.contractStatus !== "none" && (
-                    <span className="text-xs px-2 py-1" style={{ background: cs.bg, color: cs.color }}>
-                      {cs.label}
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {/* Tenant info */}
-              <div className="grid grid-cols-2 gap-x-6 gap-y-1 mb-3 text-xs" style={{ color: "var(--text-muted)" }}>
-                <div className="flex items-center gap-1.5">
-                  <span style={{ color: "var(--gold)" }}>👤</span>
-                  {app.tenant?.firstName} {app.tenant?.lastName}
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span style={{ color: "var(--gold)" }}>📞</span>
-                  {app.tenant?.phone}
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span style={{ color: "var(--gold)" }}>✉️</span>
-                  {app.tenant?.email}
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span style={{ color: "var(--gold)" }}>📅</span>
-                  {app.leaseMonths} сар
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span style={{ color: "var(--gold)" }}>💰</span>
-                  {app.totalRent?.toLocaleString()}₮
-                </div>
-                {app.startDate && (
-                  <div className="flex items-center gap-1.5">
-                    <span style={{ color: "var(--gold)" }}>🗓️</span>
-                    {formatDate(app.startDate)}
-                  </div>
-                )}
-              </div>
-
-              {/* Message */}
-              {app.message && (
-                <div className="mb-3 p-3 text-xs italic" style={{ background: "var(--cream)", color: "var(--text-muted)", borderLeft: "2px solid var(--gold-light)" }}>
-                  "{app.message}"
-                </div>
-              )}
-
-              {/* Signature status */}
-              {app.contractStatus === "pending_signatures" && (
-                <div className="mb-3 flex items-center gap-3 text-xs" style={{ color: "var(--text-soft)" }}>
-                  <span>🔥 Гарын үсэг хүлээгдэж байна</span>
-                  <span style={{ color: app.landlordSigned ? "#16A34A" : "var(--text-soft)" }}>
-                    {app.landlordSigned ? "✓ Та зурлаа" : "○ Та зураагүй"}
-                  </span>
-                  <span style={{ color: app.tenantSigned ? "#16A34A" : "var(--text-soft)" }}>
-                    {app.tenantSigned ? "✓ Түрээслэгч зурлаа" : "○ Түрээслэгч зураагүй"}
-                  </span>
-                </div>
-              )}
-
-              {/* Action buttons */}
-              <div className="flex flex-wrap gap-2">
-                {app.status === "pending" && (
-                  <>
-                    <button onClick={() => updateStatus(app._id, "approved")}
-                      className="btn-gold text-xs" style={{ padding: "7px 16px" }}>
-                      ✓ Зөвшөөрөх
-                    </button>
-                    <button onClick={() => updateStatus(app._id, "rejected")}
-                      className="text-xs px-4 py-1.5 border transition-colors"
-                      style={{ borderColor: "#FCA5A5", color: "#EF4444", background: "white" }}>
-                      ✕ Татгалзах
-                    </button>
-                  </>
-                )}
-                {app.status === "approved" && app.contractStatus && app.contractStatus !== "none" && (
-                  <Link to={`/contract/${app._id}`} className="btn-outline-gold text-xs" style={{ padding: "7px 16px" }}>
-                    Гэрээ харах
-                  </Link>
-                )}
-                {app.contractStatus === "pending_signatures" && !app.landlordSigned && (
-                  <Link to={`/contract/${app._id}`} className="btn-gold text-xs" style={{ padding: "7px 16px" }}>
-                    ✍️ Гарын үсэг зурах
-                  </Link>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  };
+  const filtered = applications.filter(a => filter === "all" ? true : a.status === filter);
+  const pending = applications.filter(a => a.status === "pending").length;
 
   return (
-    <div style={{ minHeight: "100vh", background: "var(--cream)", paddingTop: 64 }}>
+    <div style={{ minHeight: "100vh", background: "var(--black)", paddingTop: 70 }}>
       <Navbar />
-      <div className="max-w-4xl mx-auto px-6 py-10">
+      <div style={{ maxWidth: 900, margin: "0 auto", padding: "48px 48px" }}>
 
-        <div className="flex items-start justify-between mb-8">
-          <div>
-            <p className="text-xs tracking-widest uppercase mb-2" style={{ color: "var(--gold)" }}>Landlord</p>
-            <h1 className="font-display text-4xl font-light" style={{ color: "var(--ink)" }}>Ирсэн хүсэлтүүд</h1>
+        {/* Header */}
+        <div style={{ marginBottom: 40 }}>
+          <div className="flex items-center gap-4 mb-4">
+            <div style={{ width: 32, height: 1, background: "var(--gold)" }} />
+            <span style={{ fontFamily: "'Montserrat'", fontSize: 9, fontWeight: 500, letterSpacing: "0.25em", textTransform: "uppercase", color: "var(--gold)" }}>
+              Ирсэн
+            </span>
           </div>
-          {activeRentals.length > 0 && (
-            <Link to="/my-rentals"
-              className="text-xs px-4 py-2 border flex items-center gap-2 transition-colors"
-              style={{ borderColor: "var(--gold)", color: "var(--gold)", background: "var(--cream)" }}>
-              Түрээслэгдсэн байрнууд ({activeRentals.length}) →
-            </Link>
-          )}
+          <div className="flex items-end justify-between">
+            <h1 className="font-display" style={{ fontSize: 48, fontWeight: 300, color: "var(--white)" }}>Хүсэлтүүд</h1>
+            {pending > 0 && (
+              <div style={{ marginBottom: 8 }}>
+                <span style={{ fontFamily: "'Montserrat'", fontSize: 9, fontWeight: 500, letterSpacing: "0.15em", padding: "4px 14px", background: "rgba(201,160,80,0.12)", border: "1px solid rgba(201,160,80,0.3)", color: "var(--gold)" }}>
+                  {pending} хүлээгдэж байна
+                </span>
+              </div>
+            )}
+          </div>
         </div>
 
-        {loading ? (
-          <div className="text-center py-20">
-            <div className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin mx-auto mb-4"
-              style={{ borderColor: "var(--gold)", borderTopColor: "transparent" }} />
-            <p className="text-xs tracking-widest uppercase" style={{ color: "var(--text-muted)" }}>Ачааллаж байна</p>
+        {/* Filter tabs */}
+        {applications.length > 0 && (
+          <div style={{ display: "flex", borderBottom: "1px solid var(--border-dim)", marginBottom: 24 }}>
+            {[
+              { key: "all",      label: `Бүгд (${applications.length})` },
+              { key: "pending",  label: `Хүлээгдэж (${pending})` },
+              { key: "approved", label: `Зөвшөөрсөн (${applications.filter(a=>a.status==="approved").length})` },
+              { key: "rejected", label: `Татгалзсан (${applications.filter(a=>a.status==="rejected").length})` },
+            ].map(f => (
+              <button key={f.key} onClick={() => setFilter(f.key)}
+                style={{
+                  padding: "10px 20px",
+                  fontFamily: "'Montserrat'", fontSize: 9, fontWeight: 500, letterSpacing: "0.18em", textTransform: "uppercase",
+                  background: "transparent", border: "none",
+                  borderBottom: filter === f.key ? "1px solid var(--gold)" : "1px solid transparent",
+                  color: filter === f.key ? "var(--gold)" : "var(--text-muted)",
+                  cursor: "pointer", marginBottom: -1, transition: "all 0.2s",
+                }}>
+                {f.label}
+              </button>
+            ))}
           </div>
-        ) : applications.length === 0 ? (
-          <div className="text-center py-20 bg-white border" style={{ borderColor: "var(--border-subtle)" }}>
-            <p className="font-display text-2xl font-light mb-2" style={{ color: "var(--ink)" }}>Хүсэлт ирээгүй байна</p>
-            <p className="text-sm" style={{ color: "var(--text-muted)" }}>Байрнуудад хүсэлт ирэхэд энд харагдана</p>
+        )}
+
+        {loading ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {[1,2,3].map(i => (
+              <div key={i} style={{ height: 120, background: "var(--dark)", border: "1px solid var(--border-dim)", animation: "pulse 2s ease infinite" }} />
+            ))}
+          </div>
+        ) : filtered.length === 0 ? (
+          <div style={{ textAlign: "center", padding: "80px 0" }}>
+            <p className="font-display" style={{ fontSize: 32, fontWeight: 300, color: "var(--text-soft)", marginBottom: 12 }}>Хүсэлт байхгүй</p>
+            <p style={{ fontFamily: "'Montserrat'", fontSize: 12, color: "var(--text-soft)" }}>
+              {filter !== "all" ? "Энэ статустай хүсэлт байхгүй байна" : "Одоохондоо хүсэлт ирээгүй байна"}
+            </p>
           </div>
         ) : (
-          <div className="space-y-6">
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {filtered.map(app => {
+              const sc = STATUS_CONFIG[app.status] || STATUS_CONFIG.pending;
+              const img = app.property?.images?.[0] || "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688";
+              return (
+                <div
+                  key={app._id}
+                  style={{
+                    background: app.status === "pending" ? "rgba(201,160,80,0.02)" : "var(--dark)",
+                    border: "1px solid",
+                    borderColor: app.status === "pending" ? "rgba(201,160,80,0.15)" : "var(--border-dim)",
+                    display: "flex",
+                    gap: 0,
+                    overflow: "hidden",
+                    transition: "border-color 0.2s",
+                  }}
+                >
+                  {/* Property image */}
+                  <div style={{ width: 100, flexShrink: 0, overflow: "hidden" }}>
+                    <img src={img} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", filter: "brightness(0.75)" }} />
+                  </div>
 
-            {/* Шийдвэрлэх шаардлагатай */}
-            {pending.length > 0 && (
-              <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="w-2 h-2 rounded-full" style={{ background: "#D97706" }} />
-                  <p className="text-sm font-medium" style={{ color: "var(--ink)" }}>
-                    Шийдвэрлэх шаардлагатай ({pending.length})
-                  </p>
-                </div>
-                <div className="space-y-4">
-                  {pending.map(app => <AppCard key={app._id} app={app} />)}
-                </div>
-              </div>
-            )}
+                  {/* Info */}
+                  <div style={{ flex: 1, padding: "16px 20px", minWidth: 0 }}>
+                    <div className="flex items-start justify-between gap-4">
+                      <div style={{ minWidth: 0 }}>
+                        <div className="flex items-center gap-3 mb-1">
+                          {/* Tenant avatar */}
+                          <div style={{ width: 28, height: 28, borderRadius: "50%", background: "rgba(201,160,80,0.15)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, overflow: "hidden", border: "1px solid var(--border)" }}>
+                            {app.tenant?.avatar
+                              ? <img src={app.tenant.avatar} style={{ width: "100%", height: "100%", objectFit: "cover" }} alt="" />
+                              : <span style={{ fontFamily: "'Cormorant Garamond'", fontSize: 14, color: "var(--gold)" }}>{app.tenant?.firstName?.[0]}</span>
+                            }
+                          </div>
+                          <p style={{ fontFamily: "'Montserrat'", fontSize: 13, fontWeight: 400, color: "var(--white)" }}>
+                            {app.tenant?.firstName} {app.tenant?.lastName}
+                          </p>
+                          <span style={{ fontFamily: "'Montserrat'", fontSize: 9, color: "var(--text-soft)" }}>·</span>
+                          <span style={{ fontFamily: "'Montserrat'", fontSize: 9, color: "var(--text-soft)" }}>{app.tenant?.phone}</span>
+                        </div>
+                        <p style={{ fontFamily: "'Montserrat'", fontSize: 10, color: "var(--text-muted)", marginBottom: 4 }} className="line-clamp-1">
+                          {app.property?.title}
+                        </p>
+                        <div className="flex items-center gap-4">
+                          <span style={{ fontFamily: "'Montserrat'", fontSize: 9, color: "var(--gold)" }}>
+                            {app.leaseMonths} сар · {app.totalRent?.toLocaleString()}₮
+                          </span>
+                          <span style={{ fontFamily: "'Montserrat'", fontSize: 9, color: "var(--text-soft)" }}>
+                            {timeAgo(app.createdAt)}
+                          </span>
+                        </div>
+                      </div>
 
-            {/* Гэрээ зурагдаж байгаа / бусад */}
-            {withContract.length > 0 && (
-              <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="w-2 h-2 rounded-full" style={{ background: "#16A34A" }} />
-                  <p className="text-sm font-medium" style={{ color: "var(--ink)" }}>
-                    Гэрээ зурагдаж байгаа ({withContract.length})
-                  </p>
+                      <div className="flex items-center gap-3" style={{ flexShrink: 0 }}>
+                        <span style={{
+                          fontFamily: "'Montserrat'", fontSize: 8, fontWeight: 500, letterSpacing: "0.15em", textTransform: "uppercase",
+                          padding: "3px 10px", border: `1px solid ${sc.color}30`, color: sc.color
+                        }}>
+                          {sc.label}
+                        </span>
+                        {app.status === "pending" && (
+                          <>
+                            <button
+                              onClick={() => handleAction(app._id, "approve")}
+                              disabled={!!acting}
+                              className="btn-gold"
+                              style={{ fontSize: 9, padding: "7px 16px" }}
+                            >
+                              {acting === app._id + "approve" ? "..." : "Зөвшөөрөх"}
+                            </button>
+                            <button
+                              onClick={() => handleAction(app._id, "reject")}
+                              disabled={!!acting}
+                              className="btn-danger"
+                              style={{ fontSize: 9, padding: "7px 16px" }}
+                            >
+                              {acting === app._id + "reject" ? "..." : "Татгалзах"}
+                            </button>
+                          </>
+                        )}
+                        {app.contractStatus === "signed" && (
+                          <Link to={`/contract/${app._id}`} className="btn-outline" style={{ fontSize: 9, padding: "7px 14px" }}>
+                            Гэрээ
+                          </Link>
+                        )}
+                      </div>
+                    </div>
+                    {app.message && (
+                      <div style={{ marginTop: 10, padding: "8px 12px", background: "rgba(255,255,255,0.03)", borderLeft: "1px solid var(--border-dim)" }}>
+                        <p style={{ fontFamily: "'Montserrat'", fontSize: 10, fontWeight: 300, color: "var(--text-muted)", fontStyle: "italic" }}>
+                          "{app.message}"
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <div className="space-y-4">
-                  {withContract.map(app => <AppCard key={app._id} app={app} />)}
-                </div>
-              </div>
-            )}
-
-            {/* Rejected */}
-            {applications.filter(a => a.status === "rejected").length > 0 && (
-              <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="w-2 h-2 rounded-full" style={{ background: "#9CA3AF" }} />
-                  <p className="text-sm" style={{ color: "var(--text-soft)" }}>
-                    Татгалзсан ({applications.filter(a => a.status === "rejected").length})
-                  </p>
-                </div>
-                <div className="space-y-4">
-                  {applications.filter(a => a.status === "rejected").map(app => <AppCard key={app._id} app={app} />)}
-                </div>
-              </div>
-            )}
+              );
+            })}
           </div>
         )}
       </div>
     </div>
   );
 }
-
-export default LandlordApplications;

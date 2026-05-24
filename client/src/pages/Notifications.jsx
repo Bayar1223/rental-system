@@ -12,68 +12,53 @@ const timeAgo = (date) => {
 };
 
 const TYPE_CONFIG = {
-  application_received: { icon: "📨", color: "bg-blue-100 text-blue-700",   label: "Хүсэлт" },
-  application_approved: { icon: "✅", color: "bg-green-100 text-green-700",  label: "Зөвшөөрөл" },
-  application_rejected: { icon: "❌", color: "bg-red-100 text-red-600",      label: "Татгалзал" },
-  general:              { icon: "🔔", color: "bg-gray-100 text-gray-600",    label: "Мэдэгдэл" },
+  application_received: { icon: "📨", color: "var(--gold)", label: "Хүсэлт" },
+  application_approved: { icon: "✓",  color: "#22C55E", label: "Зөвшөөрөл" },
+  application_rejected: { icon: "✕",  color: "#EF4444", label: "Татгалзал" },
+  general:              { icon: "◈",  color: "var(--text-muted)", label: "Мэдэгдэл" },
 };
 
 function Notifications() {
   const navigate = useNavigate();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading]             = useState(true);
-  const [filter, setFilter]               = useState("all"); // all | unread | read
+  const [filter, setFilter]               = useState("all");
 
   useEffect(() => {
     let cancelled = false;
     const fetch = async () => {
-      try {
-        const res = await api.get("/api/notifications");
-        if (!cancelled) setNotifications(res.data);
-      } catch {
-        // silent
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
+      try { const res = await api.get("/api/notifications"); if (!cancelled) setNotifications(res.data); }
+      catch { /* silent */ } finally { if (!cancelled) setLoading(false); }
     };
     fetch();
     return () => { cancelled = true; };
   }, []);
 
   const handleClick = async (notif) => {
-    // Уншсан болгох
     if (!notif.isRead) {
       try {
         await api.put(`/api/notifications/${notif._id}/read`);
-        setNotifications((prev) =>
-          prev.map((n) => (n._id === notif._id ? { ...n, isRead: true } : n))
-        );
+        setNotifications((prev) => prev.map((n) => (n._id === notif._id ? { ...n, isRead: true } : n)));
       } catch { /* silent */ }
     }
     if (notif.link) navigate(notif.link);
   };
 
   const handleMarkAllRead = async () => {
-    try {
-      await api.put("/api/notifications/mark-all-read", {});
-      setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
-    } catch { /* silent */ }
+    try { await api.put("/api/notifications/mark-all-read", {}); setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true }))); }
+    catch { /* silent */ }
   };
 
   const handleDelete = async (e, id) => {
     e.stopPropagation();
-    try {
-      await api.delete(`/api/notifications/${id}`);
-      setNotifications((prev) => prev.filter((n) => n._id !== id));
-    } catch { /* silent */ }
+    try { await api.delete(`/api/notifications/${id}`); setNotifications((prev) => prev.filter((n) => n._id !== id)); }
+    catch { /* silent */ }
   };
 
   const handleDeleteAll = async () => {
     if (!window.confirm("Бүх мэдэгдлийг устгах уу?")) return;
-    try {
-      await api.delete("/api/notifications/all");
-      setNotifications([]);
-    } catch { /* silent */ }
+    try { await api.delete("/api/notifications/all"); setNotifications([]); }
+    catch { /* silent */ }
   };
 
   const filtered = notifications.filter((n) => {
@@ -81,45 +66,38 @@ function Notifications() {
     if (filter === "read")   return n.isRead;
     return true;
   });
-
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div style={{ minHeight: "100vh", background: "var(--black)", paddingTop: 70 }}>
       <Navbar />
-      <div className="max-w-2xl mx-auto px-4 md:px-6 py-6 pb-10">
+      <div style={{ maxWidth: 680, margin: "0 auto", padding: "48px 48px" }}>
 
-        {/* Толгой */}
-        <div className="flex items-center justify-between mb-5">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">🔔 Мэдэгдлүүд</h1>
-            {unreadCount > 0 && (
-              <p className="text-sm text-indigo-600 mt-0.5">{unreadCount} уншаагүй мэдэгдэл байна</p>
-            )}
+        {/* Header */}
+        <div style={{ marginBottom: 40 }}>
+          <div className="flex items-center gap-4 mb-4">
+            <div style={{ width: 32, height: 1, background: "var(--gold)" }} />
+            <span style={{ fontFamily: "'Montserrat'", fontSize: 9, fontWeight: 500, letterSpacing: "0.25em", textTransform: "uppercase", color: "var(--gold)" }}>Системийн</span>
           </div>
-          <div className="flex gap-2">
-            {unreadCount > 0 && (
-              <button
-                onClick={handleMarkAllRead}
-                className="text-xs px-3 py-1.5 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 rounded-lg font-medium transition"
-              >
-                Бүгдийг уншсан болгох
-              </button>
-            )}
-            {notifications.length > 0 && (
-              <button
-                onClick={handleDeleteAll}
-                className="text-xs px-3 py-1.5 bg-red-50 text-red-500 hover:bg-red-100 rounded-lg font-medium transition"
-              >
-                Бүгдийг устгах
-              </button>
-            )}
+          <div className="flex items-start justify-between">
+            <h1 className="font-display" style={{ fontSize: 48, fontWeight: 300, color: "var(--white)" }}>Мэдэгдлүүд</h1>
+            <div className="flex gap-3 mt-3">
+              {unreadCount > 0 && (
+                <button onClick={handleMarkAllRead} className="btn-ghost" style={{ padding: "8px 14px" }}>Бүгд уншсан</button>
+              )}
+              {notifications.length > 0 && (
+                <button onClick={handleDeleteAll} className="btn-danger" style={{ padding: "8px 14px" }}>Бүгд устгах</button>
+              )}
+            </div>
           </div>
+          {unreadCount > 0 && (
+            <p style={{ fontFamily: "'Montserrat'", fontSize: 11, color: "var(--gold)", marginTop: 8 }}>{unreadCount} уншаагүй мэдэгдэл</p>
+          )}
         </div>
 
-        {/* Шүүлтүүр */}
+        {/* Filter tabs */}
         {notifications.length > 0 && (
-          <div className="flex gap-2 mb-4">
+          <div style={{ display: "flex", borderBottom: "1px solid var(--border-dim)", marginBottom: 24 }}>
             {[
               { key: "all",    label: `Бүгд (${notifications.length})` },
               { key: "unread", label: `Уншаагүй (${unreadCount})` },
@@ -128,11 +106,21 @@ function Notifications() {
               <button
                 key={f.key}
                 onClick={() => setFilter(f.key)}
-                className={`text-sm px-4 py-2 rounded-xl font-medium transition ${
-                  filter === f.key
-                    ? "bg-indigo-600 text-white"
-                    : "bg-white text-gray-600 hover:bg-gray-50 shadow-sm"
-                }`}
+                style={{
+                  padding: "10px 20px",
+                  fontFamily: "'Montserrat'",
+                  fontSize: 9,
+                  fontWeight: 500,
+                  letterSpacing: "0.18em",
+                  textTransform: "uppercase",
+                  background: "transparent",
+                  border: "none",
+                  borderBottom: filter === f.key ? "1px solid var(--gold)" : "1px solid transparent",
+                  color: filter === f.key ? "var(--gold)" : "var(--text-muted)",
+                  cursor: "pointer",
+                  marginBottom: -1,
+                  transition: "all 0.2s",
+                }}
               >
                 {f.label}
               </button>
@@ -140,73 +128,74 @@ function Notifications() {
           </div>
         )}
 
-        {/* Жагсаалт */}
+        {/* List */}
         {loading ? (
-          <div className="space-y-3">
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {[1, 2, 3].map((i) => (
-              <div key={i} className="bg-white rounded-2xl p-4 shadow animate-pulse">
-                <div className="h-4 bg-gray-200 rounded w-1/3 mb-2" />
-                <div className="h-3 bg-gray-200 rounded w-2/3" />
-              </div>
+              <div key={i} style={{ height: 80, background: "var(--dark)", border: "1px solid var(--border-dim)", animation: "pulse 2s ease infinite" }} />
             ))}
           </div>
         ) : filtered.length === 0 ? (
-          <div className="bg-white rounded-2xl shadow p-12 text-center">
-            <div className="text-5xl mb-3">🔔</div>
-            <p className="text-gray-500 font-medium">
-              {filter === "unread" ? "Уншаагүй мэдэгдэл байхгүй" :
-               filter === "read"   ? "Уншсан мэдэгдэл байхгүй"  :
-                                     "Мэдэгдэл байхгүй байна"}
+          <div style={{ textAlign: "center", padding: "80px 0" }}>
+            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 40, fontWeight: 300, color: "rgba(201,160,80,0.15)", marginBottom: 16 }}>◈</div>
+            <p style={{ fontFamily: "'Montserrat'", fontSize: 12, color: "var(--text-soft)" }}>
+              {filter === "unread" ? "Уншаагүй мэдэгдэл байхгүй" : filter === "read" ? "Уншсан мэдэгдэл байхгүй" : "Мэдэгдэл байхгүй байна"}
             </p>
           </div>
         ) : (
-          <div className="space-y-2">
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             {filtered.map((notif) => {
               const cfg = TYPE_CONFIG[notif.type] || TYPE_CONFIG.general;
               return (
                 <div
                   key={notif._id}
                   onClick={() => handleClick(notif)}
-                  className={`bg-white rounded-2xl shadow-sm p-4 cursor-pointer hover:shadow-md transition group border-l-4 ${
-                    !notif.isRead ? "border-indigo-400" : "border-transparent"
-                  }`}
+                  className="group"
+                  style={{
+                    background: !notif.isRead ? "rgba(201,160,80,0.04)" : "var(--dark)",
+                    border: "1px solid",
+                    borderColor: !notif.isRead ? "rgba(201,160,80,0.15)" : "var(--border-dim)",
+                    padding: "18px 20px",
+                    cursor: "pointer",
+                    transition: "all 0.2s",
+                    display: "flex",
+                    gap: 16,
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.borderColor = "rgba(201,160,80,0.25)"}
+                  onMouseLeave={e => e.currentTarget.style.borderColor = !notif.isRead ? "rgba(201,160,80,0.15)" : "var(--border-dim)"}
                 >
-                  <div className="flex items-start gap-3">
-                    {/* Icon */}
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg flex-shrink-0 ${cfg.color}`}>
-                      {cfg.icon}
+                  {/* Icon */}
+                  <div style={{ width: 36, height: 36, border: "1px solid", borderColor: cfg.color + "30", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: cfg.color, fontSize: 14 }}>
+                    {cfg.icon}
+                  </div>
+
+                  {/* Content */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <p style={{ fontFamily: "'Montserrat'", fontSize: 12, fontWeight: !notif.isRead ? 500 : 400, color: !notif.isRead ? "var(--white)" : "var(--text-muted)", marginBottom: 4 }}>
+                          {notif.title}
+                        </p>
+                        <p style={{ fontFamily: "'Montserrat'", fontSize: 11, fontWeight: 300, color: "var(--text-soft)", lineHeight: 1.6 }} className="line-clamp-1">
+                          {notif.message}
+                        </p>
+                      </div>
+                      <button
+                        onClick={(e) => handleDelete(e, notif._id)}
+                        style={{ color: "var(--text-soft)", background: "none", border: "none", cursor: "pointer", fontSize: 18, lineHeight: 1, opacity: 0, transition: "opacity 0.2s", flexShrink: 0 }}
+                        className="group-hover:opacity-100"
+                        onMouseEnter={e => { e.currentTarget.style.opacity = 1; e.currentTarget.style.color = "#EF4444"; }}
+                        onMouseLeave={e => { e.currentTarget.style.opacity = 0; e.currentTarget.style.color = "var(--text-soft)"; }}
+                      >
+                        ×
+                      </button>
                     </div>
-
-                    {/* Content */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <p className={`font-semibold text-sm ${!notif.isRead ? "text-gray-900" : "text-gray-600"}`}>
-                            {notif.title}
-                          </p>
-                          <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">
-                            {notif.message}
-                          </p>
-                        </div>
-                        {/* Устгах товч */}
-                        <button
-                          onClick={(e) => handleDelete(e, notif._id)}
-                          className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-400 transition text-lg leading-none flex-shrink-0 mt-0.5"
-                          title="Устгах"
-                        >
-                          ×
-                        </button>
-                      </div>
-
-                      <div className="flex items-center gap-2 mt-2">
-                        <span className={`text-xs px-2 py-0.5 rounded-full ${cfg.color}`}>
-                          {cfg.label}
-                        </span>
-                        <span className="text-xs text-gray-400">{timeAgo(notif.createdAt)}</span>
-                        {!notif.isRead && (
-                          <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full" />
-                        )}
-                      </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 8 }}>
+                      <span style={{ fontFamily: "'Montserrat'", fontSize: 8, fontWeight: 500, letterSpacing: "0.15em", textTransform: "uppercase", color: cfg.color, background: cfg.color + "15", padding: "2px 8px" }}>
+                        {cfg.label}
+                      </span>
+                      <span style={{ fontFamily: "'Montserrat'", fontSize: 9, color: "var(--text-soft)" }}>{timeAgo(notif.createdAt)}</span>
+                      {!notif.isRead && <span style={{ width: 4, height: 4, background: "var(--gold)", borderRadius: "50%" }} />}
                     </div>
                   </div>
                 </div>

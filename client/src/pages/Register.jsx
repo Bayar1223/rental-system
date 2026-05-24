@@ -1,199 +1,225 @@
 import { useState } from "react";
 import api from "../api/axiosInstance";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useLocation } from "react-router-dom";
 
-export default function Register() {
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [role, setRole] = useState("tenant");
+function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [showPw, setShowPw] = useState(false);
-  const [otpMethod, setOtpMethod] = useState("email"); // "email" | "phone"
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [showPw, setShowPw] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
+  const idleLogout = location.state?.reason === "idle";
 
-  const pwStrength = password.length === 0 ? 0 : password.length < 6 ? 1 : password.length < 10 ? 2 : password.length < 14 ? 3 : 4;
-  const pwColors = ["", "#ef4444", "#f97316", "var(--gold)", "#22c55e"];
-  const pwLabels = ["", "Маш сул", "Сул", "Дунд", "Хүчтэй"];
-
-  const handleRegister = async (e) => {
-    e.preventDefault(); setError("");
-    if (password.length < 8) { setError("Нууц үг хамгийн багадаа 8 тэмдэгт байх ёстой"); return; }
-    if (!/^[789]\d{7}$/.test(phone)) { setError("Монгол дугаар оруулна уу (7/8/9-ээр эхлэх, 8 оронтой)"); return; }
-    setLoading(true);
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setLoading(true); setError("");
     try {
-      await api.post("/api/auth/register", {
-        firstName, lastName, phone, email, password, role, otpMethod,
-      });
-      navigate("/verify-otp", { state: { email, phone, otpMethod } });
-    } catch (err) { setError(err.response?.data?.message || "Бүртгэл амжилтгүй боллоо"); }
+      const res = await api.post("/api/auth/login", { email, password });
+      localStorage.setItem("token", res.data.token);
+      localStorage.setItem("user", JSON.stringify(res.data.user));
+      navigate("/home");
+    } catch { setError("Имэйл эсвэл нууц үг буруу байна"); }
     finally { setLoading(false); }
   };
 
   return (
-    <div style={{ minHeight: "100vh", display: "flex", background: "var(--ink)" }}>
+    <div style={{ minHeight: "100vh", display: "flex", background: "var(--black)" }}>
 
-      {/* Left visual */}
-      <div className="hidden lg:flex flex-col justify-between p-16 w-1/2 relative overflow-hidden">
+      {/* LEFT VISUAL */}
+      <div
+        className="hidden lg:flex flex-col justify-between w-1/2 relative overflow-hidden"
+        style={{ padding: "48px 64px" }}
+      >
+        {/* Background grid */}
         <div className="absolute inset-0" style={{
-          backgroundImage: "linear-gradient(rgba(201,168,76,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(201,168,76,0.05) 1px, transparent 1px)",
-          backgroundSize: "60px 60px"
+          backgroundImage: `
+            linear-gradient(rgba(201,160,80,0.04) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(201,160,80,0.04) 1px, transparent 1px)
+          `,
+          backgroundSize: "80px 80px",
         }} />
-        <Link to="/" className="relative flex items-center gap-3">
-          <div className="relative w-8 h-8">
-            <div className="absolute inset-0 border border-[var(--gold)] rotate-45" />
-            <div className="absolute inset-1.5 bg-[var(--gold)] rotate-45" />
+
+        {/* Glow */}
+        <div className="absolute" style={{
+          width: 500, height: 500, borderRadius: "50%",
+          background: "radial-gradient(circle, rgba(201,160,80,0.08) 0%, transparent 70%)",
+          bottom: "-10%", left: "-10%",
+          pointerEvents: "none",
+        }} />
+
+        {/* Logo */}
+        <Link to="/" className="relative flex items-center gap-4" style={{ textDecoration: "none" }}>
+          <div className="relative" style={{ width: 32, height: 32 }}>
+            <div className="absolute inset-0 rotate-45" style={{ border: "1px solid var(--gold)", opacity: 0.7 }} />
+            <div className="absolute rotate-45" style={{ inset: "7px", background: "var(--gold)" }} />
           </div>
-          <span className="font-display text-2xl font-light text-white">
+          <span className="font-display" style={{ fontSize: 22, fontWeight: 300, color: "var(--white)", letterSpacing: "0.04em" }}>
             Rental<span style={{ color: "var(--gold)" }}>Sy</span>
           </span>
         </Link>
+
+        {/* Content */}
         <div className="relative">
-          <p className="text-xs tracking-widest uppercase text-[var(--gold)] mb-4">Шинэ бүртгэл</p>
-          <h2 className="font-display text-5xl font-light text-white leading-tight mb-6">
-            Түрээсийн<br />шинэ замыг<br />
-            <span style={{ color: "var(--gold)", fontStyle: "italic" }}>нээ</span>
+          <div className="flex items-center gap-4 mb-6">
+            <div style={{ width: 40, height: 1, background: "var(--gold)" }} />
+            <span style={{ fontFamily: "'Montserrat'", fontSize: 9, fontWeight: 500, letterSpacing: "0.25em", textTransform: "uppercase", color: "var(--gold)" }}>
+              Тавтай морил
+            </span>
+          </div>
+          <h2 className="font-display" style={{ fontSize: "clamp(48px,4vw,68px)", fontWeight: 300, color: "var(--white)", lineHeight: 1.1, marginBottom: 20 }}>
+            Мөрөөдлийн<br />байраа<br />
+            <em style={{ color: "var(--gold)", fontStyle: "italic" }}>эндээс олоорой</em>
           </h2>
-          <p className="text-white/40 text-sm">Үнэ төлбөргүй. Хэдхэн минутад.</p>
+          <p style={{ fontWeight: 300, fontSize: 13, color: "rgba(255,255,255,0.35)", lineHeight: 1.8, maxWidth: 300 }}>
+            Улаанбаатар хотын орон сууц түрээсийн нэгдсэн систем
+          </p>
         </div>
-        <div />
+
+        {/* Stats */}
+        <div className="relative flex gap-12">
+          {[{ num: "500+", label: "Байр" }, { num: "9", label: "Дүүрэг" }, { num: "98%", label: "Ханамж" }].map(({ num, label }) => (
+            <div key={label}>
+              <div className="stat-number" style={{ fontSize: 32, marginBottom: 6 }}>{num}</div>
+              <div style={{ fontFamily: "'Montserrat'", fontSize: 9, letterSpacing: "0.15em", textTransform: "uppercase", color: "rgba(255,255,255,0.25)" }}>
+                {label}
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
-      {/* Right form */}
-      <div className="flex-1 flex items-center justify-center p-8 overflow-y-auto" style={{ background: "var(--cream)" }}>
-        <div className="w-full max-w-sm animate-fadeUp py-8">
+      {/* RIGHT FORM */}
+      <div
+        className="flex-1 flex items-center justify-center"
+        style={{ padding: "48px 64px", background: "var(--dark)", borderLeft: "1px solid var(--border-dim)" }}
+      >
+        <div className="w-full animate-fadeUp" style={{ maxWidth: 380 }}>
 
-          <div className="mb-8">
-            <p className="text-xs tracking-widest uppercase text-[var(--gold)] mb-3">Бүртгүүлэх</p>
-            <h1 className="font-display text-4xl font-light text-[var(--ink)]">Шинэ хаяг үүсгэх</h1>
+          {/* Mobile logo */}
+          <Link to="/" className="lg:hidden flex items-center gap-3 mb-10" style={{ textDecoration: "none" }}>
+            <div className="relative" style={{ width: 24, height: 24 }}>
+              <div className="absolute inset-0 rotate-45" style={{ border: "1px solid var(--gold)", opacity: 0.7 }} />
+              <div className="absolute rotate-45" style={{ inset: "5px", background: "var(--gold)" }} />
+            </div>
+            <span className="font-display" style={{ fontSize: 18, color: "var(--white)" }}>
+              Rental<span style={{ color: "var(--gold)" }}>Sy</span>
+            </span>
+          </Link>
+
+          {/* Header */}
+          <div style={{ marginBottom: 40 }}>
+            <div className="flex items-center gap-3 mb-4">
+              <div style={{ width: 24, height: 1, background: "var(--gold)" }} />
+              <span style={{ fontFamily: "'Montserrat'", fontSize: 9, fontWeight: 500, letterSpacing: "0.25em", textTransform: "uppercase", color: "var(--gold)" }}>
+                Нэвтрэх
+              </span>
+            </div>
+            <h1 className="font-display" style={{ fontSize: 44, fontWeight: 300, color: "var(--white)" }}>
+              Тавтай морил
+            </h1>
           </div>
 
+          {/* Alerts */}
+          {idleLogout && (
+            <div style={{ marginBottom: 24, padding: "12px 16px", borderLeft: "2px solid var(--gold)", background: "rgba(201,160,80,0.06)" }}>
+              <p style={{ fontFamily: "'Montserrat'", fontSize: 11, color: "var(--text-muted)" }}>
+                30 минут идэвхгүй байсан тул автоматаар гарлаа
+              </p>
+            </div>
+          )}
           {error && (
-            <div className="mb-6 p-4 border-l-2 border-red-400 bg-red-50">
-              <p className="text-xs text-red-600">{error}</p>
+            <div style={{ marginBottom: 24, padding: "12px 16px", borderLeft: "2px solid #EF4444", background: "rgba(239,68,68,0.06)" }}>
+              <p style={{ fontFamily: "'Montserrat'", fontSize: 11, color: "#EF4444" }}>{error}</p>
             </div>
           )}
 
-          {/* Role selector */}
-          <div className="grid grid-cols-2 gap-0 mb-6 border border-black/10">
-            {[{ v: "tenant", l: "Түрээслэгч" }, { v: "landlord", l: "Түрээслүүлэгч" }].map(({ v, l }) => (
-              <button key={v} type="button" onClick={() => setRole(v)}
-                className="py-3.5 text-xs font-medium tracking-widest uppercase transition-all"
-                style={{
-                  background: role === v ? "var(--ink)" : "transparent",
-                  color: role === v ? "white" : "var(--text-muted)",
-                  fontFamily: "'DM Sans', sans-serif",
-                }}>
-                {l}
-              </button>
-            ))}
-          </div>
-
-          <form onSubmit={handleRegister} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs tracking-widest uppercase text-[var(--text-muted)] mb-2">Овог</label>
-                <input type="text" value={lastName} onChange={e => setLastName(e.target.value)} placeholder="Овог" required className="luxury-input" />
-              </div>
-              <div>
-                <label className="block text-xs tracking-widest uppercase text-[var(--text-muted)] mb-2">Нэр</label>
-                <input type="text" value={firstName} onChange={e => setFirstName(e.target.value)} placeholder="Нэр" required className="luxury-input" />
-              </div>
-            </div>
-
+          {/* Form */}
+          <form onSubmit={handleLogin} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             <div>
-              <label className="block text-xs tracking-widest uppercase text-[var(--text-muted)] mb-2">Утас</label>
-              <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)] text-sm font-medium">+976</span>
+              <label className="input-label">Имэйл</label>
+              <input
+                type="email"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                placeholder="example@gmail.com"
+                required
+                className="luxury-input"
+              />
+            </div>
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="input-label" style={{ marginBottom: 0 }}>Нууц үг</label>
+                <Link to="/forgot-password" style={{ fontFamily: "'Montserrat'", fontSize: 9, letterSpacing: "0.12em", color: "var(--gold)", textDecoration: "none" }}>
+                  Мартсан?
+                </Link>
+              </div>
+              <div style={{ position: "relative" }}>
                 <input
-                  type="tel"
-                  value={phone}
-                  onChange={e => setPhone(e.target.value.replace(/\D/g, "").slice(0, 8))}
-                  placeholder="99001234"
+                  type={showPw ? "text" : "password"}
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  placeholder="••••••••"
                   required
-                  className="luxury-input w-full"
-                  style={{ paddingLeft: "56px" }}
+                  className="luxury-input"
+                  style={{ paddingRight: 60 }}
                 />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs tracking-widest uppercase text-[var(--text-muted)] mb-2">Имэйл</label>
-              <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="example@gmail.com" required className="luxury-input" />
-            </div>
-
-            <div>
-              <label className="block text-xs tracking-widest uppercase text-[var(--text-muted)] mb-2">Нууц үг</label>
-              <div className="relative">
-                <input type={showPw ? "text" : "password"} value={password} onChange={e => setPassword(e.target.value)}
-                  placeholder="Хамгийн багадаа 8 тэмдэгт" required className="luxury-input pr-12" />
-                <button type="button" onClick={() => setShowPw(p => !p)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-xs text-[var(--text-soft)] hover:text-[var(--ink)]">
+                <button
+                  type="button"
+                  onClick={() => setShowPw(p => !p)}
+                  style={{
+                    position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)",
+                    fontFamily: "'Montserrat'", fontSize: 9, letterSpacing: "0.12em",
+                    color: "var(--text-soft)", background: "none", border: "none", cursor: "pointer",
+                    textTransform: "uppercase",
+                  }}
+                >
                   {showPw ? "Нуух" : "Харах"}
                 </button>
               </div>
-              {password && (
-                <div className="mt-2 flex items-center gap-3">
-                  <div className="flex gap-1 flex-1">
-                    {[1,2,3,4].map(i => (
-                      <div key={i} className="flex-1 h-0.5 transition-all duration-300"
-                        style={{ background: i <= pwStrength ? pwColors[pwStrength] : "var(--border-subtle)" }} />
-                    ))}
-                  </div>
-                  <span className="text-xs" style={{ color: pwColors[pwStrength] }}>{pwLabels[pwStrength]}</span>
-                </div>
-              )}
             </div>
 
-            {/* OTP арга сонгогч */}
-            <div>
-              <label className="block text-xs tracking-widest uppercase text-[var(--text-muted)] mb-2">
-                Баталгаажуулах арга
-              </label>
-              <div className="grid grid-cols-2 gap-0 border border-black/10">
-                {[
-                  { v: "email", l: "✉️ Имэйл" },
-                  { v: "phone", l: "📱 Утас" },
-                ].map(({ v, l }) => (
-                  <button key={v} type="button" onClick={() => setOtpMethod(v)}
-                    className="py-3 text-xs font-medium tracking-widest uppercase transition-all"
-                    style={{
-                      background: otpMethod === v ? "var(--ink)" : "transparent",
-                      color: otpMethod === v ? "var(--gold)" : "var(--text-muted)",
-                      fontFamily: "'DM Sans', sans-serif",
-                    }}>
-                    {l}
-                  </button>
-                ))}
-              </div>
-              <p className="text-xs mt-1.5" style={{ color: "var(--text-soft)" }}>
-                {otpMethod === "phone"
-                  ? `+976 ${phone || "..."} утас руу SMS код илгээгдэнэ`
-                  : `${email || "..."} имэйл рүү код илгээгдэнэ`}
-              </p>
-            </div>
-
-            <div className="pt-2">
-              <button type="submit" disabled={loading} className="btn-gold w-full justify-center" style={{ padding: "16px 0" }}>
-                {loading
-                  ? "Код явуулж байна..."
-                  : otpMethod === "phone" ? "SMS код авах →" : "Имэйл код авах →"}
+            <div style={{ paddingTop: 8 }}>
+              <button
+                type="submit"
+                disabled={loading}
+                className="btn-gold w-full justify-center"
+                style={{ padding: "16px 0", opacity: loading ? 0.7 : 1 }}
+              >
+                {loading ? (
+                  <span className="flex items-center gap-2">
+                    <svg className="animate-spin" width="14" height="14" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                    </svg>
+                    Нэвтэрч байна...
+                  </span>
+                ) : "Нэвтрэх"}
               </button>
             </div>
           </form>
 
-          <div className="mt-8 text-center">
-            <div className="divider-gold mb-6">эсвэл</div>
-            <p className="text-sm text-[var(--text-muted)]">
-              Бүртгэлтэй юу?{" "}
-              <Link to="/login" className="text-[var(--gold)] hover:underline font-medium">Нэвтрэх</Link>
-            </p>
+          {/* Divider */}
+          <div className="flex items-center gap-4 my-8">
+            <div className="divider flex-1" />
+            <span style={{ fontFamily: "'Montserrat'", fontSize: 9, letterSpacing: "0.15em", textTransform: "uppercase", color: "var(--text-soft)" }}>
+              эсвэл
+            </span>
+            <div className="divider flex-1" />
           </div>
+
+          {/* Sign up */}
+          <p style={{ textAlign: "center", fontFamily: "'Montserrat'", fontSize: 12, fontWeight: 300, color: "var(--text-muted)" }}>
+            Бүртгэл байхгүй юу?{" "}
+            <Link to="/register" style={{ color: "var(--gold)", fontWeight: 400, textDecoration: "none" }}>
+              Бүртгүүлэх
+            </Link>
+          </p>
         </div>
       </div>
     </div>
   );
 }
+
+export default Login;

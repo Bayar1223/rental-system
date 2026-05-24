@@ -6,11 +6,25 @@ export default {
       fontFamily: {
         display: ["'Cormorant Garamond'", "serif"],
         sans: ["'DM Sans'", "sans-serif"],
+        playfair: ["'Playfair Display'", "serif"],
       },
       colors: {
-        gold: "#C9A84C",
-        ink: "#0D0D0D",
-        cream: "#FAF8F3",
+        obsidian: "#0A0A0A",
+        carbon: "#141414",
+        graphite: "#1C1C1C",
+        onyx: "#242424",
+        gold: {
+          DEFAULT: "#C9A84C",
+          bright: "#D4B85F",
+          light: "#E8D49E",
+          dark: "#8B6914",
+        },
+        platinum: "#F5F5F5",
+        silver: "#B8B8B0",
+        smoke: "#6B6B65",
+        ash: "#4A4A45",
+        ink: "#F5F5F5",     // legacy
+        cream: "#0A0A0A",   // legacy
       },
       animation: {
         "fade-up": "fadeUp 0.6s ease both",

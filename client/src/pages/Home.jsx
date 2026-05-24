@@ -58,44 +58,74 @@ function Home() {
   const hasFilter = search || district || rooms || minRent || maxRent;
   const reset = () => { setSearch(""); setDistrict(""); setRooms(""); setMinRent(""); setMaxRent(""); setPage(1); };
 
+  const inputStyle = {
+    fontFamily: "'Montserrat', sans-serif",
+    fontSize: 12,
+    fontWeight: 300,
+    letterSpacing: "0.05em",
+    background: "var(--dark-2)",
+    border: "1px solid var(--border-dim)",
+    color: "var(--white)",
+    outline: "none",
+    padding: "10px 14px",
+    transition: "border-color 0.2s",
+  };
+
   return (
-    <div className="min-h-screen" style={{ background: "var(--cream)", paddingTop: 64 }}>
+    <div style={{ minHeight: "100vh", background: "var(--black)", paddingTop: 70 }}>
       <Navbar />
 
-      {/* Hero search section */}
-      <section style={{ background: "var(--ink)", padding: "60px 0 50px" }} className="relative overflow-hidden">
-        {/* Subtle grid pattern */}
-        <div className="absolute inset-0 opacity-5" style={{
-          backgroundImage: "linear-gradient(var(--gold) 1px, transparent 1px), linear-gradient(90deg, var(--gold) 1px, transparent 1px)",
-          backgroundSize: "60px 60px"
-        }} />
-        <div className="max-w-5xl mx-auto px-6 relative">
-          <div className="animate-fadeUp">
-            <p className="text-xs tracking-widest uppercase text-[var(--gold)] mb-3">Улаанбаатар</p>
-            <h1 className="font-display text-5xl md:text-6xl font-light text-white leading-tight mb-8">
-              Мөрөөдлийн байраа<br />
-              <span style={{ color: "var(--gold)" }}>хялбараар олоорой</span>
-            </h1>
+      {/* HERO SEARCH */}
+      <section style={{ background: "var(--dark)", padding: "64px 0 0", borderBottom: "1px solid var(--border-dim)" }}>
+        <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 48px" }}>
+          {/* Section label */}
+          <div className="flex items-center gap-4 mb-6 animate-fadeUp">
+            <div style={{ width: 32, height: 1, background: "var(--gold)" }} />
+            <span style={{ fontFamily: "'Montserrat'", fontSize: 9, fontWeight: 500, letterSpacing: "0.25em", textTransform: "uppercase", color: "var(--gold)" }}>
+              Улаанбаатар
+            </span>
           </div>
 
+          <h1 className="font-display animate-fadeUp delay-100" style={{ fontSize: "clamp(40px,4vw,64px)", fontWeight: 300, color: "var(--white)", marginBottom: 32, lineHeight: 1.1 }}>
+            Мөрөөдлийн байраа<br />
+            <em style={{ color: "var(--gold)" }}>хялбараар олоорой</em>
+          </h1>
+
           {/* Search bar */}
-          <div className="animate-fadeUp delay-200 flex gap-0 max-w-2xl">
-            <div className="relative flex-1">
+          <div className="animate-fadeUp delay-200" style={{ display: "flex", marginBottom: 0, maxWidth: 640 }}>
+            <div style={{ flex: 1, position: "relative" }}>
+              <svg
+                style={{ position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)", pointerEvents: "none" }}
+                width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"
+              >
+                <circle cx="11" cy="11" r="8" /><path strokeLinecap="round" d="M21 21l-4.35-4.35" />
+              </svg>
               <input
                 type="text"
                 placeholder="Байрны нэр, байршил..."
                 value={search}
                 onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-                className="w-full bg-white text-[var(--ink)] text-sm px-5 py-4 outline-none border-0"
-                style={{ fontFamily: "'DM Sans', sans-serif" }}
+                style={{ ...inputStyle, width: "100%", paddingLeft: 40, borderRight: "none", borderBottom: "1px solid var(--gold)" }}
               />
             </div>
             <button
               onClick={() => setShowFilter(p => !p)}
-              className={`px-6 py-4 text-xs font-medium tracking-widest uppercase transition-all border-l border-black/10 ${
-                hasFilter ? "bg-[var(--gold)] text-[var(--ink)]" : "bg-white text-[var(--text-muted)] hover:bg-[var(--surface)]"
-              }`}
-              style={{ fontFamily: "'DM Sans', sans-serif" }}
+              style={{
+                fontFamily: "'Montserrat'",
+                fontSize: 9,
+                fontWeight: 500,
+                letterSpacing: "0.2em",
+                textTransform: "uppercase",
+                padding: "10px 24px",
+                border: "1px solid var(--border-dim)",
+                borderLeft: "none",
+                borderBottom: "1px solid var(--gold)",
+                background: hasFilter ? "var(--gold)" : "var(--dark-2)",
+                color: hasFilter ? "var(--black)" : "var(--text-muted)",
+                cursor: "pointer",
+                transition: "all 0.2s",
+                whiteSpace: "nowrap",
+              }}
             >
               {hasFilter ? `Шүүлтүүр (${[district,rooms,minRent,maxRent].filter(Boolean).length})` : "Шүүлтүүр"}
             </button>
@@ -103,39 +133,50 @@ function Home() {
 
           {/* Filter panel */}
           {showFilter && (
-            <div className="animate-fadeUp mt-0 bg-white max-w-2xl">
-              <div className="p-5 grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div
+              className="animate-fadeUp"
+              style={{ background: "var(--dark-2)", border: "1px solid var(--border-dim)", borderTop: "none", maxWidth: 640, padding: 24 }}
+            >
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
                 {[
-                  { label: "Дүүрэг", component: (
-                    <select value={district} onChange={(e) => { setDistrict(e.target.value); setPage(1); }} className="luxury-select text-sm">
-                      <option value="">Бүгд</option>
-                      {districts.map(d => <option key={d} value={d}>{d}</option>)}
-                    </select>
-                  )},
-                  { label: "Өрөө", component: (
-                    <select value={rooms} onChange={(e) => { setRooms(e.target.value); setPage(1); }} className="luxury-select text-sm">
-                      <option value="">Бүгд</option>
-                      {[1,2,3,4,5].map(n => <option key={n} value={n}>{n} өрөө</option>)}
-                    </select>
-                  )},
-                  { label: "Мин үнэ", component: (
-                    <input type="number" placeholder="0" value={minRent}
-                      onChange={(e) => { setMinRent(e.target.value); setPage(1); }} className="luxury-input text-sm" />
-                  )},
-                  { label: "Макс үнэ", component: (
-                    <input type="number" placeholder="∞" value={maxRent}
-                      onChange={(e) => { setMaxRent(e.target.value); setPage(1); }} className="luxury-input text-sm" />
-                  )},
-                ].map(({ label, component }) => (
+                  {
+                    label: "Дүүрэг",
+                    elem: (
+                      <select value={district} onChange={(e) => { setDistrict(e.target.value); setPage(1); }} className="luxury-select" style={{ padding: "10px 14px" }}>
+                        <option value="">Бүгд</option>
+                        {districts.map(d => <option key={d} value={d}>{d}</option>)}
+                      </select>
+                    )
+                  },
+                  {
+                    label: "Өрөө",
+                    elem: (
+                      <select value={rooms} onChange={(e) => { setRooms(e.target.value); setPage(1); }} className="luxury-select" style={{ padding: "10px 14px" }}>
+                        <option value="">Бүгд</option>
+                        {[1,2,3,4,5].map(n => <option key={n} value={n}>{n} өрөө</option>)}
+                      </select>
+                    )
+                  },
+                  {
+                    label: "Мин үнэ",
+                    elem: <input type="number" placeholder="0" value={minRent} onChange={(e) => { setMinRent(e.target.value); setPage(1); }} style={{ ...inputStyle, width: "100%" }} />
+                  },
+                  {
+                    label: "Макс үнэ",
+                    elem: <input type="number" placeholder="∞" value={maxRent} onChange={(e) => { setMaxRent(e.target.value); setPage(1); }} style={{ ...inputStyle, width: "100%" }} />
+                  },
+                ].map(({ label, elem }) => (
                   <div key={label}>
-                    <label className="block text-xs tracking-widest uppercase text-[var(--text-muted)] mb-2">{label}</label>
-                    {component}
+                    <label className="input-label">{label}</label>
+                    {elem}
                   </div>
                 ))}
               </div>
               {hasFilter && (
-                <div className="px-5 pb-4">
-                  <button onClick={reset} className="text-xs text-[var(--gold)] hover:underline">Шүүлтүүр арилгах</button>
+                <div style={{ marginTop: 14 }}>
+                  <button onClick={reset} style={{ fontFamily: "'Montserrat'", fontSize: 9, letterSpacing: "0.15em", color: "var(--gold)", background: "none", border: "none", cursor: "pointer", textTransform: "uppercase" }}>
+                    Шүүлтүүр арилгах
+                  </button>
                 </div>
               )}
             </div>
@@ -143,25 +184,41 @@ function Home() {
         </div>
       </section>
 
-      {/* Main content */}
-      <div className="max-w-7xl mx-auto px-6 py-10">
+      {/* MAIN CONTENT */}
+      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "48px 48px" }}>
+
         {/* Toolbar */}
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <p className="text-xs tracking-widest uppercase text-[var(--text-muted)]">
-              {loading ? "Хайж байна..." : pagination ? `${pagination.total} байр — ${pagination.page}/${pagination.totalPages} хуудас` : `${properties.length} байр`}
-            </p>
-          </div>
-          <div className="flex border border-black/10">
+        <div className="flex items-center justify-between mb-10">
+          <p style={{ fontFamily: "'Montserrat'", fontSize: 9, fontWeight: 400, letterSpacing: "0.18em", textTransform: "uppercase", color: "var(--text-muted)" }}>
+            {loading ? "Хайж байна..." : pagination
+              ? `${pagination.total} байр — ${pagination.page}/${pagination.totalPages} хуудас`
+              : `${properties.length} байр`}
+          </p>
+          <div className="flex" style={{ border: "1px solid var(--border-dim)" }}>
             {[
-              { key: "list", icon: <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><path strokeLinecap="round" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>, label: "Жагсаалт" },
-              { key: "map", icon: <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><path strokeLinecap="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>, label: "Зураг" },
-            ].map(({ key, icon, label }) => (
-              <button key={key} onClick={() => { setViewMode(key); setPage(1); }}
-                className={`flex items-center gap-2 px-4 py-2 text-xs tracking-wide transition-all ${
-                  viewMode === key ? "bg-[var(--ink)] text-white" : "text-[var(--text-muted)] hover:bg-[var(--surface)]"
-                }`} style={{ fontFamily: "'DM Sans', sans-serif" }}>
-                {icon} <span className="hidden sm:inline">{label}</span>
+              { key: "list", label: "Жагсаалт", icon: <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><path strokeLinecap="round" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg> },
+              { key: "map", label: "Зураг", icon: <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><path strokeLinecap="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg> },
+            ].map(({ key, label, icon }) => (
+              <button
+                key={key}
+                onClick={() => { setViewMode(key); setPage(1); }}
+                className="flex items-center gap-2"
+                style={{
+                  padding: "9px 20px",
+                  fontFamily: "'Montserrat'",
+                  fontSize: 9,
+                  fontWeight: 400,
+                  letterSpacing: "0.18em",
+                  textTransform: "uppercase",
+                  background: viewMode === key ? "var(--gold)" : "transparent",
+                  color: viewMode === key ? "var(--black)" : "var(--text-muted)",
+                  border: "none",
+                  cursor: "pointer",
+                  transition: "all 0.2s",
+                }}
+              >
+                {icon}
+                <span className="hidden sm:inline">{label}</span>
               </button>
             ))}
           </div>
@@ -171,50 +228,89 @@ function Home() {
         {viewMode === "list" && (
           <>
             {loading ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 24 }}>
                 {[1,2,3,4,5,6].map(i => (
-                  <div key={i} className="bg-white animate-pulse">
-                    <div className="bg-gray-100" style={{ aspectRatio: "4/3" }} />
-                    <div className="p-5 space-y-3">
-                      <div className="h-3 bg-gray-100 w-1/4 rounded" />
-                      <div className="h-4 bg-gray-100 w-3/4 rounded" />
-                      <div className="h-3 bg-gray-100 w-1/2 rounded" />
-                    </div>
-                  </div>
+                  <div key={i} style={{ background: "var(--dark-card)", border: "1px solid var(--border-dim)", aspectRatio: "4/5" }} className="animate-pulse" />
                 ))}
               </div>
             ) : properties.length === 0 ? (
-              <div className="py-24 text-center">
-                <p className="font-display text-4xl font-light text-[var(--text-soft)] mb-4">Байр олдсонгүй</p>
-                <p className="text-sm text-[var(--text-soft)]">Шүүлтүүрийг өөрчилж дахин хайна уу</p>
-                {hasFilter && <button onClick={reset} className="btn-outline-gold mt-6">Шүүлтүүр арилгах</button>}
+              <div style={{ textAlign: "center", padding: "96px 0" }}>
+                <p className="font-display" style={{ fontSize: 40, fontWeight: 300, color: "var(--text-soft)", marginBottom: 12 }}>Байр олдсонгүй</p>
+                <p style={{ fontFamily: "'Montserrat'", fontSize: 12, color: "var(--text-soft)" }}>Шүүлтүүрийг өөрчилж дахин хайна уу</p>
+                {hasFilter && <button onClick={reset} className="btn-outline mt-6">Шүүлтүүр арилгах</button>}
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 24 }}>
                 {properties.map((p, i) => <PropertyCard key={p._id} property={p} index={i} />)}
               </div>
             )}
 
-            {/* Pagination */}
+            {/* PAGINATION */}
             {pagination && pagination.totalPages > 1 && (
-              <div className="flex items-center justify-center gap-1 mt-12">
-                <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
-                  className="w-10 h-10 flex items-center justify-center border border-black/10 text-[var(--text-muted)] hover:border-[var(--gold)] hover:text-[var(--gold)] disabled:opacity-30 transition-all text-xs">
+              <div className="flex items-center justify-center gap-1 mt-16">
+                <button
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                  style={{
+                    width: 40, height: 40,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    border: "1px solid var(--border-dim)",
+                    background: "transparent",
+                    color: "var(--text-muted)",
+                    cursor: "pointer",
+                    fontFamily: "'Montserrat'",
+                    fontSize: 12,
+                    transition: "all 0.2s",
+                    opacity: page === 1 ? 0.3 : 1,
+                  }}
+                  onMouseEnter={e => { if (page > 1) { e.currentTarget.style.borderColor = "var(--gold)"; e.currentTarget.style.color = "var(--gold)"; } }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--border-dim)"; e.currentTarget.style.color = "var(--text-muted)"; }}
+                >
                   ←
                 </button>
                 {Array.from({ length: pagination.totalPages }, (_, i) => i + 1)
                   .filter(p => p === 1 || p === pagination.totalPages || Math.abs(p - page) <= 1)
                   .reduce((acc, p, i, arr) => { if (i > 0 && p - arr[i-1] > 1) acc.push("..."); acc.push(p); return acc; }, [])
                   .map((p, i) => p === "..." ? (
-                    <span key={`d${i}`} className="w-10 h-10 flex items-center justify-center text-[var(--text-soft)] text-xs">…</span>
+                    <span key={`d${i}`} style={{ width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-soft)", fontFamily: "'Montserrat'", fontSize: 12 }}>…</span>
                   ) : (
-                    <button key={p} onClick={() => setPage(p)}
-                      className={`w-10 h-10 flex items-center justify-center border text-xs font-medium transition-all ${
-                        p === page ? "bg-[var(--ink)] text-white border-[var(--ink)]" : "border-black/10 text-[var(--text-muted)] hover:border-[var(--gold)] hover:text-[var(--gold)]"
-                      }`}>{p}</button>
+                    <button
+                      key={p}
+                      onClick={() => setPage(p)}
+                      style={{
+                        width: 40, height: 40,
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        border: p === page ? "1px solid var(--gold)" : "1px solid var(--border-dim)",
+                        background: p === page ? "var(--gold)" : "transparent",
+                        color: p === page ? "var(--black)" : "var(--text-muted)",
+                        cursor: "pointer",
+                        fontFamily: "'Montserrat'",
+                        fontSize: 12,
+                        fontWeight: p === page ? 500 : 400,
+                        transition: "all 0.2s",
+                      }}
+                    >
+                      {p}
+                    </button>
                   ))}
-                <button onClick={() => setPage(p => Math.min(pagination.totalPages, p + 1))} disabled={page === pagination.totalPages}
-                  className="w-10 h-10 flex items-center justify-center border border-black/10 text-[var(--text-muted)] hover:border-[var(--gold)] hover:text-[var(--gold)] disabled:opacity-30 transition-all text-xs">
+                <button
+                  onClick={() => setPage(p => Math.min(pagination.totalPages, p + 1))}
+                  disabled={page === pagination.totalPages}
+                  style={{
+                    width: 40, height: 40,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    border: "1px solid var(--border-dim)",
+                    background: "transparent",
+                    color: "var(--text-muted)",
+                    cursor: "pointer",
+                    fontFamily: "'Montserrat'",
+                    fontSize: 12,
+                    transition: "all 0.2s",
+                    opacity: page === pagination.totalPages ? 0.3 : 1,
+                  }}
+                  onMouseEnter={e => { if (page < pagination.totalPages) { e.currentTarget.style.borderColor = "var(--gold)"; e.currentTarget.style.color = "var(--gold)"; } }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--border-dim)"; e.currentTarget.style.color = "var(--text-muted)"; }}
+                >
                   →
                 </button>
               </div>
@@ -224,39 +320,40 @@ function Home() {
 
         {/* MAP VIEW */}
         {viewMode === "map" && (
-          <div className="flex flex-col md:flex-row gap-6" style={{ height: 600 }}>
-            <div className="flex-1 overflow-hidden" style={{ border: "1px solid var(--border-subtle)" }}>
-              {loading ? (
-                <div className="w-full h-full bg-gray-50 animate-pulse flex items-center justify-center">
-                  <p className="text-[var(--text-soft)] text-sm">Ачааллаж байна...</p>
-                </div>
-              ) : (
-                <MapContainer center={[47.9077, 106.8832]} zoom={12} style={{ height: "100%", width: "100%" }} scrollWheelZoom>
-                  <TileLayer attribution='© OpenStreetMap' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                  {properties.filter(getCoords).map(p => (
-                    <Marker key={p._id} position={getCoords(p)}>
-                      <Popup>
-                        <div className="text-sm min-w-[160px]">
-                          <p className="font-medium text-[var(--ink)] mb-1">{p.title}</p>
-                          <p className="text-xs text-[var(--text-muted)] mb-1">{p.location?.district}</p>
-                          <p className="font-medium" style={{ color: "var(--gold)" }}>{p.monthlyRent?.toLocaleString()}₮/сар</p>
-                          <Link to={`/properties/${p._id}`} className="block mt-2 text-center text-xs text-white py-1.5" style={{ background: "var(--ink)" }}>Үзэх →</Link>
-                        </div>
-                      </Popup>
-                    </Marker>
-                  ))}
-                </MapContainer>
-              )}
+          <div style={{ display: "flex", gap: 24, height: 600 }}>
+            <div style={{ flex: 1, overflow: "hidden", border: "1px solid var(--border-dim)" }}>
+              <MapContainer center={[47.9077, 106.8832]} zoom={12} style={{ height: "100%", width: "100%" }} scrollWheelZoom>
+                <TileLayer
+                  attribution='© OpenStreetMap'
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                />
+                {properties.filter(getCoords).map(p => (
+                  <Marker key={p._id} position={getCoords(p)}>
+                    <Popup>
+                      <div style={{ fontFamily: "'Montserrat'", minWidth: 160 }}>
+                        <p style={{ fontWeight: 500, color: "var(--white)", marginBottom: 4, fontSize: 12 }}>{p.title}</p>
+                        <p style={{ fontSize: 10, color: "var(--text-muted)", marginBottom: 4 }}>{p.location?.district}</p>
+                        <p style={{ fontWeight: 500, color: "var(--gold)", fontSize: 12 }}>{p.monthlyRent?.toLocaleString()}₮/сар</p>
+                        <Link to={`/properties/${p._id}`} style={{ display: "block", marginTop: 8, textAlign: "center", fontSize: 9, letterSpacing: "0.15em", textTransform: "uppercase", color: "var(--gold)", textDecoration: "none", padding: "6px", border: "1px solid var(--gold)" }}>
+                          Үзэх →
+                        </Link>
+                      </div>
+                    </Popup>
+                  </Marker>
+                ))}
+              </MapContainer>
             </div>
-            <div className="w-full md:w-64 overflow-y-auto space-y-2">
+            <div style={{ width: 260, overflowY: "auto", display: "flex", flexDirection: "column", gap: 8 }}>
               {properties.filter(getCoords).map(p => (
-                <Link key={p._id} to={`/properties/${p._id}`}
-                  className="block bg-white hover:shadow-md transition-all overflow-hidden" style={{ border: "1px solid var(--border-subtle)" }}>
-                  <img src={p.images?.[0] || "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688"} alt={p.title} className="w-full h-28 object-cover" />
-                  <div className="p-3">
-                    <p className="text-sm font-medium text-[var(--ink)] line-clamp-1">{p.title}</p>
-                    <p className="text-xs text-[var(--text-muted)] mt-0.5">{p.location?.district}</p>
-                    <p className="text-sm font-medium mt-1" style={{ color: "var(--gold)" }}>{p.monthlyRent?.toLocaleString()}₮/сар</p>
+                <Link key={p._id} to={`/properties/${p._id}`} style={{ display: "block", background: "var(--dark-card)", border: "1px solid var(--border-dim)", overflow: "hidden", textDecoration: "none", transition: "border-color 0.2s" }}
+                  onMouseEnter={e => e.currentTarget.style.borderColor = "rgba(201,160,80,0.3)"}
+                  onMouseLeave={e => e.currentTarget.style.borderColor = "var(--border-dim)"}
+                >
+                  <img src={p.images?.[0] || "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688"} alt="" style={{ width: "100%", height: 100, objectFit: "cover" }} />
+                  <div style={{ padding: 12 }}>
+                    <p style={{ fontSize: 12, fontWeight: 300, color: "var(--white)", marginBottom: 4 }} className="line-clamp-1">{p.title}</p>
+                    <p style={{ fontFamily: "'Montserrat'", fontSize: 9, color: "var(--text-muted)", marginBottom: 6 }}>{p.location?.district}</p>
+                    <p style={{ fontFamily: "'Montserrat'", fontSize: 12, color: "var(--gold)" }}>{p.monthlyRent?.toLocaleString()}₮/сар</p>
                   </div>
                 </Link>
               ))}

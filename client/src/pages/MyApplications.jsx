@@ -1,128 +1,189 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import api from "../api/axiosInstance";
 import Navbar from "../components/Navbar";
 
-const statusMap = {
-  pending:  { label: "Хүлээгдэж байна", color: "var(--gold)" },
-  approved: { label: "Зөвшөөрөгдсөн",   color: "#22c55e" },
-  rejected: { label: "Татгалзсан",       color: "#ef4444" },
+const STATUS_CONFIG = {
+  pending:   { label: "Хүлээгдэж байна", color: "var(--gold)",  border: "rgba(201,160,80,0.3)"  },
+  approved:  { label: "Зөвшөөрсөн",     color: "#22C55E",       border: "rgba(34,197,94,0.3)"  },
+  rejected:  { label: "Татгалзсан",      color: "#EF4444",       border: "rgba(239,68,68,0.3)"  },
+  cancelled: { label: "Цуцлагдсан",      color: "var(--text-soft)", border: "var(--border-dim)" },
 };
 
-const RENTED_CONTRACT_STATUSES = ["signed", "payment_pending", "active"];
+const CONTRACT_CONFIG = {
+  not_started:  { label: "Гэрээ байхгүй",   color: "var(--text-soft)" },
+  pending:      { label: "Гэрээ хүлээгдэж", color: "var(--gold)"      },
+  signed:       { label: "Гэрээ байгуулсан",color: "#22C55E"           },
+};
+
+function timeAgo(date) {
+  const diff = (Date.now() - new Date(date).getTime()) / 1000;
+  if (diff < 3600) return `${Math.floor(diff / 60)} минутын өмнө`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)} цагийн өмнө`;
+  return `${Math.floor(diff / 86400)} өдрийн өмнө`;
+}
 
 export default function MyApplications() {
+  const navigate = useNavigate();
   const [applications, setApplications] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [cancelling, setCancelling] = useState(null);
 
   useEffect(() => {
     api.get("/api/applications/my")
       .then(r => setApplications(r.data))
-      .catch(console.log)
+      .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
 
-  const visibleApps = applications.filter(app => {
-    if (app.status === "rejected" || app.status === "cancelled") return true;
-    if (app.status === "pending") return true;
-    if (app.status === "approved" && RENTED_CONTRACT_STATUSES.includes(app.contractStatus)) return false;
-    return true;
-  });
+  const handleCancel = async (id) => {
+    if (!window.confirm("Энэхүү хүсэлтийг цуцлах уу?")) return;
+    setCancelling(id);
+    try {
+      await api.delete(`/api/applications/${id}`);
+      setApplications(prev => prev.map(a => a._id === id ? { ...a, status: "cancelled" } : a));
+    } catch { alert("Алдаа гарлаа"); }
+    finally { setCancelling(null); }
+  };
 
   return (
-    <div style={{ minHeight: "100vh", background: "var(--cream)", paddingTop: 64 }}>
+    <div style={{ minHeight: "100vh", background: "var(--black)", paddingTop: 70 }}>
       <Navbar />
-      <div className="max-w-4xl mx-auto px-6 py-10">
-        <div className="mb-8">
-          <p className="text-xs tracking-widest uppercase text-[var(--gold)] mb-2">Миний</p>
-          <h1 className="font-display text-4xl font-light text-[var(--ink)]">Хүсэлтүүд</h1>
+      <div style={{ maxWidth: 800, margin: "0 auto", padding: "48px 48px" }}>
+
+        {/* Header */}
+        <div style={{ marginBottom: 40 }}>
+          <div className="flex items-center gap-4 mb-4">
+            <div style={{ width: 32, height: 1, background: "var(--gold)" }} />
+            <span style={{ fontFamily: "'Montserrat'", fontSize: 9, fontWeight: 500, letterSpacing: "0.25em", textTransform: "uppercase", color: "var(--gold)" }}>
+              Миний
+            </span>
+          </div>
+          <h1 className="font-display" style={{ fontSize: 48, fontWeight: 300, color: "var(--white)" }}>
+            Хүсэлтүүд
+          </h1>
+          {!loading && (
+            <p style={{ fontFamily: "'Montserrat'", fontSize: 11, color: "var(--text-muted)", marginTop: 8 }}>
+              {applications.length} хүсэлт
+            </p>
+          )}
         </div>
 
         {loading ? (
-          <div className="space-y-4">
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             {[1,2,3].map(i => (
-              <div key={i} className="bg-white border border-[var(--border-subtle)] p-6 animate-pulse">
-                <div className="flex gap-4">
-                  <div className="w-28 h-20 bg-gray-100" />
-                  <div className="flex-1 space-y-3">
-                    <div className="h-4 bg-gray-100 w-1/2" />
-                    <div className="h-3 bg-gray-100 w-1/3" />
-                  </div>
-                </div>
-              </div>
+              <div key={i} style={{ height: 140, background: "var(--dark)", border: "1px solid var(--border-dim)", animation: "pulse 2s ease infinite" }} />
             ))}
           </div>
-        ) : visibleApps.length === 0 ? (
-          <div className="bg-white border border-[var(--border-subtle)] p-16 text-center">
-            <div className="text-4xl mb-4 opacity-30">📋</div>
-            <p className="font-display text-2xl font-light text-[var(--text-soft)] mb-2">Хүсэлт байхгүй</p>
-            <p className="text-sm text-[var(--text-soft)] mb-6">Байрны хуудаснаас хүсэлт илгээж эхлээрэй</p>
-            {applications.some(a => RENTED_CONTRACT_STATUSES.includes(a.contractStatus)) && (
-              <p className="text-sm text-[var(--text-muted)]">
-                ✓ Түрээслэсэн байр{" "}
-                <Link to="/my-rentals" className="underline" style={{ color: "var(--gold)" }}>Миний түрээс</Link>
-                {" "}хэсэгт байна
-              </p>
-            )}
-            <Link to="/home" className="btn-gold mt-6 inline-flex" style={{ padding: "12px 28px" }}>Байр хайх →</Link>
+        ) : applications.length === 0 ? (
+          <div style={{ textAlign: "center", padding: "96px 0" }}>
+            <div className="font-display" style={{ fontSize: 64, fontWeight: 300, color: "rgba(201,160,80,0.1)", marginBottom: 16 }}>◈</div>
+            <p className="font-display" style={{ fontSize: 32, fontWeight: 300, color: "var(--text-soft)", marginBottom: 12 }}>
+              Хүсэлт байхгүй
+            </p>
+            <p style={{ fontFamily: "'Montserrat'", fontSize: 12, color: "var(--text-soft)", marginBottom: 28 }}>
+              Байр хайж хүсэлт илгээнэ үү
+            </p>
+            <Link to="/home" className="btn-gold">Байр хайх →</Link>
           </div>
         ) : (
-          <div className="space-y-4">
-            {visibleApps.map((app) => {
-              const status = statusMap[app.status] || statusMap.pending;
-              const image = app.property?.images?.[0] || "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688";
-              const needsSignature = app.status === "approved" && (app.contractStatus === "pending_signatures" || app.contractStatus === "none");
-
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {applications.map((app) => {
+              const sc = STATUS_CONFIG[app.status] || STATUS_CONFIG.pending;
+              const cc = CONTRACT_CONFIG[app.contractStatus] || CONTRACT_CONFIG.not_started;
+              const img = app.property?.images?.[0] || "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688";
               return (
-                <div key={app._id} className="bg-white border border-[var(--border-subtle)] overflow-hidden animate-fadeUp">
-                  <div className="flex gap-0">
-                    {/* Left gold accent */}
-                    <div className="w-1 flex-shrink-0" style={{ background: status.color }} />
+                <div
+                  key={app._id}
+                  style={{
+                    background: "var(--dark)",
+                    border: "1px solid var(--border-dim)",
+                    display: "flex",
+                    gap: 0,
+                    overflow: "hidden",
+                    transition: "border-color 0.2s",
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.borderColor = "rgba(201,160,80,0.2)"}
+                  onMouseLeave={e => e.currentTarget.style.borderColor = "var(--border-dim)"}
+                >
+                  {/* Image */}
+                  <div style={{ width: 140, flexShrink: 0, position: "relative", overflow: "hidden" }}>
+                    <img
+                      src={img}
+                      alt={app.property?.title}
+                      style={{ width: "100%", height: "100%", objectFit: "cover", filter: "brightness(0.8)" }}
+                    />
+                    <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to right, transparent, rgba(8,8,8,0.4))" }} />
+                  </div>
 
-                    <div className="flex gap-5 p-6 flex-1">
-                      <img src={image} alt="" className="w-28 h-20 object-cover flex-shrink-0" />
+                  {/* Content */}
+                  <div style={{ flex: 1, padding: "20px 24px", minWidth: 0 }}>
+                    <div className="flex items-start justify-between gap-4">
+                      <div style={{ minWidth: 0 }}>
+                        <Link
+                          to={`/properties/${app.property?._id}`}
+                          style={{ textDecoration: "none" }}
+                        >
+                          <h3 className="font-display line-clamp-1" style={{ fontSize: 20, fontWeight: 400, color: "var(--white)", marginBottom: 4 }}>
+                            {app.property?.title}
+                          </h3>
+                        </Link>
+                        <p style={{ fontFamily: "'Montserrat'", fontSize: 9, letterSpacing: "0.15em", textTransform: "uppercase", color: "var(--text-muted)", marginBottom: 12 }}>
+                          {app.property?.location?.district} · {app.leaseMonths} сар · {app.totalRent?.toLocaleString()}₮
+                        </p>
+                      </div>
 
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-4 mb-2">
-                          <div>
-                            <h2 className="font-display text-xl font-light text-[var(--ink)] line-clamp-1">{app.property?.title}</h2>
-                            <p className="text-xs text-[var(--text-soft)] mt-0.5">{app.property?.location?.city}, {app.property?.location?.district}</p>
-                          </div>
-                          <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                            <span className="text-xs font-medium px-3 py-1 border" style={{ color: status.color, borderColor: status.color }}>
-                              {status.label}
-                            </span>
-                            {needsSignature && (
-                              <span className="text-xs px-2 py-0.5" style={{ color: "var(--gold)", border: "1px solid var(--gold)" }}>
-                                ✍️ Гарын үсэг хүлээгдэж байна
-                              </span>
-                            )}
-                          </div>
+                      {/* Status badge */}
+                      <span style={{
+                        fontFamily: "'Montserrat'", fontSize: 8, fontWeight: 500, letterSpacing: "0.15em", textTransform: "uppercase",
+                        padding: "4px 12px", border: `1px solid ${sc.border}`, color: sc.color, flexShrink: 0, whiteSpace: "nowrap"
+                      }}>
+                        {sc.label}
+                      </span>
+                    </div>
+
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                        {/* Contract status */}
+                        <div className="flex items-center gap-2">
+                          <div style={{ width: 4, height: 4, borderRadius: "50%", background: cc.color }} />
+                          <span style={{ fontFamily: "'Montserrat'", fontSize: 9, color: cc.color }}>{cc.label}</span>
                         </div>
+                        <span style={{ fontFamily: "'Montserrat'", fontSize: 9, color: "var(--text-soft)" }}>
+                          {timeAgo(app.createdAt)}
+                        </span>
+                      </div>
 
-                        <div className="h-px mb-3" style={{ background: "var(--border-subtle)" }} />
-
-                        <div className="flex flex-wrap gap-4 text-xs text-[var(--text-muted)] mb-4">
-                          <span>📅 {app.leaseMonths} сар</span>
-                          <span className="font-display text-base text-[var(--ink)]">{app.property?.monthlyRent?.toLocaleString()}₮<span className="text-xs text-[var(--text-soft)]">/сар</span></span>
-                          <span>💰 Нийт: {app.totalRent?.toLocaleString()}₮</span>
-                          {app.landlord && <span>🏠 {app.landlord.firstName} · {app.landlord.phone}</span>}
-                        </div>
-
-                        {app.message && (
-                          <p className="text-xs text-[var(--text-soft)] border-l-2 border-[var(--gold-light)] pl-3 mb-4 italic">"{app.message}"</p>
-                        )}
-
-                        <div className="flex gap-3">
-                          <Link to={`/properties/${app.property?._id}`} className="btn-ghost text-xs" style={{ padding: "8px 16px" }}>
-                            Байр харах
+                      {/* Actions */}
+                      <div style={{ display: "flex", gap: 8 }}>
+                        {app.contractStatus === "signed" && (
+                          <Link
+                            to={`/contract/${app._id}`}
+                            className="btn-outline"
+                            style={{ fontSize: 9, padding: "7px 16px" }}
+                          >
+                            Гэрээ харах
                           </Link>
-                          {app.status === "approved" && (
-                            <Link to={`/contract/${app._id}`} className="btn-gold text-xs" style={{ padding: "8px 16px" }}>
-                              📄 Гэрээ харах
-                            </Link>
-                          )}
-                        </div>
+                        )}
+                        {app.status === "approved" && app.contractStatus !== "signed" && (
+                          <Link
+                            to={`/contract/${app._id}`}
+                            className="btn-gold"
+                            style={{ fontSize: 9, padding: "7px 16px" }}
+                          >
+                            Гэрээ байгуулах →
+                          </Link>
+                        )}
+                        {app.status === "pending" && (
+                          <button
+                            onClick={() => handleCancel(app._id)}
+                            disabled={cancelling === app._id}
+                            className="btn-danger"
+                            style={{ fontSize: 9, padding: "7px 16px" }}
+                          >
+                            {cancelling === app._id ? "Цуцалж байна..." : "Цуцлах"}
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>

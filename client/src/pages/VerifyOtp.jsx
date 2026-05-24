@@ -50,9 +50,7 @@ function VerifyOtp() {
     if (code.length < 6) { setError("6 оронтой кодыг бүрэн оруулна уу"); return; }
     setLoading(true); setError("");
     try {
-      const res = await api.post("/api/auth/verify-otp", {
-        email, phone, code, otpMethod,
-      });
+      const res = await api.post("/api/auth/verify-otp", { email, phone, code, otpMethod });
       localStorage.setItem("token", res.data.token);
       localStorage.setItem("user", JSON.stringify(res.data.user));
       navigate("/");
@@ -73,7 +71,6 @@ function VerifyOtp() {
     finally { setResending(false); }
   };
 
-  // Арга солих — шинэ OTP явуулна
   const switchMethod = async (method) => {
     if (method === otpMethod) return;
     setOtpMethod(method); setOtp(["", "", "", "", "", ""]); setError("");
@@ -86,108 +83,140 @@ function VerifyOtp() {
   const target = otpMethod === "phone" ? `+976${phone}` : email;
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: "var(--cream)" }}>
-      <div className="px-4 pt-4">
-        <button onClick={() => navigate("/register")}
-          className="flex items-center gap-2 text-sm transition-colors" style={{ color: "var(--text-muted)" }}>
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
-          Буцах
+    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "var(--black)", padding: "48px 24px" }}>
+
+      {/* Back */}
+      <div style={{ position: "fixed", top: 24, left: 24 }}>
+        <button onClick={() => navigate("/register")} className="btn-ghost" style={{ padding: "8px 12px" }}>
+          ← Буцах
         </button>
       </div>
 
-      <div className="flex justify-center mt-8 mb-4">
-        <Link to="/">
-          <span className="font-display text-2xl font-light" style={{ color: "var(--ink)" }}>
-            Rental<span style={{ color: "var(--gold)" }}>Sy</span>
+      {/* Logo */}
+      <Link to="/" style={{ textDecoration: "none", marginBottom: 48 }}>
+        <span className="font-display" style={{ fontSize: 24, fontWeight: 300, color: "var(--white)" }}>
+          Rental<span style={{ color: "var(--gold)" }}>Sy</span>
+        </span>
+      </Link>
+
+      {/* Card */}
+      <div
+        style={{
+          width: "100%",
+          maxWidth: 420,
+          background: "var(--dark)",
+          border: "1px solid var(--border-dim)",
+          borderTop: "1px solid var(--gold)",
+          padding: 48,
+        }}
+        className="animate-fadeUp"
+      >
+        {/* Icon */}
+        <div style={{ width: 56, height: 56, border: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 24 }}>
+          {otpMethod === "phone" ? (
+            <svg width="22" height="22" fill="none" stroke="var(--gold)" strokeWidth="1.5" viewBox="0 0 24 24">
+              <path strokeLinecap="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+            </svg>
+          ) : (
+            <svg width="22" height="22" fill="none" stroke="var(--gold)" strokeWidth="1.5" viewBox="0 0 24 24">
+              <path strokeLinecap="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            </svg>
+          )}
+        </div>
+
+        {/* Title */}
+        <div className="flex items-center gap-3 mb-3">
+          <div style={{ width: 20, height: 1, background: "var(--gold)" }} />
+          <span style={{ fontFamily: "'Montserrat'", fontSize: 9, fontWeight: 500, letterSpacing: "0.25em", textTransform: "uppercase", color: "var(--gold)" }}>
+            Баталгаажуулах
           </span>
-        </Link>
-      </div>
+        </div>
+        <h1 className="font-display" style={{ fontSize: 32, fontWeight: 300, color: "var(--white)", marginBottom: 8 }}>
+          {otpMethod === "phone" ? "Утас" : "Имэйл"} баталгаажуулах
+        </h1>
+        <p style={{ fontFamily: "'Montserrat'", fontSize: 11, fontWeight: 300, color: "var(--text-muted)", marginBottom: 28, lineHeight: 1.6 }}>
+          <span style={{ color: "var(--white)" }}>{target}</span> рүү 6 оронтой код илгээгдлээ
+        </p>
 
-      <div className="flex-1 flex items-center justify-center px-4 py-8">
-        <div className="bg-white border w-full max-w-sm p-8" style={{ borderColor: "var(--border-subtle)" }}>
-          <div className="text-center mb-6">
-            <div className="w-14 h-14 mx-auto mb-4 flex items-center justify-center rounded-full"
-              style={{ background: "var(--cream)", border: "1px solid var(--gold-light)" }}>
-              {otpMethod === "phone" ? (
-                <svg width="24" height="24" fill="none" stroke="var(--gold)" strokeWidth="1.5" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                </svg>
-              ) : (
-                <svg width="24" height="24" fill="none" stroke="var(--gold)" strokeWidth="1.5" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                </svg>
-              )}
-            </div>
-            <h1 className="font-display text-2xl font-light mb-1" style={{ color: "var(--ink)" }}>
-              {otpMethod === "phone" ? "Утас баталгаажуулах" : "Имэйл баталгаажуулах"}
-            </h1>
-            <p className="text-sm" style={{ color: "var(--text-muted)" }}>
-              <span className="font-medium" style={{ color: "var(--ink)" }}>{target}</span> рүү<br />
-              6 оронтой код илгээгдлээ
-            </p>
+        {/* Method switcher */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", border: "1px solid var(--border-dim)", marginBottom: 24 }}>
+          {[{ v: "email", l: "✉️  Имэйл" }, { v: "phone", l: "📱  Утас" }].map(({ v, l }) => (
+            <button key={v} type="button" onClick={() => switchMethod(v)}
+              style={{
+                padding: "10px 0",
+                fontFamily: "'Montserrat'", fontSize: 9, fontWeight: 500, letterSpacing: "0.15em", textTransform: "uppercase",
+                background: otpMethod === v ? "rgba(201,160,80,0.1)" : "transparent",
+                color: otpMethod === v ? "var(--gold)" : "var(--text-muted)",
+                border: "none", cursor: "pointer", transition: "all 0.2s",
+                borderBottom: otpMethod === v ? "1px solid var(--gold)" : "1px solid transparent",
+              }}>
+              {l}
+            </button>
+          ))}
+        </div>
+
+        {/* Error */}
+        {error && (
+          <div style={{ marginBottom: 20, padding: "10px 14px", borderLeft: "2px solid #EF4444", background: "rgba(239,68,68,0.06)" }}>
+            <p style={{ fontFamily: "'Montserrat'", fontSize: 11, color: "#EF4444" }}>{error}</p>
           </div>
+        )}
 
-          {/* Арга солих */}
-          <div className="grid grid-cols-2 gap-0 mb-5 border border-black/10">
-            {[{ v: "email", l: "✉️ Имэйл" }, { v: "phone", l: "📱 Утас" }].map(({ v, l }) => (
-              <button key={v} type="button" onClick={() => switchMethod(v)}
-                className="py-2.5 text-xs font-medium tracking-widest uppercase transition-all"
+        {/* OTP inputs */}
+        <form onSubmit={handleVerify}>
+          <div style={{ display: "flex", gap: 8, justifyContent: "center", marginBottom: 28 }} onPaste={handlePaste}>
+            {otp.map((digit, index) => (
+              <input
+                key={index}
+                ref={(el) => (inputRefs.current[index] = el)}
+                type="text"
+                inputMode="numeric"
+                maxLength={1}
+                value={digit}
+                onChange={(e) => handleChange(index, e.target.value)}
+                onKeyDown={(e) => handleKeyDown(index, e)}
                 style={{
-                  background: otpMethod === v ? "var(--ink)" : "transparent",
-                  color: otpMethod === v ? "var(--gold)" : "var(--text-muted)",
-                }}>
-                {l}
-              </button>
+                  width: 48, height: 56,
+                  textAlign: "center",
+                  fontSize: 22,
+                  fontFamily: "'Cormorant Garamond', serif",
+                  fontWeight: 400,
+                  background: digit ? "rgba(201,160,80,0.06)" : "var(--dark-2)",
+                  border: digit ? "1px solid var(--gold)" : "1px solid var(--border-dim)",
+                  color: "var(--white)",
+                  outline: "none",
+                  transition: "all 0.2s",
+                }}
+              />
             ))}
           </div>
 
-          {error && (
-            <div className="mb-4 p-3 border-l-2 text-sm text-center" style={{ borderColor: "#EF4444", background: "#FEF2F2", color: "#EF4444" }}>
-              {error}
-            </div>
-          )}
+          <button
+            type="submit"
+            disabled={loading || otp.join("").length < 6}
+            className="btn-gold w-full justify-center"
+            style={{ padding: "15px 0", opacity: (loading || otp.join("").length < 6) ? 0.6 : 1, marginBottom: 20 }}
+          >
+            {loading ? "Баталгаажуулж байна..." : "Баталгаажуулах"}
+          </button>
+        </form>
 
-          <form onSubmit={handleVerify}>
-            <div className="flex gap-2 justify-center mb-6" onPaste={handlePaste}>
-              {otp.map((digit, index) => (
-                <input key={index} ref={(el) => (inputRefs.current[index] = el)}
-                  type="text" inputMode="numeric" maxLength={1} value={digit}
-                  onChange={(e) => handleChange(index, e.target.value)}
-                  onKeyDown={(e) => handleKeyDown(index, e)}
-                  className="text-center text-xl font-medium border-2 transition-all outline-none"
-                  style={{
-                    width: 44, height: 52,
-                    borderColor: digit ? "var(--gold)" : "var(--border-subtle)",
-                    background: digit ? "var(--cream)" : "white",
-                    color: "var(--ink)",
-                    boxShadow: digit ? "0 0 0 2px var(--gold-light)" : "none",
-                  }} />
-              ))}
-            </div>
-            <button type="submit" disabled={loading || otp.join("").length < 6}
-              className="btn-gold w-full justify-center mb-4" style={{ padding: "14px 0" }}>
-              {loading ? "Баталгаажуулж байна..." : "Баталгаажуулах"}
+        {/* Resend */}
+        <p style={{ textAlign: "center", fontFamily: "'Montserrat'", fontSize: 11, color: "var(--text-muted)" }}>
+          Код ирээгүй юу?{" "}
+          {countdown > 0 ? (
+            <span style={{ color: "var(--text-soft)" }}>{countdown}с дараа дахин</span>
+          ) : (
+            <button onClick={handleResend} disabled={resending}
+              style={{ color: "var(--gold)", background: "none", border: "none", cursor: "pointer", fontFamily: "'Montserrat'", fontSize: 11 }}>
+              {resending ? "Явуулж байна..." : "Дахин явуулах"}
             </button>
-          </form>
+          )}
+        </p>
 
-          <div className="text-center text-sm" style={{ color: "var(--text-soft)" }}>
-            Код ирээгүй юу?{" "}
-            {countdown > 0 ? (
-              <span>{countdown}с дараа дахин явуулна</span>
-            ) : (
-              <button onClick={handleResend} disabled={resending}
-                className="font-medium transition-colors" style={{ color: "var(--gold)" }}>
-                {resending ? "Явуулж байна..." : "Дахин явуулах"}
-              </button>
-            )}
-          </div>
-
-          <p className="text-center text-xs mt-3" style={{ color: "var(--text-soft)" }}>
-            {otpMethod === "phone" ? "Spam дохиогоо шалгана уу" : "Spam хавтасаа шалгана уу"}
-          </p>
-        </div>
+        <p style={{ textAlign: "center", fontFamily: "'Montserrat'", fontSize: 9, color: "var(--text-soft)", marginTop: 8 }}>
+          {otpMethod === "phone" ? "Spam дохиогоо шалгана уу" : "Spam хавтасаа шалгана уу"}
+        </p>
       </div>
     </div>
   );

@@ -1,353 +1,197 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import api from "../api/axiosInstance";
 import Navbar from "../components/Navbar";
 
-const CONTRACT_STATUS = {
-  none:               { label: "Гэрээ байхгүй",              color: "#9CA3AF", bg: "#F3F4F6" },
-  pending_signatures: { label: "Гарын үсэг хүлээгдэж байна", color: "#D97706", bg: "#FFFBEB" },
-  signed:             { label: "Гэрээ баталгаажсан",         color: "#16A34A", bg: "#F0FDF4" },
-  payment_pending:    { label: "Төлбөр хүлээгдэж байна",     color: "#D97706", bg: "#FFFBEB" },
-  active:             { label: "Идэвхтэй",                   color: "#16A34A", bg: "#F0FDF4" },
-  cancelled:          { label: "Цуцлагдсан",                 color: "#EF4444", bg: "#FEF2F2" },
-  completed:          { label: "Дууссан",                    color: "#6B7280", bg: "#F9FAFB" },
-};
-
-function daysLeft(endDate) {
-  const diff = new Date(endDate) - new Date();
-  return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+function ProgressBar({ paid, total }) {
+  const pct = total > 0 ? Math.round((paid / total) * 100) : 0;
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+        <span style={{ fontFamily: "'Montserrat'", fontSize: 9, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--text-muted)" }}>
+          Төлбөрийн явц
+        </span>
+        <span style={{ fontFamily: "'Montserrat'", fontSize: 9, color: "var(--gold)" }}>
+          {paid}/{total} · {pct}%
+        </span>
+      </div>
+      <div style={{ height: 1, background: "var(--border-dim)", position: "relative", overflow: "hidden" }}>
+        <div style={{
+          position: "absolute", left: 0, top: 0, bottom: 0,
+          width: `${pct}%`,
+          background: "linear-gradient(to right, var(--gold), rgba(201,160,80,0.6))",
+          transition: "width 0.6s ease",
+        }} />
+      </div>
+    </div>
+  );
 }
 
-function totalDays(startDate, endDate) {
-  const diff = new Date(endDate) - new Date(startDate);
-  return Math.ceil(diff / (1000 * 60 * 60 * 24));
-}
-
-function formatDate(date) {
-  if (!date) return "—";
-  return new Date(date).toLocaleDateString("mn-MN", {
-    year: "numeric", month: "long", day: "numeric",
-  });
-}
-
-function nextPaymentDate(startDate) {
-  const start = new Date(startDate);
-  const now = new Date();
-  const next = new Date(now.getFullYear(), now.getMonth() + 1, start.getDate());
-  if (next <= now) next.setMonth(next.getMonth() + 1);
-  return next;
-}
-
-function daysUntilPayment(startDate) {
-  const next = nextPaymentDate(startDate);
-  const diff = next - new Date();
-  return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
-}
-
-function MyRentals() {
+export default function MyRentals() {
+  const navigate = useNavigate();
   const [rentals, setRentals] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [cancelling, setCancelling] = useState(null);
+  const [cancelModal, setCancelModal] = useState(null);
   const [cancelReason, setCancelReason] = useState("");
-  const [showCancelModal, setShowCancelModal] = useState(null);
-
-  const currentUser = JSON.parse(localStorage.getItem("user") || "null");
-  const isLandlord = currentUser?.role === "landlord";
+  const [cancelling, setCancelling] = useState(false);
 
   useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setLoading(true);
-      try {
-        const res = await api.get("/api/applications/active");
-        if (!cancelled) setRentals(res.data);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
-    load();
-    return () => { cancelled = true; };
+    api.get("/api/rentals/my")
+      .then(r => setRentals(r.data))
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, []);
 
-  const loadRentals = async () => {
-    setLoading(true);
+  const handleCancelSubmit = async () => {
+    if (!cancelReason.trim()) { alert("Шалтгаан оруулна уу"); return; }
+    setCancelling(true);
     try {
-      const res = await api.get("/api/applications/active");
-      setRentals(res.data);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleCancel = async () => {
-    if (!showCancelModal) return;
-    setCancelling(showCancelModal);
-    try {
-      await api.put(`/api/applications/${showCancelModal}/cancel`, { reason: cancelReason });
-      setShowCancelModal(null);
+      await api.post(`/api/rentals/${cancelModal._id}/cancel`, { reason: cancelReason });
+      setRentals(prev => prev.map(r => r._id === cancelModal._id ? { ...r, status: "cancelled" } : r));
+      setCancelModal(null);
       setCancelReason("");
-      loadRentals();
-    } catch (err) {
-      alert(err.response?.data?.message || "Алдаа гарлаа");
-    } finally {
-      setCancelling(null);
-    }
+    } catch { alert("Алдаа гарлаа"); }
+    finally { setCancelling(false); }
   };
 
-  const totalMonthlyIncome = rentals.reduce((sum, r) => sum + (r.property?.monthlyRent || 0), 0);
-  const signedCount  = rentals.filter(r => ["signed","active"].includes(r.contractStatus)).length;
-  const expiringCount = rentals.filter(r => r.endDate && daysLeft(r.endDate) <= 30).length;
+  const statusColors = {
+    active:    { color: "#22C55E", label: "Идэвхтэй" },
+    completed: { color: "var(--text-muted)", label: "Дууссан" },
+    cancelled: { color: "#EF4444", label: "Цуцлагдсан" },
+  };
 
   return (
-    <div style={{ minHeight: "100vh", background: "var(--cream)", paddingTop: 64 }}>
+    <div style={{ minHeight: "100vh", background: "var(--black)", paddingTop: 70 }}>
       <Navbar />
-      <div className="max-w-4xl mx-auto px-6 py-10">
 
-        <div className="mb-8">
-          <p className="text-xs tracking-widest uppercase mb-2" style={{ color: "var(--gold)" }}>
-            {isLandlord ? "Удирдлага" : "Миний"}
-          </p>
-          <h1 className="font-display text-4xl font-light" style={{ color: "var(--ink)" }}>
-            {isLandlord ? "Түрээсийн мэдээлэл" : "Миний түрээс"}
-          </h1>
+      <div style={{ maxWidth: 860, margin: "0 auto", padding: "48px 48px" }}>
+        {/* Header */}
+        <div style={{ marginBottom: 40 }}>
+          <div className="flex items-center gap-4 mb-4">
+            <div style={{ width: 32, height: 1, background: "var(--gold)" }} />
+            <span style={{ fontFamily: "'Montserrat'", fontSize: 9, fontWeight: 500, letterSpacing: "0.25em", textTransform: "uppercase", color: "var(--gold)" }}>
+              Миний
+            </span>
+          </div>
+          <h1 className="font-display" style={{ fontSize: 48, fontWeight: 300, color: "var(--white)" }}>Түрээс</h1>
         </div>
 
-        {/* Landlord summary stats */}
-        {isLandlord && rentals.length > 0 && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-            {[
-              { label: "Идэвхтэй түрээс", value: rentals.length, big: true },
-              { label: "Сарын орлого", value: `${totalMonthlyIncome.toLocaleString()}₮`, big: false },
-              { label: "Гэрээ баталгаажсан", value: signedCount, big: true },
-              { label: "30 хоногт дуусах", value: expiringCount, big: true, warn: expiringCount > 0 },
-            ].map(({ label, value, warn }) => (
-              <div key={label} className="bg-white border p-5 text-center"
-                style={{ borderColor: warn ? "#FCA5A5" : "var(--border-subtle)", background: warn ? "#FEF2F2" : "white" }}>
-                <p className="font-display text-2xl font-light mb-1"
-                  style={{ color: warn ? "#EF4444" : "var(--ink)" }}>{value}</p>
-                <p className="text-xs" style={{ color: "var(--text-muted)" }}>{label}</p>
-              </div>
+        {loading ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            {[1, 2].map(i => (
+              <div key={i} style={{ height: 200, background: "var(--dark)", border: "1px solid var(--border-dim)", animation: "pulse 2s ease infinite" }} />
             ))}
           </div>
-        )}
-
-        {/* Tenant summary card */}
-        {!isLandlord && rentals.length > 0 && (() => {
-          const r = rentals[0];
-          if (!r.endDate) return null;
-          const days = daysLeft(r.endDate);
-          const total = totalDays(r.startDate, r.endDate);
-          const progress = Math.max(0, Math.min(100, Math.round(((total - days) / total) * 100)));
-          const payDays = daysUntilPayment(r.startDate);
-          const progressColor = progress > 80 ? "#EF4444" : progress > 60 ? "#D97706" : "var(--gold)";
-          return (
-            <div className="bg-white border mb-8 p-6" style={{ borderColor: "var(--border-subtle)" }}>
-              <p className="text-xs tracking-widest uppercase mb-4" style={{ color: "var(--gold)" }}>Түрээсийн хураангуй</p>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-5">
-                <div className="border p-4 text-center" style={{ borderColor: "var(--border-subtle)" }}>
-                  <p className="font-display text-3xl font-light mb-1" style={{ color: "var(--ink)" }}>{days}</p>
-                  <p className="text-xs" style={{ color: "var(--text-muted)" }}>Үлдсэн хоног</p>
-                </div>
-                <div className="border p-4 text-center"
-                  style={{ borderColor: payDays <= 5 ? "#FCA5A5" : "var(--border-subtle)", background: payDays <= 5 ? "#FEF2F2" : "white" }}>
-                  <p className="font-display text-3xl font-light mb-1"
-                    style={{ color: payDays <= 5 ? "#EF4444" : "var(--ink)" }}>{payDays}</p>
-                  <p className="text-xs" style={{ color: "var(--text-muted)" }}>Төлбөр хүртэл хоног</p>
-                </div>
-                <div className="border p-4 text-center col-span-2 md:col-span-1" style={{ borderColor: "var(--border-subtle)" }}>
-                  <p className="font-display text-xl font-light mb-1" style={{ color: "var(--ink)" }}>
-                    {r.property?.monthlyRent?.toLocaleString()}₮
-                  </p>
-                  <p className="text-xs" style={{ color: "var(--text-muted)" }}>Сарын төлбөр</p>
-                </div>
-              </div>
-
-              {/* Progress bar */}
-              <div className="mb-4">
-                <div className="flex justify-between text-xs mb-1" style={{ color: "var(--text-soft)" }}>
-                  <span>Эхэлсэн: {formatDate(r.startDate)}</span>
-                  <span>Дуусах: {formatDate(r.endDate)}</span>
-                </div>
-                <div className="w-full h-2 rounded-full" style={{ background: "var(--border-subtle)" }}>
-                  <div className="h-2 rounded-full transition-all" style={{ width: `${progress}%`, background: progressColor }} />
-                </div>
-                <div className="flex justify-between text-xs mt-1">
-                  <span style={{ color: "var(--text-soft)" }}>{progress}% өнгөрсөн</span>
-                  <span style={{ color: days <= 30 ? "#EF4444" : "var(--text-soft)" }}>
-                    {days <= 30 ? "⚠️ Дуусахад ойрхон!" : `${days} хоног үлдсэн`}
-                  </span>
-                </div>
-              </div>
-
-              {/* Next payment */}
-              <div className="flex items-center justify-between p-4 border"
-                style={{
-                  borderColor: payDays <= 5 ? "#FCA5A5" : "var(--border-subtle)",
-                  background: payDays <= 5 ? "#FEF2F2" : "var(--cream)",
-                }}>
-                <div>
-                  <p className="text-xs mb-1" style={{ color: "var(--text-muted)" }}>Дараагийн төлбөрийн огноо</p>
-                  <p className="text-sm font-medium" style={{ color: "var(--ink)" }}>{formatDate(nextPaymentDate(r.startDate))}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-xs mb-1" style={{ color: "var(--text-muted)" }}>Дүн</p>
-                  <p className="font-display text-lg font-light" style={{ color: "var(--gold)" }}>
-                    {r.property?.monthlyRent?.toLocaleString()}₮
-                  </p>
-                </div>
-              </div>
-            </div>
-          );
-        })()}
-
-        {/* List */}
-        {loading ? (
-          <div className="text-center py-20">
-            <div className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin mx-auto mb-4"
-              style={{ borderColor: "var(--gold)", borderTopColor: "transparent" }} />
-            <p className="text-xs tracking-widest uppercase" style={{ color: "var(--text-muted)" }}>Ачааллаж байна</p>
-          </div>
         ) : rentals.length === 0 ? (
-          <div className="text-center py-20 bg-white border" style={{ borderColor: "var(--border-subtle)" }}>
-            <p className="font-display text-2xl font-light mb-2" style={{ color: "var(--ink)" }}>
-              {isLandlord ? "Одоогоор түрээслүүлж байгаа байр байхгүй" : "Идэвхтэй түрээс байхгүй"}
+          <div style={{ textAlign: "center", padding: "96px 0" }}>
+            <div className="font-display" style={{ fontSize: 64, fontWeight: 300, color: "rgba(201,160,80,0.08)", marginBottom: 16 }}>◈</div>
+            <p className="font-display" style={{ fontSize: 32, fontWeight: 300, color: "var(--text-soft)", marginBottom: 12 }}>
+              Идэвхтэй түрээс байхгүй
             </p>
-            {!isLandlord && (
-              <Link to="/" className="btn-gold mt-4 inline-flex text-xs" style={{ padding: "10px 24px" }}>
-                Байр хайх
-              </Link>
-            )}
+            <Link to="/home" className="btn-gold" style={{ marginTop: 8 }}>
+              Байр хайх →
+            </Link>
           </div>
         ) : (
-          <div className="space-y-5">
-            {rentals.map((rental) => {
-              const endDate = rental.endDate || (rental.startDate
-                ? new Date(new Date(rental.startDate).getTime() + rental.leaseMonths * 30 * 24 * 3600 * 1000)
-                : null);
-              const days = endDate ? daysLeft(endDate) : null;
-              const total = (rental.startDate && endDate) ? totalDays(rental.startDate, endDate) : 1;
-              const progress = days !== null ? Math.max(0, Math.min(100, Math.round(((total - days) / total) * 100))) : 0;
-              const progressColor = progress > 80 ? "#EF4444" : progress > 60 ? "#D97706" : "var(--gold)";
-              const cs = CONTRACT_STATUS[rental.contractStatus] || CONTRACT_STATUS.none;
-              const image = rental.property?.images?.[0] || "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688";
-              const iSigned   = isLandlord ? rental.landlordSigned : rental.tenantSigned;
-              const otherSigned = isLandlord ? rental.tenantSigned : rental.landlordSigned;
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            {rentals.map(rental => {
+              const sc = statusColors[rental.status] || statusColors.active;
+              const img = rental.property?.images?.[0] || "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688";
+              const paidCount = rental.payments?.filter(p => p.status === "paid").length || 0;
+              const totalCount = rental.payments?.length || rental.leaseMonths || 0;
+              const nextPayment = rental.payments?.find(p => p.status === "pending" || p.status === "overdue");
 
               return (
-                <div key={rental._id} className="bg-white border overflow-hidden" style={{ borderColor: "var(--border-subtle)" }}>
-                  <div className="flex">
-                    <div className="w-1 flex-shrink-0" style={{ background: cs.color }} />
-                    <div className="flex-1">
+                <div
+                  key={rental._id}
+                  style={{
+                    background: "var(--dark)",
+                    border: "1px solid var(--border-dim)",
+                    overflow: "hidden",
+                    transition: "border-color 0.2s",
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.borderColor = "rgba(201,160,80,0.2)"}
+                  onMouseLeave={e => e.currentTarget.style.borderColor = "var(--border-dim)"}
+                >
+                  <div style={{ display: "flex" }}>
+                    {/* Property image */}
+                    <div style={{ width: 180, flexShrink: 0, position: "relative", overflow: "hidden" }}>
+                      <img
+                        src={img}
+                        alt={rental.property?.title}
+                        style={{ width: "100%", height: "100%", objectFit: "cover", filter: "brightness(0.75)" }}
+                      />
+                      <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to right, transparent, rgba(8,8,8,0.3))" }} />
+                    </div>
 
-                      {/* Top */}
-                      <div className="flex gap-4 p-5">
-                        <img src={image} alt="" className="w-24 h-20 md:w-28 md:h-22 object-cover flex-shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-start justify-between gap-2 mb-1">
-                            <Link to={`/properties/${rental.property?._id}`}
-                              className="font-medium text-sm hover:underline line-clamp-1"
-                              style={{ color: "var(--ink)" }}>
+                    {/* Details */}
+                    <div style={{ flex: 1, padding: "24px 28px" }}>
+                      <div className="flex items-start justify-between gap-4 mb-4">
+                        <div style={{ minWidth: 0 }}>
+                          <Link to={`/properties/${rental.property?._id}`} style={{ textDecoration: "none" }}>
+                            <h3 className="font-display line-clamp-1" style={{ fontSize: 22, fontWeight: 400, color: "var(--white)", marginBottom: 4 }}>
                               {rental.property?.title}
-                            </Link>
-                            <span className="text-xs px-2 py-1 flex-shrink-0 font-medium"
-                              style={{ background: cs.bg, color: cs.color }}>
-                              {cs.label}
-                            </span>
-                          </div>
-                          <p className="text-xs mb-1" style={{ color: "var(--text-muted)" }}>
-                            {rental.property?.location?.district}, {rental.property?.location?.city}
+                            </h3>
+                          </Link>
+                          <p style={{ fontFamily: "'Montserrat'", fontSize: 9, letterSpacing: "0.15em", textTransform: "uppercase", color: "var(--text-muted)" }}>
+                            {rental.property?.location?.district} · {rental.leaseMonths} сар
                           </p>
-                          {isLandlord ? (
-                            <p className="text-xs" style={{ color: "var(--text-soft)" }}>
-                              {rental.tenant?.firstName} {rental.tenant?.lastName} — {rental.tenant?.phone}
-                            </p>
-                          ) : (
-                            <p className="text-xs" style={{ color: "var(--text-soft)" }}>
-                              {rental.landlord?.firstName} {rental.landlord?.lastName} — {rental.landlord?.phone}
-                            </p>
-                          )}
                         </div>
+                        <span style={{
+                          fontFamily: "'Montserrat'", fontSize: 8, fontWeight: 500, letterSpacing: "0.15em", textTransform: "uppercase",
+                          padding: "4px 12px", border: `1px solid ${sc.color}30`, color: sc.color, flexShrink: 0
+                        }}>
+                          {sc.label}
+                        </span>
                       </div>
 
-                      {/* Stats grid */}
-                      <div className="px-5 pb-3 grid grid-cols-2 md:grid-cols-4 gap-3">
+                      {/* Stats row */}
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 0, marginBottom: 16, borderTop: "1px solid var(--border-dim)", borderBottom: "1px solid var(--border-dim)", padding: "12px 0" }}>
                         {[
-                          { label: "Эхлэх огноо", value: formatDate(rental.startDate) },
-                          { label: "Дуусах огноо", value: endDate ? formatDate(endDate) : "—" },
-                          {
-                            label: "Үлдсэн хоног",
-                            value: days !== null ? `${days <= 30 ? "⚠️ " : ""}${days} хоног` : "—",
-                            warn: days !== null && days <= 30,
-                          },
-                          {
-                            label: "Сарын төлбөр",
-                            value: `${rental.property?.monthlyRent?.toLocaleString()}₮`,
-                            gold: true,
-                          },
-                        ].map(({ label, value, warn, gold }) => (
-                          <div key={label} className="border p-3"
-                            style={{ borderColor: warn ? "#FCA5A5" : "var(--border-subtle)", background: warn ? "#FEF2F2" : "var(--cream)" }}>
-                            <p className="text-xs mb-1" style={{ color: "var(--text-soft)" }}>{label}</p>
-                            <p className="text-xs font-medium"
-                              style={{ color: warn ? "#EF4444" : gold ? "var(--gold)" : "var(--ink)" }}>
-                              {value}
-                            </p>
+                          { label: "Сарын түрээс", value: `${rental.property?.monthlyRent?.toLocaleString()}₮` },
+                          { label: "Нийт дүн", value: `${rental.totalRent?.toLocaleString()}₮` },
+                          { label: "Дараагийн төлбөр", value: nextPayment ? `${nextPayment.totalAmount?.toLocaleString()}₮` : "—" },
+                        ].map(({ label, value }) => (
+                          <div key={label} style={{ paddingRight: 16 }}>
+                            <p style={{ fontFamily: "'Montserrat'", fontSize: 8, letterSpacing: "0.15em", textTransform: "uppercase", color: "var(--text-soft)", marginBottom: 4 }}>{label}</p>
+                            <p className="font-display" style={{ fontSize: 18, fontWeight: 300, color: "var(--white)" }}>{value}</p>
                           </div>
                         ))}
                       </div>
 
-                      {/* Progress bar */}
-                      <div className="px-5 pb-4">
-                        <div className="w-full h-1.5 rounded-full" style={{ background: "var(--border-subtle)" }}>
-                          <div className="h-1.5 rounded-full transition-all" style={{ width: `${progress}%`, background: progressColor }} />
-                        </div>
-                        <p className="text-xs mt-1" style={{ color: "var(--text-soft)" }}>{progress}% өнгөрсөн</p>
+                      {/* Progress */}
+                      <div style={{ marginBottom: 16 }}>
+                        <ProgressBar paid={paidCount} total={totalCount} />
                       </div>
 
-                      {/* Action buttons */}
-                      {rental.contractStatus !== "cancelled" && rental.contractStatus !== "completed" && (
-                        <div className="px-5 pb-5 flex flex-wrap gap-2 border-t pt-3" style={{ borderColor: "var(--border-subtle)" }}>
-                          {rental.contractStatus === "pending_signatures" && !iSigned && (
-                            <Link to={`/contract/${rental._id}`}
-                              className="btn-gold text-xs" style={{ padding: "8px 16px" }}>
-                              ✍️ Гарын үсэг зурах
-                            </Link>
-                          )}
-                          {rental.contractStatus === "pending_signatures" && iSigned && !otherSigned && (
-                            <div className="text-xs px-4 py-2 border"
-                              style={{ borderColor: "var(--gold-light)", background: "var(--cream)", color: "var(--gold)" }}>
-                              ✓ Та зурлаа — нөгөө талыг хүлээж байна
-                            </div>
-                          )}
-                          <Link to={`/contract/${rental._id}`}
-                            className="btn-ghost text-xs" style={{ padding: "8px 16px" }}>
-                            📄 Гэрээ харах
+                      {/* Actions */}
+                      <div style={{ display: "flex", gap: 8 }}>
+                        {rental.status === "active" && nextPayment && (
+                          <Link
+                            to={`/payment/${nextPayment._id}`}
+                            className="btn-gold"
+                            style={{ fontSize: 9, padding: "8px 16px" }}
+                          >
+                            Төлбөр хийх →
                           </Link>
-                          {(rental.contractStatus === "signed" || rental.contractStatus === "payment_pending") && (
-                            <Link to={`/payment/${rental._id}`}
-                              className="btn-outline-gold text-xs" style={{ padding: "8px 16px" }}>
-                              Төлбөр төлөх
-                            </Link>
-                          )}
-                          <button onClick={() => setShowCancelModal(rental._id)}
-                            className="text-xs px-4 py-2 border transition-colors"
-                            style={{ borderColor: "#FCA5A5", color: "#EF4444", background: "white" }}>
+                        )}
+                        <Link
+                          to={`/contract/${rental.application}`}
+                          className="btn-outline"
+                          style={{ fontSize: 9, padding: "8px 14px", textDecoration: "none" }}
+                        >
+                          Гэрээ
+                        </Link>
+                        {rental.status === "active" && (
+                          <button
+                            onClick={() => setCancelModal(rental)}
+                            className="btn-ghost"
+                            style={{ fontSize: 9, padding: "8px 14px", color: "#EF4444" }}
+                          >
                             Цуцлах
                           </button>
-                        </div>
-                      )}
-
-                      {rental.contractStatus === "cancelled" && rental.cancellationReason && (
-                        <div className="px-5 pb-5">
-                          <p className="text-xs p-3 border-l-2" style={{ borderColor: "#EF4444", background: "#FEF2F2", color: "#EF4444" }}>
-                            Цуцлах шалтгаан: {rental.cancellationReason}
-                          </p>
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -357,34 +201,48 @@ function MyRentals() {
         )}
       </div>
 
-      {/* Cancel modal */}
-      {showCancelModal && (
-        <div className="fixed inset-0 bg-black/60 flex items-end md:items-center justify-center z-50 p-0 md:p-4"
-          onClick={e => { if (e.target === e.currentTarget) { setShowCancelModal(null); setCancelReason(""); } }}>
-          <div className="bg-white w-full md:max-w-md p-8">
-            <div className="mb-6">
-              <p className="text-xs tracking-widest uppercase mb-1" style={{ color: "#EF4444" }}>Болгоомжтой</p>
-              <h2 className="font-display text-2xl font-light" style={{ color: "var(--ink)" }}>Гэрээ цуцлах</h2>
-              <p className="text-sm mt-2" style={{ color: "var(--text-muted)" }}>
-                Гэрээг цуцлахад нөгөө тал мэдэгдэл хүлээн авна.
+      {/* Cancel Modal */}
+      {cancelModal && (
+        <div
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 24 }}
+          onClick={(e) => { if (e.target === e.currentTarget) { setCancelModal(null); setCancelReason(""); } }}
+        >
+          <div style={{ width: "100%", maxWidth: 440, background: "var(--dark)", border: "1px solid var(--border)", borderTop: "1px solid #EF4444" }}>
+            <div style={{ padding: "28px 32px" }}>
+              <div className="flex items-center gap-3 mb-4">
+                <div style={{ width: 20, height: 1, background: "#EF4444" }} />
+                <span style={{ fontFamily: "'Montserrat'", fontSize: 9, letterSpacing: "0.22em", textTransform: "uppercase", color: "#EF4444" }}>
+                  Анхааруулга
+                </span>
+              </div>
+              <h2 className="font-display" style={{ fontSize: 28, fontWeight: 300, color: "var(--white)", marginBottom: 12 }}>
+                Түрээс цуцлах
+              </h2>
+              <p style={{ fontFamily: "'Montserrat'", fontSize: 11, fontWeight: 300, color: "var(--text-muted)", lineHeight: 1.7, marginBottom: 20 }}>
+                <span style={{ color: "var(--white)" }}>{cancelModal.property?.title}</span> байрны түрээсийг цуцлах гэж байна. Шалтгааныг тайлбарлана уу.
               </p>
-            </div>
-            <div className="mb-5">
-              <label className="block text-xs tracking-widest uppercase mb-2" style={{ color: "var(--text-muted)" }}>
-                Цуцлах шалтгаан
-              </label>
-              <textarea rows={3} placeholder="Шалтгааныг бичнэ үү..."
-                value={cancelReason} onChange={(e) => setCancelReason(e.target.value)}
-                className="luxury-input w-full resize-none" />
-            </div>
-            <div className="flex gap-3">
-              <button onClick={() => { setShowCancelModal(null); setCancelReason(""); }}
-                className="btn-ghost flex-1">Болих</button>
-              <button onClick={handleCancel} disabled={cancelling === showCancelModal}
-                className="flex-1 py-3 text-sm font-medium text-white transition-colors"
-                style={{ background: cancelling === showCancelModal ? "#FCA5A5" : "#EF4444" }}>
-                {cancelling === showCancelModal ? "Цуцалж байна..." : "Цуцлах"}
-              </button>
+              <textarea
+                value={cancelReason}
+                onChange={e => setCancelReason(e.target.value)}
+                placeholder="Цуцлах шалтгаан..."
+                rows={4}
+                style={{
+                  width: "100%", fontFamily: "'Montserrat'", fontSize: 12, fontWeight: 300,
+                  background: "var(--dark-2)", border: "1px solid var(--border-dim)", borderBottom: "1px solid var(--border)",
+                  color: "var(--white)", padding: "12px 16px", resize: "vertical", outline: "none",
+                  transition: "border-color 0.2s",
+                }}
+                onFocus={e => e.target.style.borderBottomColor = "var(--gold)"}
+                onBlur={e => e.target.style.borderBottomColor = "var(--border)"}
+              />
+              <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
+                <button onClick={() => { setCancelModal(null); setCancelReason(""); }} className="btn-ghost" style={{ flex: 1, padding: "12px 0" }}>
+                  Буцах
+                </button>
+                <button onClick={handleCancelSubmit} disabled={cancelling} className="btn-danger" style={{ flex: 1, padding: "12px 0", justifyContent: "center" }}>
+                  {cancelling ? "Цуцалж байна..." : "Цуцлах"}
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -392,5 +250,3 @@ function MyRentals() {
     </div>
   );
 }
-
-export default MyRentals;
