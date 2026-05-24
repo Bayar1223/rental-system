@@ -49,12 +49,30 @@ function Profile() {
         if (cancelled) return;
         const u = res.data;
         setMe(u);
-        setName(u.name || "");
+        // Шинэ (name) болон хуучин (firstName/lastName) хоёуланг дэмжих
+        const displayName =
+          u.name ||
+          [u.firstName, u.lastName].filter(Boolean).join(" ") ||
+          "";
+        setName(displayName);
         setEmail(u.email || "");
         setPhone((u.phone || "").replace(/^\+976/, ""));
       } catch (err) {
         if (cancelled) return;
-        setLoadError(err.response?.data?.message || "Уншиж чадсангүй");
+        // Сервер /api/auth/me endpoint байхгүй бол localStorage-аас унших
+        const status = err.response?.status;
+        if (status === 404 || status === undefined) {
+          setMe(user);
+          const displayName =
+            user.name ||
+            [user.firstName, user.lastName].filter(Boolean).join(" ") ||
+            "";
+          setName(displayName);
+          setEmail(user.email || "");
+          setPhone((user.phone || "").replace(/^\+976/, ""));
+        } else {
+          setLoadError(err.response?.data?.message || "Уншиж чадсангүй");
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }

@@ -54,12 +54,21 @@ function Notifications() {
     let cancelled = false;
     (async () => {
       try {
-        const res = await api.get("/api/notifications/me");
+        // Navbar-тай ижил endpoint ашиглах (/api/notifications)
+        // /api/notifications/me нь сервэрт байхгүй учир 404 буцаах
+        const res = await api.get("/api/notifications");
         if (cancelled) return;
-        setNotifs(res.data || []);
+        const raw = res.data?.notifications || res.data || [];
+        setNotifs(Array.isArray(raw) ? raw : []);
       } catch (err) {
         if (cancelled) return;
-        setError(err.response?.data?.message || "Татаж чадсангүй");
+        // Сервэрт endpoint байхгүй бол хоосон жагсаалт харуулна
+        const status = err.response?.status;
+        if (status === 404) {
+          setNotifs([]);
+        } else {
+          setError(err.response?.data?.message || "Татаж чадсангүй");
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
