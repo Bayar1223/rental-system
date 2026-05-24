@@ -6,6 +6,16 @@ const toNum = (val) => {
   return isNaN(n) ? undefined : n;
 };
 
+// ⭐ Boolean талбарыг шинэчлэх туслах функц
+// Хэрвээ client тал явуулсан бол шинэ утга, эс бөгөөс хуучин утгыг хадгална
+const updateBool = (val, oldVal) => {
+  if (val === undefined) return oldVal;
+  if (val === "true" || val === true) return true;
+  if (val === "false" || val === false) return false;
+  return oldVal;
+};
+
+// ─── GET /api/properties ───
 exports.getProperties = async (req, res) => {
   try {
     const {
@@ -13,7 +23,6 @@ exports.getProperties = async (req, res) => {
       page = 1, limit = 9,
     } = req.query;
 
-    // ← ӨӨРЧЛӨЛТ: зөвхөн "available" байр харагдана
     const filter = { status: "available" };
 
     if (city) filter["location.city"] = city;
@@ -66,6 +75,23 @@ exports.getProperties = async (req, res) => {
   }
 };
 
+// ─── GET /api/properties/landlord — нэвтэрсэн landlord-ийн байр ───
+// ⭐ ШИНЭ — Phase 3-ийн дутуу endpoint
+exports.getMyProperties = async (req, res) => {
+  try {
+    const userId = req.user._id || req.user.id;
+    const properties = await Property.find({ owner: userId })
+      .sort({ createdAt: -1 });
+    res.status(200).json({ properties });
+  } catch (error) {
+    res.status(500).json({
+      message: "Таны байруудыг авахад алдаа гарлаа",
+      error: error.message,
+    });
+  }
+};
+
+// ─── GET /api/properties/:id ───
 exports.getPropertyById = async (req, res) => {
   try {
     const property = await Property.findById(req.params.id).populate(
@@ -78,6 +104,7 @@ exports.getPropertyById = async (req, res) => {
   }
 };
 
+// ─── POST /api/properties ───
 exports.createProperty = async (req, res) => {
   try {
     const imageUrls = req.files ? req.files.map((file) => file.path) : [];
@@ -103,7 +130,6 @@ exports.createProperty = async (req, res) => {
       hasGarage:         req.body.hasGarage        === "true",
       isFurnished:       req.body.isFurnished       === "true",
       hasOutdoorParking: req.body.hasOutdoorParking === "true",
-      // ← НЭМСЭН: Газрын зургийн координат
       latitude:          toNum(req.body.latitude)  ?? null,
       longitude:         toNum(req.body.longitude) ?? null,
       images:            imageUrls,
@@ -116,6 +142,7 @@ exports.createProperty = async (req, res) => {
   }
 };
 
+// ─── PUT /api/properties/:id ───
 exports.updateProperty = async (req, res) => {
   try {
     const property = await Property.findById(req.params.id);
@@ -148,9 +175,14 @@ exports.updateProperty = async (req, res) => {
       title:                req.body.title               || property.title,
       description:          req.body.details || req.body.description || property.description || "",
       details:              req.body.details             || property.details,
+      propertyType:         req.body.propertyType        || property.propertyType,
       location,
-      monthlyRent:          numOrOld(req.body.monthlyRent,   property.monthlyRent),
-      paymentConditionText: req.body.paymentConditionText || property.paymentConditionText,
+      monthlyRent:          numOrOld(req.body.monthlyRent,    property.monthlyRent),
+      depositAmount:        numOrOld(req.body.depositAmount,  property.depositAmount),
+      minLeaseMonths:       numOrOld(req.body.minLeaseMonths, property.minLeaseMonths),
+      paymentConditionText: req.body.paymentConditionText !== undefined
+                              ? req.body.paymentConditionText
+                              : property.paymentConditionText,
       rooms:                numOrOld(req.body.rooms,         property.rooms),
       area:                 numOrOld(req.body.area,          property.area),
       balconyCount:         numOrOld(req.body.balconyCount,  property.balconyCount),
@@ -158,17 +190,17 @@ exports.updateProperty = async (req, res) => {
       windowCount:          numOrOld(req.body.windowCount,   property.windowCount),
       floorNumber:          numOrOld(req.body.floorNumber,   property.floorNumber),
       totalFloors:          numOrOld(req.body.totalFloors,   property.totalFloors),
-      floorMaterial:        req.body.floorMaterial  || property.floorMaterial,
-      doorType:             req.body.doorType        || property.doorType,
-      windowType:           req.body.windowType      || property.windowType,
-      garageInfo:           req.body.garageInfo      || property.garageInfo,
-      hasGarage:            req.body.hasGarage         === "true",
-      isFurnished:          req.body.isFurnished        === "true",
-      hasOutdoorParking:    req.body.hasOutdoorParking  === "true",
-      contactName:          req.body.contactName   || property.contactName,
-      contactPhone:         req.body.contactPhone  || property.contactPhone,
-      contactEmail:         req.body.contactEmail  || property.contactEmail,
-      // ← НЭМСЭН: Координат (илгээгдсэн бол шинэчлэх, эсвэл хуучнаар)
+      floorMaterial:        req.body.floorMaterial !== undefined ? req.body.floorMaterial : property.floorMaterial,
+      doorType:             req.body.doorType      !== undefined ? req.body.doorType      : property.doorType,
+      windowType:           req.body.windowType    !== undefined ? req.body.windowType    : property.windowType,
+      garageInfo:           req.body.garageInfo    !== undefined ? req.body.garageInfo    : property.garageInfo,
+      // ⭐ Phase 3г засвар — boolean талбарууд: явуулаагүй бол хуучин утга хэвээр
+      hasGarage:            updateBool(req.body.hasGarage,         property.hasGarage),
+      isFurnished:          updateBool(req.body.isFurnished,       property.isFurnished),
+      hasOutdoorParking:    updateBool(req.body.hasOutdoorParking, property.hasOutdoorParking),
+      contactName:          req.body.contactName  !== undefined ? req.body.contactName  : property.contactName,
+      contactPhone:         req.body.contactPhone !== undefined ? req.body.contactPhone : property.contactPhone,
+      contactEmail:         req.body.contactEmail !== undefined ? req.body.contactEmail : property.contactEmail,
       latitude:             toNum(req.body.latitude)  ?? property.latitude  ?? null,
       longitude:            toNum(req.body.longitude) ?? property.longitude ?? null,
       images:               allImages.length > 0 ? allImages : property.images,
@@ -186,6 +218,7 @@ exports.updateProperty = async (req, res) => {
   }
 };
 
+// ─── DELETE /api/properties/:id ───
 exports.deleteProperty = async (req, res) => {
   try {
     const property = await Property.findById(req.params.id);
