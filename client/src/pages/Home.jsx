@@ -635,7 +635,7 @@ function MapPopup({ property }) {
             {price}₮
           </div>
           <Link
-            to={`/property/${property._id}`}
+            to={`/properties/${property._id}`}
             style={{
               fontSize: 9,
               letterSpacing: "0.25em",

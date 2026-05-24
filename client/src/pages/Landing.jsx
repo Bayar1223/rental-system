@@ -345,7 +345,7 @@ export default function Landing() {
               />
             </svg>
             <div className="mt-3 text-center">
-              <p className="text-white text-sm font-light tracking-wide"></p>
+              <p className="text-white text-sm font-light tracking-wide">Б. Индра</p>
               <p
                 className="text-xs tracking-widest uppercase mt-1"
                 style={{ color: "var(--text-soft)" }}
@@ -451,7 +451,7 @@ export default function Landing() {
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-0">
               {featuredProperties.map((p, i) => (
                 <RevealSection key={p._id} delay={i * 0.08}>
-                  <Link to={`/property/${p._id}`} className="block group h-full">
+                  <Link to={`/properties/${p._id}`} className="block group h-full">
                     <article
                       className="h-full"
                       style={{

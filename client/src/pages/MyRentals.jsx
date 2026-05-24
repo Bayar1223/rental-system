@@ -310,7 +310,7 @@ function RentalCard({ rental }) {
     >
       {/* Image */}
       <Link
-        to={property._id ? `/property/${property._id}` : "#"}
+        to={property._id ? `/properties/${property._id}` : "#"}
         className="md:col-span-3 block relative overflow-hidden group"
         style={{
           aspectRatio: "4/3",

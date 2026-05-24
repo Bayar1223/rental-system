@@ -364,7 +364,7 @@ function LandlordApplicationCard({ app, onApprove, onReject, actioning }) {
     >
       {/* Image */}
       <Link
-        to={property._id ? `/property/${property._id}` : "#"}
+        to={property._id ? `/properties/${property._id}` : "#"}
         className="lg:col-span-2 block relative overflow-hidden group"
         style={{
           aspectRatio: "4/3",
@@ -541,7 +541,7 @@ function LandlordApplicationCard({ app, onApprove, onReject, actioning }) {
           )}
           {property._id && (
             <Link
-              to={`/property/${property._id}`}
+              to={`/properties/${property._id}`}
               className="w-full py-3 text-center text-[10px] tracking-[0.25em] uppercase text-white/60 hover:text-white transition-colors"
               style={{ border: "1px solid rgba(255,255,255,0.12)" }}
             >

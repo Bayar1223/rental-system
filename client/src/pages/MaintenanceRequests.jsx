@@ -278,7 +278,7 @@ function MaintenanceItem({ item, isLandlord }) {
       }
     >
       <Link
-        to={property._id ? `/property/${property._id}` : "#"}
+        to={property._id ? `/properties/${property._id}` : "#"}
         className="md:col-span-2 block relative overflow-hidden"
         style={{
           aspectRatio: "4/3",

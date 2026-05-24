@@ -187,7 +187,7 @@ function EditProperty() {
       await api.put(`/api/properties/${id}`, fd, {
         headers: { "Content-Type": "multipart/form-data" },
       });
-      navigate(`/property/${id}`);
+      navigate(`/properties/${id}`);
     } catch (err) {
       setError(
         err.response?.data?.message || "Хадгалахад алдаа гарлаа"
@@ -272,7 +272,7 @@ function EditProperty() {
 
       <div className="max-w-5xl mx-auto px-6 lg:px-12 py-8">
         <Link
-          to={`/property/${id}`}
+          to={`/properties/${id}`}
           className="text-[10px] tracking-[0.3em] uppercase text-white/40 hover:text-white transition-colors"
         >
           ← Дэлгэрэнгүй рүү буцах
@@ -702,7 +702,7 @@ function EditProperty() {
           style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}
         >
           <Link
-            to={`/property/${id}`}
+            to={`/properties/${id}`}
             className="flex-1 sm:flex-initial sm:px-8 py-4 text-center text-[10px] tracking-[0.25em] uppercase text-white/60 hover:text-white transition-colors"
             style={{ border: "1px solid rgba(255,255,255,0.12)" }}
           >

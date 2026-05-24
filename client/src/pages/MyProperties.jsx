@@ -268,7 +268,7 @@ function PropertyAdminCard({ property, onDelete, deleting }) {
     >
       {/* Image */}
       <Link
-        to={`/property/${property._id}`}
+        to={`/properties/${property._id}`}
         className="block relative aspect-[4/3] overflow-hidden"
       >
         <img
@@ -363,7 +363,7 @@ function PropertyAdminCard({ property, onDelete, deleting }) {
             Засах
           </Link>
           <Link
-            to={`/property/${property._id}`}
+            to={`/properties/${property._id}`}
             className="py-2.5 text-center text-[10px] tracking-[0.2em] uppercase text-white/60 hover:text-white transition-colors"
             style={{ border: "1px solid rgba(255,255,255,0.12)" }}
           >

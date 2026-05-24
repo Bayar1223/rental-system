@@ -22,7 +22,7 @@ function PropertyCard({ property }) {
 
   return (
     <Link
-      to={`/property/${_id}`}
+      to={`/properties/${_id}`}
       className="group relative block overflow-hidden transition-all duration-500"
       style={{
         background: "#141414",

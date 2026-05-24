@@ -243,7 +243,7 @@ function ApplicationCard({ app, onCancel, actioning }) {
     >
       {/* Image */}
       <Link
-        to={property._id ? `/property/${property._id}` : "#"}
+        to={property._id ? `/properties/${property._id}` : "#"}
         className="md:col-span-3 block relative overflow-hidden group"
         style={{
           aspectRatio: "4/3",
@@ -324,7 +324,7 @@ function ApplicationCard({ app, onCancel, actioning }) {
       <div className="md:col-span-3 flex md:flex-col gap-2 md:justify-center">
         {property._id && (
           <Link
-            to={`/property/${property._id}`}
+            to={`/properties/${property._id}`}
             className="flex-1 md:flex-initial py-2.5 px-4 text-center text-[10px] tracking-[0.25em] uppercase text-white/60 hover:text-white transition-colors"
             style={{ border: "1px solid rgba(255,255,255,0.12)" }}
           >

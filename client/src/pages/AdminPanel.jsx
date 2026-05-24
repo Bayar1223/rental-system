@@ -586,7 +586,7 @@ function PropertyRow({ property, onDelete, actioning }) {
       }}
     >
       <Link
-        to={`/property/${property._id}`}
+        to={`/properties/${property._id}`}
         className="col-span-3 md:col-span-1 block relative overflow-hidden"
         style={{
           aspectRatio: "1/1",
@@ -648,7 +648,7 @@ function PropertyRow({ property, onDelete, actioning }) {
 
       <div className="col-span-12 md:col-span-2 flex gap-2 justify-end">
         <Link
-          to={`/property/${property._id}`}
+          to={`/properties/${property._id}`}
           className="px-3 py-1.5 text-[10px] tracking-[0.2em] uppercase text-white/60 hover:text-white transition-colors"
           style={{ border: "1px solid rgba(255,255,255,0.12)" }}
         >
