@@ -345,7 +345,7 @@ export default function Landing() {
               />
             </svg>
             <div className="mt-3 text-center">
-              <p className="text-white text-sm font-light tracking-wide">Б. Индра</p>
+              <p className="text-white text-sm font-light tracking-wide"></p>
               <p
                 className="text-xs tracking-widest uppercase mt-1"
                 style={{ color: "var(--text-soft)" }}
