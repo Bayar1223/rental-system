@@ -39,10 +39,12 @@ function PropertyDetail() {
 
   const [lightboxIdx, setLightboxIdx] = useState(null);
 
-  const [applyOpen, setApplyOpen]       = useState(false);
-  const [applyMessage, setApplyMessage] = useState("");
-  const [applying, setApplying]         = useState(false);
-  const [applyError, setApplyError]     = useState("");
+  const [applyOpen, setApplyOpen]             = useState(false);
+  const [applyMessage, setApplyMessage]       = useState("");
+  const [applyStartDate, setApplyStartDate]   = useState("");
+  const [applyLeaseMonths, setApplyLeaseMonths] = useState("");
+  const [applying, setApplying]               = useState(false);
+  const [applyError, setApplyError]           = useState("");
 
   const [reviewRating, setReviewRating]         = useState(0);
   const [reviewComment, setReviewComment]       = useState("");
@@ -109,16 +111,32 @@ function PropertyDetail() {
   const handleApply = async (e) => {
     e?.preventDefault();
     if (!user) { navigate("/login"); return; }
+
+    // Validation
+    if (!applyStartDate) {
+      setApplyError("Эхлэх огноог оруулна уу");
+      return;
+    }
+    const months = Number(applyLeaseMonths);
+    if (!months || months < 1) {
+      setApplyError("Хугацааг сараар оруулна уу");
+      return;
+    }
+
     setApplying(true);
     setApplyError("");
     try {
       const res = await api.post("/api/applications", {
-        propertyId: id,
-        message: applyMessage,
+        propertyId:  id,
+        startDate:   applyStartDate,
+        leaseMonths: months,
+        message:     applyMessage,
       });
       setMyApplication(res.data);
       setApplyOpen(false);
       setApplyMessage("");
+      setApplyStartDate("");
+      setApplyLeaseMonths("");
     } catch (err) {
       setApplyError(err.response?.data?.message || "Өргөдөл илгээж чадсангүй");
     } finally {
@@ -661,8 +679,13 @@ function PropertyDetail() {
 
       {applyOpen && (
         <ApplyModal
-          onClose={() => setApplyOpen(false)} message={applyMessage} setMessage={setApplyMessage}
-          submitting={applying} error={applyError} onSubmit={handleApply} propertyTitle={property.title}
+          onClose={() => setApplyOpen(false)}
+          message={applyMessage} setMessage={setApplyMessage}
+          startDate={applyStartDate} setStartDate={setApplyStartDate}
+          leaseMonths={applyLeaseMonths} setLeaseMonths={setApplyLeaseMonths}
+          minLeaseMonths={minLeaseMonths}
+          submitting={applying} error={applyError} onSubmit={handleApply}
+          propertyTitle={property.title}
         />
       )}
     </div>
@@ -993,7 +1016,14 @@ function Lightbox({ photos, index, onChange, onClose }) {
   );
 }
 
-function ApplyModal({ onClose, message, setMessage, submitting, error, onSubmit, propertyTitle }) {
+function ApplyModal({
+  onClose, message, setMessage,
+  startDate, setStartDate, leaseMonths, setLeaseMonths, minLeaseMonths,
+  submitting, error, onSubmit, propertyTitle,
+}) {
+  const today = new Date().toISOString().split("T")[0];
+  const minMonths = minLeaseMonths || 1;
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-6 animate-fadeIn"
@@ -1031,13 +1061,57 @@ function ApplyModal({ onClose, message, setMessage, submitting, error, onSubmit,
           )}
 
           <form onSubmit={onSubmit}>
+            {/* Эхлэх огноо */}
+            <div className="mb-5">
+              <label className="block text-[10px] tracking-[0.25em] uppercase text-white/40 mb-3">
+                Эхлэх огноо
+              </label>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                min={today}
+                required
+                className="w-full bg-transparent text-white text-sm py-3 px-4 outline-none transition-colors"
+                style={{ border: "1px solid rgba(255,255,255,0.15)", colorScheme: "dark" }}
+                onFocus={(e) => (e.target.style.borderColor = "#C9A84C")}
+                onBlur={(e) => (e.target.style.borderColor = "rgba(255,255,255,0.15)")}
+              />
+            </div>
+
+            {/* Хугацаа */}
+            <div className="mb-5">
+              <label className="block text-[10px] tracking-[0.25em] uppercase text-white/40 mb-3">
+                Түрээслэх хугацаа (сар)
+              </label>
+              <input
+                type="number"
+                value={leaseMonths}
+                onChange={(e) => setLeaseMonths(e.target.value)}
+                min={minMonths}
+                step={1}
+                placeholder={`${minMonths}+`}
+                required
+                className="w-full bg-transparent text-white text-sm py-3 px-4 outline-none transition-colors"
+                style={{ border: "1px solid rgba(255,255,255,0.15)" }}
+                onFocus={(e) => (e.target.style.borderColor = "#C9A84C")}
+                onBlur={(e) => (e.target.style.borderColor = "rgba(255,255,255,0.15)")}
+              />
+              {minLeaseMonths > 1 && (
+                <p className="text-[10px] tracking-[0.2em] uppercase text-white/40 mt-2">
+                  Хамгийн бага: {minLeaseMonths} сар
+                </p>
+              )}
+            </div>
+
+            {/* Захидал */}
             <div className="mb-6">
               <label className="block text-[10px] tracking-[0.25em] uppercase text-white/40 mb-3">
                 Захидал (заавал биш)
               </label>
               <textarea
                 value={message} onChange={(e) => setMessage(e.target.value)}
-                placeholder="Өөрийгөө танилцуулж, түрээслэх шалтгаанаа бичээрэй..." rows={5}
+                placeholder="Өөрийгөө танилцуулж, түрээслэх шалтгаанаа бичээрэй..." rows={4}
                 className="w-full bg-transparent text-white text-sm py-3 px-4 outline-none resize-none transition-colors"
                 style={{ border: "1px solid rgba(255,255,255,0.15)" }}
                 onFocus={(e) => (e.target.style.borderColor = "#C9A84C")}
