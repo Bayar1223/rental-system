@@ -532,7 +532,7 @@ function Contract() {
 
           {needsPayment && isTenant && (
             <Link
-              to={`/payment/${app._id}`}
+              to={`/payments/${app._id}`}
               className="sm:px-8 py-3 text-center text-[10px] tracking-[0.25em] uppercase transition-all duration-300 group flex items-center justify-center gap-2"
               style={{ background: "#C9A84C", color: "#0A0A0A" }}
               onMouseEnter={(e) =>
@@ -551,7 +551,7 @@ function Contract() {
 
           {isActive && (
             <Link
-              to={`/payment/${app._id}`}
+              to={`/payments/${app._id}`}
               className="sm:px-8 py-3 text-center text-[10px] tracking-[0.25em] uppercase transition-all duration-300"
               style={{ background: "#C9A84C", color: "#0A0A0A" }}
               onMouseEnter={(e) =>

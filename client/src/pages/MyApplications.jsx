@@ -348,7 +348,7 @@ function ApplicationCard({ app, onCancel, actioning }) {
         )}
         {canViewPayment && (
           <Link
-            to={`/payment/${app._id}`}
+            to={`/payments/${app._id}`}
             className="flex-1 md:flex-initial py-2.5 px-4 text-center text-[10px] tracking-[0.25em] uppercase transition-all duration-300"
             style={{
               border: "1px solid #C9A84C",

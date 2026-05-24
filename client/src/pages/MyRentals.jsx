@@ -435,7 +435,7 @@ function RentalCard({ rental }) {
           )}
           {needsPayment && (
             <Link
-              to={`/payment/${rental._id}`}
+              to={`/payments/${rental._id}`}
               className="w-full py-3 text-center text-[10px] tracking-[0.25em] uppercase transition-all duration-300"
               style={{ background: "#C9A84C", color: "#0A0A0A" }}
               onMouseEnter={(e) =>
@@ -450,7 +450,7 @@ function RentalCard({ rental }) {
           )}
           {isActive && (
             <Link
-              to={`/payment/${rental._id}`}
+              to={`/payments/${rental._id}`}
               className="w-full py-3 text-center text-[10px] tracking-[0.25em] uppercase transition-all duration-300"
               style={{ background: "#C9A84C", color: "#0A0A0A" }}
               onMouseEnter={(e) =>
