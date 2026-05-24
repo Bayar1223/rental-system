@@ -16,6 +16,7 @@ import EditProperty from "./pages/EditProperty";
 import Profile from "./pages/Profile";
 import MyRentals from "./pages/MyRentals";
 import Payment from "./pages/Payment";
+import MyPayments from "./pages/MyPayments"; // ⭐ ШИНЭ
 import Notifications from "./pages/Notifications";
 import AdminPanel from "./pages/AdminPanel";
 import ForgotPassword from "./pages/ForgotPassword";
@@ -85,6 +86,7 @@ function App() {
         <Route path="/my-rentals" element={<MyRentals />} />
         {/* applicationId-г URL-аас уншина (Payment.jsx-н useParams) */}
         <Route path="/payments/:applicationId" element={<Payment />} />
+        <Route path="/payments" element={<MyPayments />} /> {/* ⭐ ШИНЭ */}
         <Route path="/notifications" element={<Notifications />} />
         <Route path="/admin" element={<AdminPanel />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />

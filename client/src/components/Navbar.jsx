@@ -38,7 +38,6 @@ function Navbar() {
 
   const user = currentUser;
 
-  // Хэрэглэгчийн нэрийг firstName ЭСВЭЛ name-аас гаргаж авна (хоёр хувилбарын зэрэгцэх)
   const displayName = useMemo(() => {
     if (!user) return "";
     if (user.firstName) return user.firstName;
@@ -57,14 +56,12 @@ function Navbar() {
     return (user.firstName || user.name || "?").charAt(0).toUpperCase();
   }, [user]);
 
-  // ── Scroll detection ──
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
     window.addEventListener("scroll", onScroll);
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  // ── Notification polling (every 30s) ──
   useEffect(() => {
     if (!user) return;
     const token = localStorage.getItem("token");
@@ -90,7 +87,6 @@ function Navbar() {
     };
   }, [user]);
 
-  // ── Хэрэглэгчийн өөрчлөлтийг бусад tab/event-аар сонсох ──
   useEffect(() => {
     const handler = () => {
       try {
@@ -107,7 +103,6 @@ function Navbar() {
     };
   }, []);
 
-  // ── Click outside dropdown ──
   useEffect(() => {
     const handler = (e) => {
       if (notifRef.current && !notifRef.current.contains(e.target)) {
@@ -121,9 +116,6 @@ function Navbar() {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  // ── Route өөрчлөгдөхөд бүх dropdown-ыг хаах ──
-  // (React-ийн албан ёсны pattern: useEffect ч биш, useRef ч биш —
-  //  useState + render-ийн үед conditional comparison)
   const [lastPath, setLastPath] = useState(location.pathname);
   if (lastPath !== location.pathname) {
     setLastPath(location.pathname);
@@ -181,7 +173,6 @@ function Navbar() {
             ]
           : [{ to: "/home", label: "Байр" }];
 
-  // ── Хэрэглэгчийн dropdown menu ──
   const userMenuItems = [
     { to: "/profile", label: "Профайл" },
     { to: "/notifications", label: "Мэдэгдэл" },
@@ -200,7 +191,6 @@ function Navbar() {
     ...(user?.role === "admin" ? [{ to: "/admin", label: "Админ самбар" }] : []),
   ];
 
-  // ── Хар scrolled background (CSS variable дээр /95 opacity ажиллахгүй тул inline) ──
   const navStyle = scrolled
     ? {
         height: 72,
@@ -217,7 +207,6 @@ function Navbar() {
         style={navStyle}
       >
         <div className="max-w-7xl mx-auto px-6 lg:px-10 h-full flex items-center justify-between">
-          {/* Logo */}
           <Link to={user ? "/home" : "/"} className="flex items-center gap-3 group">
             <div className="relative w-8 h-8">
               <div
@@ -239,7 +228,6 @@ function Navbar() {
             </div>
           </Link>
 
-          {/* Desktop center nav */}
           <div className="hidden md:flex items-center gap-1">
             {navLinks.map(({ to, label }) => (
               <Link
@@ -271,11 +259,9 @@ function Navbar() {
             ))}
           </div>
 
-          {/* Right side */}
           <div className="flex items-center gap-3">
             {user ? (
               <>
-                {/* Bell */}
                 <div className="relative" ref={notifRef}>
                   <button
                     onClick={handleBellClick}
@@ -300,14 +286,19 @@ function Navbar() {
                         d="M15 17H9m6 0a6 6 0 10-6 0m6 0v1a2 2 0 11-4 0v-1M12 3v1"
                       />
                     </svg>
+                    {/* ⭐ ЗАСВАР: dot биш — тоотой алтан badge */}
                     {unreadCount > 0 && (
                       <span
-                        className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full"
+                        className="absolute top-1 right-1 min-w-[16px] h-[16px] px-1 flex items-center justify-center rounded-full text-[10px] font-semibold leading-none"
                         style={{
                           background: "var(--gold)",
+                          color: "#0A0A0A",
+                          fontFamily: "'DM Sans', sans-serif",
                           animation: "pulseGold 2s infinite",
                         }}
-                      />
+                      >
+                        {unreadCount > 9 ? "9+" : unreadCount}
+                      </span>
                     )}
                   </button>
 
@@ -417,7 +408,6 @@ function Navbar() {
                   )}
                 </div>
 
-                {/* User menu */}
                 <div className="relative" ref={userMenuRef}>
                   <button
                     onClick={() => setShowUserMenu((p) => !p)}
@@ -541,7 +531,6 @@ function Navbar() {
                   )}
                 </div>
 
-                {/* Mobile burger */}
                 <button
                   onClick={() => setMobileOpen((p) => !p)}
                   className="md:hidden w-10 h-10 flex flex-col items-center justify-center gap-1"
@@ -578,7 +567,6 @@ function Navbar() {
           </div>
         </div>
 
-        {/* Бүхэл өргөнтэй алтан байрс */}
         <div
           className="h-px"
           style={{
@@ -588,7 +576,6 @@ function Navbar() {
         />
       </nav>
 
-      {/* Mobile fullscreen menu */}
       {mobileOpen && user && (
         <div
           className="md:hidden fixed inset-0 z-40 pt-20 animate-fadeIn"
@@ -625,7 +612,6 @@ function Navbar() {
               ))}
             </div>
 
-            {/* User menu items in mobile */}
             <div className="space-y-0 mb-8">
               {userMenuItems.map(({ to, label }) => (
                 <Link

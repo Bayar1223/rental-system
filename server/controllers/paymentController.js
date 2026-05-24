@@ -33,7 +33,6 @@ exports.generatePayments = async (applicationId) => {
 
     if (!application) return;
 
-    // Аль хэдийн үүсгэсэн бол дахин үүсгэхгүй
     const existing = await Payment.countDocuments({ application: applicationId });
     if (existing > 0) return;
 
@@ -45,8 +44,8 @@ exports.generatePayments = async (applicationId) => {
       parsePaymentCondition(conditionText);
 
     const payments = [];
-    let currentDate    = new Date(startDate);
-    let paymentNumber  = 1;
+    let currentDate     = new Date(startDate);
+    let paymentNumber   = 1;
     let remainingMonths = leaseMonths;
 
     while (remainingMonths > 0) {
@@ -76,38 +75,35 @@ exports.generatePayments = async (applicationId) => {
         totalAmount,
         includesDeposit: isFirst && depositMonths > 0,
         periodMonths:    thisPeriodMonths,
-        // ← ӨӨРЧЛӨЛТ: Эхний төлбөр "urgent", бусад "pending"
         status: isFirst ? "urgent" : "pending",
       });
 
-      currentDate = new Date(periodEnd);
+      currentDate     = new Date(periodEnd);
       remainingMonths -= thisPeriodMonths;
       paymentNumber++;
     }
 
     await Payment.insertMany(payments);
 
-    // ← ӨӨРЧЛӨЛТ: Гэрээний статус "payment_pending" болгоно
     await Application.findByIdAndUpdate(applicationId, {
       contractStatus: "payment_pending",
     });
 
-    // Tenant-д мэдэгдэл — /payments рүү чиглүүлнэ
+    // ⭐ ЗАСВАР: link → /payments/${applicationId} (specific app)
     await createNotification({
       user:    tenant._id,
       title:   "Эхний төлбөрөө төлнө үү 💳",
       message: `"${property.title}" байрны гэрээ баталгаажлаа. Эхний төлбөр: ${payments[0]?.totalAmount?.toLocaleString()}₮. Төлбөрөө төлснөөр гэрээ идэвхжинэ.`,
       type:    "general",
-      link:    "/payments",
+      link:    `/payments/${applicationId}`,
     });
 
-    // Landlord-д мэдэгдэл
     await createNotification({
       user:    landlord._id,
       title:   "Гэрээ баталгаажлаа, төлбөр хүлээгдэж байна",
       message: `"${property.title}" байрны гэрээнд хоёр тал гарын үсэг зурлаа. Эхний төлбөр хүлээгдэж байна.`,
       type:    "general",
-      link:    "/payments",
+      link:    `/payments/${applicationId}`,
     });
 
     console.log(`✓ ${payments.length} төлбөр үүслээ (applicationId: ${applicationId})`);
@@ -125,6 +121,7 @@ exports.getMyPayments = async (req, res) => {
     const payments = await Payment.find({ tenant: userId })
       .populate("property", "title location monthlyRent images")
       .populate("application", "contractStatus")
+      .populate("landlord", "firstName lastName email phone")
       .sort({ paymentNumber: 1 });
     res.json(payments);
   } catch (error) {
@@ -202,12 +199,12 @@ exports.markAsPaid = async (req, res) => {
     payment.paymentMethod = paymentMethod;
     await payment.save();
 
-    // ← ӨӨРЧЛӨЛТ: Эхний төлбөр төлсөн бол гэрээ "active" болно
     if (payment.paymentNumber === 1) {
       await Application.findByIdAndUpdate(payment.application, {
         contractStatus: "active",
       });
 
+      // ⭐ ЗАСВАР: link → /my-rentals (tenant-д), /payments/${applicationId} (landlord-д)
       await createNotification({
         user:    payment.tenant._id,
         title:   "Гэрээ идэвхжлээ! 🎉",
@@ -221,16 +218,16 @@ exports.markAsPaid = async (req, res) => {
         title:   "Эхний төлбөр хийгдлээ ✓",
         message: `"${payment.property.title}" байрны эхний төлбөр (${payment.totalAmount.toLocaleString()}₮) хийгдлээ. Гэрээ идэвхтэй боллоо.`,
         type:    "general",
-        link:    "/payments",
+        link:    `/payments/${payment.application}`,
       });
     } else {
-      // Дараагийн төлбөрүүд
+      // ⭐ ЗАСВАР: specific app link
       await createNotification({
         user:    payment.landlord._id,
         title:   "Төлбөр хийгдлээ ✓",
         message: `"${payment.property.title}" байрны ${payment.paymentNumber}-р төлбөр (${payment.totalAmount.toLocaleString()}₮) хийгдлээ.`,
         type:    "general",
-        link:    "/payments",
+        link:    `/payments/${payment.application}`,
       });
     }
 
