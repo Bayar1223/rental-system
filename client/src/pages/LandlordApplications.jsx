@@ -79,9 +79,7 @@ function LandlordApplications() {
       return;
     setActioningId(id);
     try {
-      const res = await api.put(`/api/applications/${id}`, {
-        status: "approved",
-      });
+      const res = await api.put(`/api/applications/${id}/status`, { status: "approved" });
       setApps((prev) =>
         prev.map((a) =>
           a._id === id ? { ...a, status: "approved", ...(res.data || {}) } : a
@@ -99,9 +97,7 @@ function LandlordApplications() {
       return;
     setActioningId(id);
     try {
-      const res = await api.put(`/api/applications/${id}`, {
-        status: "rejected",
-      });
+      const res = await api.put(`/api/applications/${id}/status`, { status: "rejected" });
       setApps((prev) =>
         prev.map((a) =>
           a._id === id ? { ...a, status: "rejected", ...(res.data || {}) } : a

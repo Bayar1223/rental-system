@@ -50,7 +50,7 @@ function MyRentals() {
     let cancelled = false;
     (async () => {
       try {
-        const res = await api.get("/api/applications/me");
+        const res = await api.get("/api/applications/my");
         if (cancelled) return;
         // Зөвхөн идэвхтэй гэрээтэй өргөдлүүд
         const onlyRentals = (res.data || []).filter((a) =>

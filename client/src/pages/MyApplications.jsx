@@ -47,7 +47,7 @@ function MyApplications() {
     let cancelled = false;
     (async () => {
       try {
-        const res = await api.get("/api/applications/me");
+        const res = await api.get("/api/applications/my");
         if (cancelled) return;
         setApps(res.data || []);
       } catch (err) {
@@ -69,9 +69,7 @@ function MyApplications() {
     if (!confirm("Та өргөдлөө цуцлахдаа итгэлтэй байна уу?")) return;
     setActioningId(id);
     try {
-      const res = await api.put(`/api/applications/${id}`, {
-        status: "cancelled",
-      });
+      const res = await api.put(`/api/applications/${id}/cancel`, { reason: "Хэрэглэгч өөрөө цуцалсан" });
       setApps((prev) =>
         prev.map((a) =>
           a._id === id ? { ...a, status: "cancelled", ...(res.data || {}) } : a

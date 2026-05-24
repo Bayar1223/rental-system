@@ -95,7 +95,7 @@ function Notifications() {
     setActioning(true);
     setNotifs((prev) => prev.map((n) => ({ ...n, read: true })));
     try {
-      await api.patch("/api/notifications/read-all");
+      await api.put("/api/notifications/mark-all-read", {});
     } catch (err) {
       alert(err.response?.data?.message || "Алдаа гарлаа");
     } finally {

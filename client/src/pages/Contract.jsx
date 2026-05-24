@@ -77,7 +77,7 @@ function Contract() {
         role === "tenant"
           ? { tenantSignature: dataURL }
           : { landlordSignature: dataURL };
-      const res = await api.put(`/api/applications/${id}`, body);
+      const res = await api.put(`/api/applications/${id}/sign`, body);
       setApp((prev) => ({ ...prev, ...(res.data || {}) }));
     } catch (err) {
       setError(err.response?.data?.message || "Хадгалж чадсангүй");
@@ -95,10 +95,7 @@ function Contract() {
       return;
     setCancelling(true);
     try {
-      const res = await api.put(`/api/applications/${id}`, {
-        contractStatus: "cancelled",
-        status: "cancelled",
-      });
+      const res = await api.put(`/api/applications/${id}/cancel`, { reason: "Талын аль нэгээс цуцлав" });
       setApp((prev) => ({ ...prev, ...(res.data || {}) }));
     } catch (err) {
       alert(err.response?.data?.message || "Цуцалж чадсангүй");
