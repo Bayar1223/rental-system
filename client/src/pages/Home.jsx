@@ -51,24 +51,33 @@ function Home() {
   });
 
   useEffect(() => {
-    let mounted = true;
+    let cancelled = false;
     (async () => {
-      setLoading(true);
       try {
         const res = await api.get("/api/properties");
-        if (mounted) setProperties(res.data || []);
+        if (cancelled) return;
+        // Server might respond as either:
+        //   1) [ {...}, {...} ]                   ← шууд массив
+        //   2) { properties: [ {...} ], total }   ← paginated wrapper
+        //   3) { data: [...] }                    ← бусад wrapper
+        const raw = res.data?.properties || res.data?.data || res.data || [];
+        setProperties(Array.isArray(raw) ? raw : []);
       } catch (err) {
+        if (cancelled) return;
         console.error(err);
+        setProperties([]); // алдаа гарвал хоосон массив, "е.filter is not a function" болохгүй
       } finally {
-        if (mounted) setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     })();
     return () => {
-      mounted = false;
+      cancelled = true;
     };
   }, []);
 
   const filtered = useMemo(() => {
+    // Хамгаалалт: properties массив биш бол хоосон жагсаалт буцаах
+    if (!Array.isArray(properties)) return [];
     let r = properties.filter((p) => p.status === "available");
     const { search, district, minPrice, maxPrice, rooms, sort } = filters;
 
