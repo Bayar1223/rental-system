@@ -159,12 +159,14 @@ function Navbar() {
           { to: "/home", label: "Байр" },
           { to: "/my-applications", label: "Хүсэлт" },
           { to: "/my-rentals", label: "Түрээс" },
+          { to: "/payments", label: "Төлбөр" },
         ]
       : user?.role === "landlord"
         ? [
             { to: "/home", label: "Байр" },
             { to: "/my-properties", label: "Миний байр" },
             { to: "/landlord-applications", label: "Хүсэлт" },
+            { to: "/payments", label: "Орлого" },
           ]
         : user?.role === "admin"
           ? [
@@ -179,12 +181,14 @@ function Navbar() {
     ...(user?.role === "tenant"
       ? [
           { to: "/my-rentals", label: "Миний түрээс" },
+          { to: "/payments", label: "Миний төлбөр" },
           { to: "/maintenance", label: "Барьцаа суутгал" },
         ]
       : []),
     ...(user?.role === "landlord"
       ? [
           { to: "/add-property", label: "Байр нэмэх" },
+          { to: "/payments", label: "Орлого" },
           { to: "/maintenance", label: "Барьцаа суутгал" },
         ]
       : []),
