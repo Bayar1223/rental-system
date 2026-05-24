@@ -92,6 +92,65 @@ exports.getMyProperties = async (req, res) => {
   }
 };
 
+// ─── GET /api/properties/:id/similar — ижил төстэй байр санал болгох ───
+// ⭐ ШИНЭ
+exports.getSimilarProperties = async (req, res) => {
+  try {
+    const current = await Property.findById(req.params.id);
+    if (!current) return res.status(404).json({ message: "Байр олдсонгүй" });
+
+    const district = current.location?.district;
+    const city     = current.location?.city;
+    const rent     = current.monthlyRent || 0;
+    const rooms    = current.rooms || 1;
+
+    // Үнийн хязгаар ±40%
+    const minRent = Math.max(0, rent * 0.6);
+    const maxRent = rent > 0 ? rent * 1.4 : Number.MAX_SAFE_INTEGER;
+
+    const baseFilter = {
+      _id:    { $ne: current._id },
+      status: "available",
+    };
+
+    // 1) Эхлээд ИЖИЛ ДҮҮРЭГТ хайна (тэргүүлэх ач холбогдол)
+    let similar = [];
+    if (district) {
+      similar = await Property.find({
+        ...baseFilter,
+        "location.district": district,
+        monthlyRent: { $gte: minRent, $lte: maxRent },
+        rooms:       { $gte: Math.max(1, rooms - 1), $lte: rooms + 1 },
+      })
+        .populate("owner", "firstName lastName")
+        .sort({ createdAt: -1 })
+        .limit(6);
+    }
+
+    // 2) Хангалттай олдоогүй бол ижил хотноос (өөр дүүргээс)
+    if (similar.length < 3 && city) {
+      const need = 6 - similar.length;
+      const more = await Property.find({
+        ...baseFilter,
+        "location.city":     city,
+        "location.district": { $ne: district },
+        _id: { $nin: [current._id, ...similar.map((s) => s._id)] },
+      })
+        .populate("owner", "firstName lastName")
+        .sort({ createdAt: -1 })
+        .limit(need);
+      similar = [...similar, ...more];
+    }
+
+    res.status(200).json(similar);
+  } catch (error) {
+    res.status(500).json({
+      message: "Ижил төстэй байр хайхад алдаа гарлаа",
+      error: error.message,
+    });
+  }
+};
+
 // ─── GET /api/properties/:id ───
 exports.getPropertyById = async (req, res) => {
   try {

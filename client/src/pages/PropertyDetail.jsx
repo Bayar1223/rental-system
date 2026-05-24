@@ -32,6 +32,7 @@ function PropertyDetail() {
 
   const [property, setProperty]           = useState(null);
   const [reviews, setReviews]             = useState([]);
+  const [similar, setSimilar]             = useState([]);
   const [myApplication, setMyApplication] = useState(null);
   const [loading, setLoading]             = useState(true);
   const [notFound, setNotFound]           = useState(false);
@@ -53,13 +54,15 @@ function PropertyDetail() {
     let cancelled = false;
     (async () => {
       try {
-        const [propRes, revRes] = await Promise.all([
+        const [propRes, revRes, simRes] = await Promise.all([
           api.get(`/api/properties/${id}`),
           api.get(`/api/reviews?propertyId=${id}`).catch(() => ({ data: [] })),
+          api.get(`/api/properties/${id}/similar`).catch(() => ({ data: [] })),
         ]);
         if (cancelled) return;
         setProperty(propRes.data);
         setReviews(Array.isArray(revRes.data) ? revRes.data : []);
+        setSimilar(Array.isArray(simRes.data) ? simRes.data : []);
       } catch {
         if (cancelled) return;
         setNotFound(true);
@@ -628,6 +631,28 @@ function PropertyDetail() {
             </div>
           )}
         </div>
+
+        {/* ── Ижил төстэй байр ── */}
+        {similar.length > 0 && (
+          <div className="mt-20 pt-12" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+            <div className="flex items-center gap-3 mb-3">
+              <div className="h-px w-8" style={{ background: "#C9A84C" }} />
+              <span className="text-[10px] tracking-[0.3em] uppercase" style={{ color: "#C9A84C" }}>
+                Ижил төстэй
+              </span>
+            </div>
+            <h2
+              className="font-light text-white mb-12 leading-tight"
+              style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 44 }}
+            >
+              Танд таалагдаж<br />
+              <em style={{ color: "#C9A84C", fontStyle: "italic" }}>магадгүй</em>
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {similar.map((p) => <SimilarCard key={p._id} property={p} />)}
+            </div>
+          </div>
+        )}
       </section>
 
       {lightboxIdx !== null && (
@@ -665,6 +690,61 @@ function SpecCard({ label, value }) {
         {value}
       </div>
     </div>
+  );
+}
+
+function SimilarCard({ property }) {
+  const img = property.images?.[0] || PLACEHOLDER;
+  const rent = new Intl.NumberFormat("mn-MN").format(property.monthlyRent || 0);
+  const district = property.location?.district || "";
+  const area = property.area;
+  const rooms = property.rooms;
+
+  return (
+    <Link
+      to={`/properties/${property._id}`}
+      className="block group transition-all duration-300"
+      style={{ border: "1px solid rgba(201,168,76,0.15)", background: "#0F0F0F" }}
+      onMouseEnter={(e) => (e.currentTarget.style.borderColor = "rgba(201,168,76,0.5)")}
+      onMouseLeave={(e) => (e.currentTarget.style.borderColor = "rgba(201,168,76,0.15)")}
+    >
+      <div className="aspect-[4/3] overflow-hidden" style={{ background: "#141414" }}>
+        <img
+          src={img}
+          alt={property.title}
+          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+          style={{ filter: "brightness(0.85)" }}
+          onError={(e) => (e.currentTarget.src = PLACEHOLDER)}
+        />
+      </div>
+      <div className="p-5">
+        <div className="text-[10px] tracking-[0.3em] uppercase mb-2" style={{ color: "#C9A84C" }}>
+          {district || "—"}
+        </div>
+        <h3
+          className="font-light text-white mb-4 leading-tight"
+          style={{
+            fontFamily: "'Cormorant Garamond', serif",
+            fontSize: 22,
+            display: "-webkit-box",
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: "vertical",
+            overflow: "hidden",
+          }}
+        >
+          {property.title}
+        </h3>
+        <div className="flex items-center justify-between pt-3" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+          <span className="text-white/60 text-xs">
+            {rooms ? `${rooms} өрөө` : ""}
+            {area ? ` · ${area}м²` : ""}
+          </span>
+          <span style={{ color: "#C9A84C", fontFamily: "'Cormorant Garamond', serif", fontSize: 18 }}>
+            {rent}₮
+          </span>
+        </div>
+      </div>
+    </Link>
   );
 }
 
