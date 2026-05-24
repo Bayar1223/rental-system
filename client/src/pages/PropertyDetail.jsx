@@ -383,39 +383,30 @@ function PropertyDetail() {
               </p>
             </DetailSection>
 
-            {/* ── Үндсэн тодорхойлолт ── */}
-            <DetailSection title="Тодорхойлолт">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-px" style={{ background: "rgba(201,168,76,0.15)", border: "1px solid rgba(201,168,76,0.15)" }}>
+            {/* ── Үндсэн үзүүлэлт (нэгтгэсэн) ── */}
+            <DetailSection title="Үзүүлэлт">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                 <SpecCard label="Өрөө" value={property.rooms ?? "—"} />
                 <SpecCard label="Талбай" value={area ? `${area}м²` : "—"} />
                 <SpecCard label="Дүүрэг" value={districtValue || "—"} />
                 <SpecCard label="Төлөв" value={isAvailable ? "Боломжтой" : "Түрээслэгдсэн"} />
+                {(floorNumber || totalFloors) && (
+                  <SpecCard
+                    label="Давхар"
+                    value={
+                      floorNumber && totalFloors ? `${floorNumber} / ${totalFloors}` :
+                      floorNumber || totalFloors
+                    }
+                  />
+                )}
+                {builtYear && <SpecCard label="Барьсан жил" value={builtYear} />}
+                {balconyCount > 0 && <SpecCard label="Балкон" value={balconyCount} />}
+                {windowCount && <SpecCard label="Цонхны тоо" value={windowCount} />}
+                {windowType && <SpecCard label="Цонх" value={windowType} />}
+                {floorMaterial && <SpecCard label="Шал" value={floorMaterial} />}
+                {doorType && <SpecCard label="Хаалга" value={doorType} />}
               </div>
             </DetailSection>
-
-            {/* ── Дэлгэрэнгүй ── */}
-            {(floorNumber || totalFloors || builtYear || balconyCount > 0 || windowCount ||
-              windowType || floorMaterial || doorType) && (
-              <DetailSection title="Дэлгэрэнгүй">
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-px" style={{ background: "rgba(201,168,76,0.15)", border: "1px solid rgba(201,168,76,0.15)" }}>
-                  {(floorNumber || totalFloors) && (
-                    <SpecCard
-                      label="Давхар"
-                      value={
-                        floorNumber && totalFloors ? `${floorNumber} / ${totalFloors}` :
-                        floorNumber || totalFloors || "—"
-                      }
-                    />
-                  )}
-                  {builtYear && <SpecCard label="Барьсан жил" value={builtYear} />}
-                  {balconyCount > 0 && <SpecCard label="Балкон" value={balconyCount} />}
-                  {windowCount && <SpecCard label="Цонхны тоо" value={windowCount} />}
-                  {windowType && <SpecCard label="Цонх" value={windowType} />}
-                  {floorMaterial && <SpecCard label="Шал" value={floorMaterial} />}
-                  {doorType && <SpecCard label="Хаалга" value={doorType} />}
-                </div>
-              </DetailSection>
-            )}
 
             {/* ── Үйлчилгээ & нэмэлт ── */}
             {(isFurnished || hasGarage || hasOutdoorParking) && (
@@ -450,8 +441,20 @@ function PropertyDetail() {
               <DetailSection title="Холбоо барих">
                 <div className="space-y-3" style={{ border: "1px solid rgba(201,168,76,0.15)", padding: 20 }}>
                   {contactName && <InfoRow label="Нэр" value={contactName} />}
-                  {contactPhone && <InfoRow label="Утас" value={contactPhone} />}
-                  {contactEmail && <InfoRow label="Имэйл" value={contactEmail} />}
+                  {contactPhone && (
+                    <InfoRow
+                      label="Утас"
+                      value={contactPhone}
+                      href={`tel:${contactPhone.replace(/\s+/g, "")}`}
+                    />
+                  )}
+                  {contactEmail && (
+                    <InfoRow
+                      label="Имэйл"
+                      value={contactEmail}
+                      href={`mailto:${contactEmail}`}
+                    />
+                  )}
                 </div>
               </DetailSection>
             )}
@@ -490,17 +493,16 @@ function PropertyDetail() {
                 </div>
                 <div className="text-[10px] tracking-[0.25em] uppercase text-white/30 mb-8">/ сар</div>
 
-                <div className="space-y-3 mb-8 pb-8" style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
-                  {depositAmount > 0 && (
-                    <SideRow label="Барьцаа" value={`${formattedDeposit}₮`} highlight />
-                  )}
-                  <SideRow label="Дүүрэг" value={districtValue || "—"} />
-                  <SideRow label="Өрөө"   value={property.rooms ?? "—"} />
-                  <SideRow label="Талбай" value={area ? `${area}м²` : "—"} />
-                  {minLeaseMonths && (
-                    <SideRow label="Хамгийн бага хугацаа" value={`${minLeaseMonths} сар`} />
-                  )}
-                </div>
+                {(depositAmount > 0 || minLeaseMonths) && (
+                  <div className="space-y-3 mb-8 pb-8" style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+                    {depositAmount > 0 && (
+                      <SideRow label="Барьцаа" value={`${formattedDeposit}₮`} highlight />
+                    )}
+                    {minLeaseMonths && (
+                      <SideRow label="Хамгийн бага хугацаа" value={`${minLeaseMonths} сар`} />
+                    )}
+                  </div>
+                )}
 
                 <ApplyCTA
                   user={user} isOwner={isOwner} isTenant={isTenant} isAvailable={isAvailable}
@@ -657,7 +659,7 @@ function DetailSection({ title, children }) {
 
 function SpecCard({ label, value }) {
   return (
-    <div className="p-5" style={{ background: "#0A0A0A" }}>
+    <div className="p-5" style={{ background: "#0A0A0A", border: "1px solid rgba(201,168,76,0.15)" }}>
       <div className="text-[10px] tracking-[0.25em] uppercase text-white/40 mb-2">{label}</div>
       <div className="font-light" style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 22, color: "#fff" }}>
         {value}
@@ -682,11 +684,22 @@ function FeatureBadge({ icon, label }) {
   );
 }
 
-function InfoRow({ label, value, multiline }) {
+function InfoRow({ label, value, multiline, href }) {
+  const valueEl = href ? (
+    <a
+      href={href}
+      className="text-sm hover:opacity-80 transition-opacity"
+      style={{ color: "#C9A84C" }}
+    >
+      {value}
+    </a>
+  ) : (
+    <span className={`text-sm text-white/85 ${multiline ? "whitespace-pre-line" : ""}`}>{value}</span>
+  );
   return (
     <div className={`flex ${multiline ? "flex-col gap-1" : "items-center justify-between"}`}>
       <span className="text-[10px] tracking-[0.25em] uppercase text-white/40">{label}</span>
-      <span className={`text-sm text-white/85 ${multiline ? "whitespace-pre-line" : ""}`}>{value}</span>
+      {valueEl}
     </div>
   );
 }
