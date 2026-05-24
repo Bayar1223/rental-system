@@ -128,7 +128,7 @@ function Login() {
                 letterSpacing: "0.02em",
               }}
             >
-              Indra
+              
             </div>
             <div className="text-[10px] tracking-[0.25em] uppercase text-white/40">
               Founder · RentalSy
