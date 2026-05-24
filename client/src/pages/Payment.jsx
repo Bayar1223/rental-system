@@ -213,7 +213,7 @@ function Payment() {
                 fontSize: 22,
               }}
             >
-              {formatMNT(property.price)}₮
+              {formatMNT(property.price ?? property.monthlyRent ?? 0)}₮
               <span className="text-[10px] tracking-[0.2em] uppercase text-white/40 ml-2">
                 / сар
               </span>

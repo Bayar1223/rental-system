@@ -635,7 +635,7 @@ function PropertyRow({ property, onDelete, actioning }) {
             fontSize: 18,
           }}
         >
-          {formatMNT(property.price)}₮
+          {formatMNT(property.price ?? property.monthlyRent ?? 0)}₮
         </div>
       </div>
 

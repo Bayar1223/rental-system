@@ -210,7 +210,7 @@ function ApplicationCard({ app, onCancel, actioning }) {
   const statusInfo = APP_STATUS[app.status] || APP_STATUS.pending;
   const contractInfo = CONTRACT_STATUS[app.contractStatus] || CONTRACT_STATUS.none;
   const formattedPrice = new Intl.NumberFormat("mn-MN").format(
-    property.price || 0
+    (property.price ?? property.monthlyRent ?? 0)
   );
   const date = app.createdAt
     ? new Date(app.createdAt).toLocaleDateString("mn-MN", {

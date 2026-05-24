@@ -7,18 +7,26 @@ function PropertyCard({ property }) {
   const {
     _id,
     title,
-    district,
-    address,
-    price,
     rooms,
     size,
-    photos = [],
     status = "available",
   } = property;
 
+  // Schema defensive reading — шинэ field эсвэл хуучин field-ийг хоёуланг авна
+  const photos = property.photos?.length
+    ? property.photos
+    : property.images?.length
+      ? property.images
+      : [];
+  const district =
+    property.district || property.location?.district || "";
+  const address =
+    property.address || property.location?.address || "";
+  const price = property.price ?? property.monthlyRent ?? 0;
+
   const cover = photos[0] || PLACEHOLDER;
   const isAvailable = status === "available";
-  const formattedPrice = new Intl.NumberFormat("mn-MN").format(price || 0);
+  const formattedPrice = new Intl.NumberFormat("mn-MN").format(price);
 
   return (
     <Link

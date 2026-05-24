@@ -323,7 +323,7 @@ function LandlordApplicationCard({ app, onApprove, onReject, actioning }) {
   const contractInfo =
     CONTRACT_STATUS[app.contractStatus] || CONTRACT_STATUS.none;
   const formattedPrice = new Intl.NumberFormat("mn-MN").format(
-    property.price || 0
+    (property.price ?? property.monthlyRent ?? 0)
   );
   const date = app.createdAt
     ? new Date(app.createdAt).toLocaleDateString("mn-MN", {

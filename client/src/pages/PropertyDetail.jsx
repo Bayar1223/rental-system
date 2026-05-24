@@ -50,42 +50,44 @@ function PropertyDetail() {
 
   // ── Fetch property + reviews ──
   useEffect(() => {
-    let mounted = true;
+    let cancelled = false;
     (async () => {
-      setLoading(true);
       try {
         const [propRes, revRes] = await Promise.all([
           api.get(`/api/properties/${id}`),
           api.get(`/api/reviews?propertyId=${id}`).catch(() => ({ data: [] })),
         ]);
-        if (!mounted) return;
+        if (cancelled) return;
         setProperty(propRes.data);
-        setReviews(revRes.data || []);
+        setReviews(Array.isArray(revRes.data) ? revRes.data : []);
       } catch {
-        if (mounted) setNotFound(true);
+        if (cancelled) return;
+        setNotFound(true);
       } finally {
-        if (mounted) setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     })();
     return () => {
-      mounted = false;
+      cancelled = true;
     };
   }, [id]);
 
   // ── Check existing application ──
   useEffect(() => {
     if (!user || user.role !== "tenant") return;
-    let mounted = true;
+    let cancelled = false;
     (async () => {
       try {
         const res = await api.get(`/api/applications/me/property/${id}`);
-        if (mounted) setMyApplication(res.data || null);
+        if (cancelled) return;
+        setMyApplication(res.data || null);
       } catch {
-        if (mounted) setMyApplication(null);
+        if (cancelled) return;
+        setMyApplication(null);
       }
     })();
     return () => {
-      mounted = false;
+      cancelled = true;
     };
   }, [id, user]);
 
@@ -180,13 +182,24 @@ function PropertyDetail() {
   if (loading) return <LoadingState />;
   if (notFound || !property) return <NotFoundState />;
 
-  const photos = property.photos?.length ? property.photos : [PLACEHOLDER];
+  // Field reading — server-ийн хуучин / шинэ schema хоёрыг хоёуланг дэмжих
+  const rawPhotos = property.photos?.length
+    ? property.photos
+    : property.images?.length
+      ? property.images
+      : [];
+  const photos = rawPhotos.length ? rawPhotos : [PLACEHOLDER];
   const ownerId = property.owner?._id || property.owner;
   const isOwner = user && ownerId === user._id;
   const isAdmin = user?.role === "admin";
   const isTenant = user?.role === "tenant";
   const isAvailable = property.status === "available";
-  const formattedPrice = new Intl.NumberFormat("mn-MN").format(property.price || 0);
+  const priceValue = property.price ?? property.monthlyRent ?? 0;
+  const formattedPrice = new Intl.NumberFormat("mn-MN").format(priceValue);
+  const districtValue =
+    property.district || property.location?.district || "";
+  const addressValue =
+    property.address || property.location?.address || "";
 
   const avgRating = reviews.length
     ? reviews.reduce((s, r) => s + (r.rating || 0), 0) / reviews.length
@@ -236,11 +249,17 @@ function PropertyDetail() {
 
       {/* ── Gallery ── */}
       <section className="max-w-7xl mx-auto px-6 lg:px-12 mb-12">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 h-auto lg:h-[560px]">
+        <div
+          className={`grid grid-cols-1 gap-3 h-auto lg:h-[560px] ${
+            photos.length > 1 ? "lg:grid-cols-12" : ""
+          }`}
+        >
           {/* Main image */}
           <button
             onClick={() => setLightboxIdx(0)}
-            className="lg:col-span-8 relative overflow-hidden group cursor-zoom-in"
+            className={`relative overflow-hidden group cursor-zoom-in ${
+              photos.length > 1 ? "lg:col-span-8" : ""
+            }`}
             style={{ border: "1px solid rgba(201,168,76,0.15)" }}
           >
             <img
@@ -248,7 +267,8 @@ function PropertyDetail() {
               alt={property.title}
               className="w-full h-full object-cover transition-transform duration-[1.2s] group-hover:scale-105"
               style={{
-                aspectRatio: "16/10",
+                aspectRatio: photos.length > 1 ? "auto" : "16/8",
+                minHeight: photos.length > 1 ? "auto" : 320,
                 filter: "brightness(0.9)",
               }}
               onError={(e) => (e.currentTarget.src = PLACEHOLDER)}
@@ -282,63 +302,53 @@ function PropertyDetail() {
             </div>
           </button>
 
-          {/* Thumbnails */}
-          <div className="lg:col-span-4 grid grid-cols-2 lg:grid-cols-1 gap-3">
-            {[1, 2, 3, 4].map((i) => {
-              const photo = photos[i];
-              const isLast = i === 4;
-              const remaining = photos.length - 5;
-              if (!photo) {
+          {/* Thumbnails — зөвхөн 2+ зураг үед харагдана */}
+          {photos.length > 1 && (
+            <div className="lg:col-span-4 grid grid-cols-2 lg:grid-cols-1 gap-3">
+              {photos.slice(1, 5).map((photo, idx) => {
+                const i = idx + 1;
+                const isLast = i === 4;
+                const remaining = photos.length - 5;
                 return (
-                  <div
+                  <button
                     key={i}
-                    className="aspect-[4/3] lg:aspect-auto lg:h-full"
-                    style={{
-                      background: "#0F0F0F",
-                      border: "1px solid rgba(201,168,76,0.06)",
-                    }}
-                  />
-                );
-              }
-              return (
-                <button
-                  key={i}
-                  onClick={() => setLightboxIdx(i)}
-                  className="relative overflow-hidden group cursor-zoom-in aspect-[4/3] lg:aspect-auto lg:h-full"
-                  style={{ border: "1px solid rgba(201,168,76,0.15)" }}
-                >
-                  <img
-                    src={photo}
-                    alt=""
-                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                    style={{ filter: "brightness(0.85)" }}
-                    onError={(e) => (e.currentTarget.src = PLACEHOLDER)}
-                  />
-                  {isLast && remaining > 0 && (
-                    <div
-                      className="absolute inset-0 flex items-center justify-center"
-                      style={{ background: "rgba(10,10,10,0.7)" }}
-                    >
+                    onClick={() => setLightboxIdx(i)}
+                    className="relative overflow-hidden group cursor-zoom-in aspect-[4/3] lg:aspect-auto lg:h-full"
+                    style={{ border: "1px solid rgba(201,168,76,0.15)" }}
+                  >
+                    <img
+                      src={photo}
+                      alt=""
+                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                      style={{ filter: "brightness(0.85)" }}
+                      onError={(e) => (e.currentTarget.src = PLACEHOLDER)}
+                    />
+                    {isLast && remaining > 0 && (
                       <div
-                        className="text-center"
-                        style={{ fontFamily: "'Cormorant Garamond', serif" }}
+                        className="absolute inset-0 flex items-center justify-center"
+                        style={{ background: "rgba(10,10,10,0.7)" }}
                       >
                         <div
-                          className="text-4xl font-light"
-                          style={{ color: "#C9A84C" }}
+                          className="text-center"
+                          style={{ fontFamily: "'Cormorant Garamond', serif" }}
                         >
-                          +{remaining}
-                        </div>
-                        <div className="text-[9px] tracking-[0.3em] uppercase text-white/60 mt-1">
-                          Зураг
+                          <div
+                            className="text-4xl font-light"
+                            style={{ color: "#C9A84C" }}
+                          >
+                            +{remaining}
+                          </div>
+                          <div className="text-[9px] tracking-[0.3em] uppercase text-white/60 mt-1">
+                            Зураг
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  )}
-                </button>
-              );
-            })}
-          </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
       </section>
 
@@ -353,7 +363,7 @@ function PropertyDetail() {
                 className="text-[10px] tracking-[0.3em] uppercase"
                 style={{ color: "#C9A84C" }}
               >
-                {property.district || "Улаанбаатар"}
+                {districtValue || "Улаанбаатар"}
               </span>
             </div>
 
@@ -369,7 +379,7 @@ function PropertyDetail() {
 
             <div className="text-sm text-white/50 mb-2 flex items-center gap-2">
               <span style={{ color: "#C9A84C" }}>◇</span>
-              {property.address || "—"}
+              {addressValue || "—"}
             </div>
 
             {reviews.length > 0 && (
@@ -450,7 +460,7 @@ function PropertyDetail() {
                 {[
                   { label: "Өрөө", value: property.rooms ?? "—" },
                   { label: "Талбай", value: property.size ? `${property.size}м²` : "—" },
-                  { label: "Дүүрэг", value: property.district || "—" },
+                  { label: "Дүүрэг", value: districtValue || "—" },
                   {
                     label: "Төлөв",
                     value: isAvailable ? "Боломжтой" : "Түрээслэгдсэн",
@@ -553,7 +563,7 @@ function PropertyDetail() {
                   style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}
                 >
                   {[
-                    { label: "Дүүрэг", value: property.district || "—" },
+                    { label: "Дүүрэг", value: districtValue || "—" },
                     { label: "Өрөө", value: property.rooms ?? "—" },
                     { label: "Талбай", value: property.size ? `${property.size}м²` : "—" },
                   ].map((row) => (

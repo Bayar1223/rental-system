@@ -86,14 +86,16 @@ function EditProperty() {
         }
         setTitle(p.title || "");
         setDescription(p.description || "");
-        setDistrict(p.district || "");
-        setAddress(p.address || "");
-        setPrice(p.price?.toString() || "");
+        setDistrict(p.district || p.location?.district || "");
+        setAddress(p.address || p.location?.address || "");
+        setPrice((p.price ?? p.monthlyRent ?? "").toString());
         setRooms(p.rooms?.toString() || "");
         setSize(p.size?.toString() || "");
-        setExistingPhotos(p.photos || []);
-        if (p.latitude && p.longitude) {
-          setPosition([p.latitude, p.longitude]);
+        setExistingPhotos(p.photos?.length ? p.photos : (p.images || []));
+        const lat = p.latitude ?? p.location?.latitude;
+        const lng = p.longitude ?? p.location?.longitude;
+        if (lat != null && lng != null) {
+          setPosition([lat, lng]);
         }
       } catch {
         if (mounted) setNotFound(true);

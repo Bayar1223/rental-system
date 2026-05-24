@@ -196,7 +196,7 @@ function Contract() {
 
   const status = CONTRACT_STATUS[app.contractStatus] || CONTRACT_STATUS.none;
   const condition = parseCondition(app.condition);
-  const monthlyRent = property.price || 0;
+  const monthlyRent = (property.price ?? property.monthlyRent ?? 0);
   const depositAmount = monthlyRent * condition.deposit;
   const firstPaymentAmount =
     monthlyRent * condition.months + depositAmount;

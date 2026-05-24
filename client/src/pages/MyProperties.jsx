@@ -249,7 +249,7 @@ function PropertyAdminCard({ property, onDelete, deleting }) {
   const cover = property.photos?.[0] || PLACEHOLDER;
   const isAvailable = property.status === "available";
   const formattedPrice = new Intl.NumberFormat("mn-MN").format(
-    property.price || 0
+    (property.price ?? property.monthlyRent ?? 0)
   );
 
   return (

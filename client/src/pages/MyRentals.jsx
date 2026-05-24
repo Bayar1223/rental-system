@@ -266,7 +266,7 @@ function RentalCard({ rental }) {
   const contractInfo =
     CONTRACT_STATUS[rental.contractStatus] || CONTRACT_STATUS.pending_signatures;
   const formattedPrice = new Intl.NumberFormat("mn-MN").format(
-    property.price || 0
+    (property.price ?? property.monthlyRent ?? 0)
   );
   const date = rental.updatedAt
     ? new Date(rental.updatedAt).toLocaleDateString("mn-MN", {

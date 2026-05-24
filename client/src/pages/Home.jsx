@@ -83,17 +83,32 @@ function Home() {
 
     if (search) {
       const q = search.toLowerCase();
-      r = r.filter(
-        (p) =>
+      r = r.filter((p) => {
+        const dist = p.district || p.location?.district || "";
+        const addr = p.address || p.location?.address || "";
+        return (
           p.title?.toLowerCase().includes(q) ||
-          p.address?.toLowerCase().includes(q) ||
-          p.district?.toLowerCase().includes(q) ||
+          addr.toLowerCase().includes(q) ||
+          dist.toLowerCase().includes(q) ||
           p.description?.toLowerCase().includes(q)
+        );
+      });
+    }
+    if (district) {
+      r = r.filter(
+        (p) => (p.district || p.location?.district) === district
       );
     }
-    if (district) r = r.filter((p) => p.district === district);
-    if (minPrice) r = r.filter((p) => p.price >= Number(minPrice));
-    if (maxPrice) r = r.filter((p) => p.price <= Number(maxPrice));
+    if (minPrice) {
+      r = r.filter(
+        (p) => (p.price ?? p.monthlyRent ?? 0) >= Number(minPrice)
+      );
+    }
+    if (maxPrice) {
+      r = r.filter(
+        (p) => (p.price ?? p.monthlyRent ?? 0) <= Number(maxPrice)
+      );
+    }
     if (rooms) {
       r = r.filter((p) => {
         if (rooms === "4+") return Number(p.rooms) >= 4;
@@ -558,8 +573,9 @@ function Home() {
 function MapPopup({ property }) {
   const cover =
     property.photos?.[0] ||
+    property.images?.[0] ||
     "https://images.unsplash.com/photo-1494526585095-c41746248156?auto=format&fit=crop&w=400&q=70";
-  const price = new Intl.NumberFormat("mn-MN").format(property.price || 0);
+  const price = new Intl.NumberFormat("mn-MN").format((property.price ?? property.monthlyRent ?? 0));
 
   return (
     <div style={{ width: 220, color: "#fff", fontFamily: "'DM Sans', sans-serif" }}>
