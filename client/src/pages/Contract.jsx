@@ -7,27 +7,13 @@ const PLACEHOLDER =
   "https://images.unsplash.com/photo-1494526585095-c41746248156?auto=format&fit=crop&w=600&q=70";
 
 const CONTRACT_STATUS = {
-  none: { label: "Гэрээгүй", color: "#888" },
-  pending_signatures: {
-    label: "Гарын үсэг хүлээж буй",
-    color: "#F59E0B",
-  },
-  signed: { label: "Гарын үсэг зурсан", color: "#C9A84C" },
-  payment_pending: {
-    label: "Эхний төлбөр хүлээж буй",
-    color: "#F59E0B",
-  },
-  active: { label: "Идэвхтэй", color: "#10B981" },
-  cancelled: { label: "Цуцалсан", color: "#888" },
+  none:               { label: "Гэрээгүй",                  color: "#888"    },
+  pending_signatures: { label: "Гарын үсэг хүлээж буй",     color: "#F59E0B" },
+  signed:             { label: "Гарын үсэг зурсан",         color: "#C9A84C" },
+  payment_pending:    { label: "Эхний төлбөр хүлээж буй",   color: "#F59E0B" },
+  active:             { label: "Идэвхтэй",                  color: "#10B981" },
+  cancelled:          { label: "Цуцалсан",                  color: "#888"    },
 };
-
-// "6+1" → { months: 6, deposit: 1 }
-function parseCondition(cond) {
-  if (!cond || typeof cond !== "string") return { months: 1, deposit: 1 };
-  const m = cond.match(/^(\d+)\s*\+\s*(\d+)$/);
-  if (!m) return { months: 1, deposit: 1 };
-  return { months: parseInt(m[1], 10), deposit: parseInt(m[2], 10) };
-}
 
 function Contract() {
   const { id } = useParams();
@@ -38,17 +24,14 @@ function Contract() {
     []
   );
 
-  const [app, setApp] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [saving, setSaving] = useState(false);
+  const [app, setApp]               = useState(null);
+  const [loading, setLoading]       = useState(true);
+  const [error, setError]           = useState("");
+  const [saving, setSaving]         = useState(false);
   const [cancelling, setCancelling] = useState(false);
 
   useEffect(() => {
-    if (!user) {
-      navigate("/login");
-      return;
-    }
+    if (!user) { navigate("/login"); return; }
 
     let cancelled = false;
     (async () => {
@@ -63,20 +46,16 @@ function Contract() {
         if (!cancelled) setLoading(false);
       }
     })();
-
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [id, navigate, user]);
 
   const handleSign = async (role, dataURL) => {
     setSaving(true);
     setError("");
     try {
-      const body =
-        role === "tenant"
-          ? { tenantSignature: dataURL }
-          : { landlordSignature: dataURL };
+      const body = role === "tenant"
+        ? { tenantSignature: dataURL }
+        : { landlordSignature: dataURL };
       const res = await api.put(`/api/applications/${id}/sign`, body);
       setApp((prev) => ({ ...prev, ...(res.data || {}) }));
     } catch (err) {
@@ -87,12 +66,7 @@ function Contract() {
   };
 
   const handleCancelContract = async () => {
-    if (
-      !confirm(
-        "Та энэ гэрээг цуцлахдаа итгэлтэй байна уу? Энэ үйлдэл буцаагдахгүй."
-      )
-    )
-      return;
+    if (!confirm("Та энэ гэрээг цуцлахдаа итгэлтэй байна уу? Энэ үйлдэл буцаагдахгүй.")) return;
     setCancelling(true);
     try {
       const res = await api.put(`/api/applications/${id}/cancel`, { reason: "Талын аль нэгээс цуцлав" });
@@ -106,22 +80,12 @@ function Contract() {
 
   if (loading) {
     return (
-      <div
-        className="min-h-screen pt-20 flex items-center justify-center"
-        style={{ background: "#0A0A0A" }}
-      >
+      <div className="min-h-screen pt-20 flex items-center justify-center" style={{ background: "#0A0A0A" }}>
         <div className="text-center">
-          <div
-            className="w-12 h-12 mx-auto mb-6 animate-spin"
-            style={{
-              border: "2px solid rgba(201,168,76,0.2)",
-              borderTopColor: "#C9A84C",
-              borderRadius: "50%",
-            }}
+          <div className="w-12 h-12 mx-auto mb-6 animate-spin"
+            style={{ border: "2px solid rgba(201,168,76,0.2)", borderTopColor: "#C9A84C", borderRadius: "50%" }}
           />
-          <p className="text-[10px] tracking-[0.3em] uppercase text-white/40">
-            Уншиж байна
-          </p>
+          <p className="text-[10px] tracking-[0.3em] uppercase text-white/40">Уншиж байна</p>
         </div>
       </div>
     );
@@ -129,161 +93,119 @@ function Contract() {
 
   if (error || !app) {
     return (
-      <div
-        className="min-h-screen pt-20 flex items-center justify-center px-6"
-        style={{ background: "#0A0A0A" }}
-      >
+      <div className="min-h-screen pt-20 flex items-center justify-center px-6" style={{ background: "#0A0A0A" }}>
         <div className="text-center max-w-md">
-          <h2
-            className="font-light text-white mb-4"
-            style={{
-              fontFamily: "'Cormorant Garamond', serif",
-              fontSize: 36,
-            }}
-          >
+          <h2 className="font-light text-white mb-4" style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 36 }}>
             Гэрээ <em style={{ color: "#C9A84C", fontStyle: "italic" }}>олдсонгүй</em>
           </h2>
-          <p className="text-sm text-white/50 mb-8">
-            {error || "Энэ ID-тай гэрээ байхгүй байна."}
-          </p>
-          <button
-            onClick={() => navigate(-1)}
+          <p className="text-sm text-white/50 mb-8">{error || "Энэ ID-тай гэрээ байхгүй байна."}</p>
+          <button onClick={() => navigate(-1)}
             className="px-8 py-3 text-[10px] tracking-[0.3em] uppercase"
             style={{ background: "#C9A84C", color: "#0A0A0A" }}
-          >
-            ← Буцах
-          </button>
+          >← Буцах</button>
         </div>
       </div>
     );
   }
 
   const property = app.property || {};
-  const tenant = app.tenant || {};
+  const tenant   = app.tenant   || {};
   const landlord = app.landlord || property.owner || {};
-  const tenantId = tenant._id || tenant;
+  const tenantId   = tenant._id   || tenant;
   const landlordId = landlord._id || landlord;
 
-  const isTenant = user._id === tenantId;
+  const isTenant   = user._id === tenantId;
   const isLandlord = user._id === landlordId;
 
   if (!isTenant && !isLandlord && user.role !== "admin") {
     return (
-      <div
-        className="min-h-screen pt-20 flex items-center justify-center px-6"
-        style={{ background: "#0A0A0A" }}
-      >
+      <div className="min-h-screen pt-20 flex items-center justify-center px-6" style={{ background: "#0A0A0A" }}>
         <div className="text-center max-w-md">
-          <h2
-            className="font-light text-white mb-4"
-            style={{
-              fontFamily: "'Cormorant Garamond', serif",
-              fontSize: 36,
-            }}
-          >
+          <h2 className="font-light text-white mb-4" style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 36 }}>
             <em style={{ color: "#C9A84C", fontStyle: "italic" }}>Хандах</em> эрхгүй
           </h2>
-          <p className="text-sm text-white/50">
-            Та энэ гэрээний оролцогч биш байна.
-          </p>
+          <p className="text-sm text-white/50">Та энэ гэрээний оролцогч биш байна.</p>
         </div>
       </div>
     );
   }
 
-  const status = CONTRACT_STATUS[app.contractStatus] || CONTRACT_STATUS.none;
-  const condition = parseCondition(app.condition);
-  const monthlyRent = (property.price ?? property.monthlyRent ?? 0);
-  const depositAmount = monthlyRent * condition.deposit;
-  const firstPaymentAmount =
-    monthlyRent * condition.months + depositAmount;
+  // ─── ⭐ ЗАСВАР: Бодит талбарууд ашиглах ───
+  const status      = CONTRACT_STATUS[app.contractStatus] || CONTRACT_STATUS.none;
+  const monthlyRent = property.monthlyRent ?? property.price ?? 0;
+  const leaseMonths = app.leaseMonths || 0;
+  const totalRent   = app.totalRent   || (monthlyRent * leaseMonths);
+  const deposit     = property.depositAmount || monthlyRent;          // default 1 сар
+  const firstPayment = monthlyRent + deposit;                          // эхний сар + барьцаа
 
-  const tenantSigned = !!app.tenantSignature;
+  const tenantSigned   = !!app.tenantSignature;
   const landlordSigned = !!app.landlordSignature;
-  const bothSigned = tenantSigned && landlordSigned;
-  const isCancelled =
-    app.contractStatus === "cancelled" || app.status === "cancelled";
-  const isActive = app.contractStatus === "active";
-  const needsPayment = app.contractStatus === "payment_pending";
+  const bothSigned     = tenantSigned && landlordSigned;
+  const isCancelled    = app.contractStatus === "cancelled" || app.status === "cancelled";
+  const isActive       = app.contractStatus === "active";
+  const needsPayment   = app.contractStatus === "payment_pending";
 
-  const canCancel =
-    !isCancelled &&
-    !isActive &&
-    ["pending_signatures", "signed", "payment_pending", "none"].includes(
-      app.contractStatus
-    );
+  const canCancel = !isCancelled && !isActive &&
+    ["pending_signatures", "signed", "payment_pending", "none"].includes(app.contractStatus);
 
-  const cover = property.photos?.[0] || PLACEHOLDER;
-  const formattedPrice = new Intl.NumberFormat("mn-MN").format(monthlyRent);
-  const formattedFirst = new Intl.NumberFormat("mn-MN").format(
-    firstPaymentAmount
-  );
-  const formattedDeposit = new Intl.NumberFormat("mn-MN").format(
-    depositAmount
-  );
+  // ⭐ ЗАСВАР: images, location.*, area
+  const cover    = property.images?.[0] || property.photos?.[0] || PLACEHOLDER;
+  const district = property.location?.district || property.district || "Улаанбаатар";
+  const city     = property.location?.city     || "Улаанбаатар";
+  const address  = property.location?.address  || property.address  || "—";
+  const area     = property.area ?? property.size;
+
+  const fmt     = (n) => new Intl.NumberFormat("mn-MN").format(n || 0);
+  const fmtDate = (d) => d
+    ? new Date(d).toLocaleDateString("mn-MN", { year: "numeric", month: "long", day: "numeric" })
+    : "—";
+
+  const formattedPrice   = fmt(monthlyRent);
+  const formattedTotal   = fmt(totalRent);
+  const formattedDeposit = fmt(deposit);
+  const formattedFirst   = fmt(firstPayment);
 
   return (
-    <div
-      className="min-h-screen pt-20"
-      style={{ background: "#0A0A0A", fontFamily: "'DM Sans', sans-serif" }}
-    >
+    <div className="min-h-screen pt-20" style={{ background: "#0A0A0A", fontFamily: "'DM Sans', sans-serif" }}>
       {/* Back */}
       <div className="max-w-5xl mx-auto px-6 lg:px-12 py-8">
-        <button
-          onClick={() => navigate(-1)}
+        <button onClick={() => navigate(-1)}
           className="text-[10px] tracking-[0.3em] uppercase text-white/40 hover:text-white transition-colors"
-        >
-          ← Буцах
-        </button>
+        >← Буцах</button>
       </div>
 
       {/* Header */}
       <header className="max-w-5xl mx-auto px-6 lg:px-12 mb-10">
         <div className="flex items-center gap-3 mb-5">
           <div className="h-px w-8" style={{ background: "#C9A84C" }} />
-          <span
-            className="text-[10px] tracking-[0.3em] uppercase"
-            style={{ color: "#C9A84C" }}
-          >
-            Lease Agreement
-          </span>
+          <span className="text-[10px] tracking-[0.3em] uppercase" style={{ color: "#C9A84C" }}>Lease Agreement</span>
         </div>
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
-          <h1
-            className="font-light text-white leading-[1] tracking-tight"
-            style={{
-              fontFamily: "'Cormorant Garamond', serif",
-              fontSize: "clamp(40px, 5vw, 64px)",
-            }}
+          <h1 className="font-light text-white leading-[1] tracking-tight"
+            style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "clamp(40px, 5vw, 64px)" }}
           >
             Цахим<br />
-            <em style={{ color: "#C9A84C", fontStyle: "italic" }}>
-              гэрээ
-            </em>
+            <em style={{ color: "#C9A84C", fontStyle: "italic" }}>гэрээ</em>
           </h1>
-          <StatusPill label={status.label} color={status.color} />
+          <div className="flex flex-col items-start lg:items-end gap-2">
+            <StatusPill label={status.label} color={status.color} />
+            <div className="text-[10px] tracking-[0.25em] uppercase text-white/30">
+              #{app._id?.slice(-8)} · {fmtDate(app.createdAt)}
+            </div>
+          </div>
         </div>
       </header>
 
       {/* Active banner */}
       {isActive && (
         <section className="max-w-5xl mx-auto px-6 lg:px-12 mb-8">
-          <div
-            className="p-5 flex items-center gap-4"
-            style={{
-              background: "rgba(16,185,129,0.08)",
-              border: "1px solid rgba(16,185,129,0.4)",
-            }}
+          <div className="p-5 flex items-center gap-4"
+            style={{ background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.4)" }}
           >
             <span style={{ color: "#10B981", fontSize: 24 }}>◇</span>
             <div>
-              <div className="text-[10px] tracking-[0.3em] uppercase text-emerald-300/70 mb-1">
-                Идэвхтэй гэрээ
-              </div>
-              <p className="text-sm text-white/80">
-                Гэрээ хүчин төгөлдөр болсон. Та сар бүрийн төлбөрөө цаг
-                тухайд нь хийх ёстой.
-              </p>
+              <div className="text-[10px] tracking-[0.3em] uppercase text-emerald-300/70 mb-1">Идэвхтэй гэрээ</div>
+              <p className="text-sm text-white/80">Гэрээ хүчин төгөлдөр болсон. Та сар бүрийн төлбөрөө цаг тухайд нь хийх ёстой.</p>
             </div>
           </div>
         </section>
@@ -292,20 +214,14 @@ function Contract() {
       {/* Cancelled banner */}
       {isCancelled && (
         <section className="max-w-5xl mx-auto px-6 lg:px-12 mb-8">
-          <div
-            className="p-5 flex items-center gap-4"
-            style={{
-              background: "rgba(239,68,68,0.08)",
-              border: "1px solid rgba(239,68,68,0.4)",
-            }}
+          <div className="p-5 flex items-center gap-4"
+            style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.4)" }}
           >
             <span style={{ color: "#EF4444", fontSize: 24 }}>✕</span>
             <div>
-              <div className="text-[10px] tracking-[0.3em] uppercase text-red-300/70 mb-1">
-                Цуцалсан
-              </div>
+              <div className="text-[10px] tracking-[0.3em] uppercase text-red-300/70 mb-1">Цуцалсан</div>
               <p className="text-sm text-white/80">
-                Энэ гэрээ цуцлагдсан.
+                {app.cancellationReason ? `Шалтгаан: ${app.cancellationReason}` : "Энэ гэрээ цуцлагдсан."}
               </p>
             </div>
           </div>
@@ -314,12 +230,8 @@ function Contract() {
 
       {error && (
         <section className="max-w-5xl mx-auto px-6 lg:px-12 mb-6">
-          <div
-            className="p-4 flex items-start gap-3"
-            style={{
-              background: "rgba(239,68,68,0.08)",
-              borderLeft: "2px solid #EF4444",
-            }}
+          <div className="p-4 flex items-start gap-3"
+            style={{ background: "rgba(239,68,68,0.08)", borderLeft: "2px solid #EF4444" }}
           >
             <span style={{ color: "#EF4444" }}>✕</span>
             <p className="text-sm text-red-300">{error}</p>
@@ -327,59 +239,36 @@ function Contract() {
         </section>
       )}
 
-      {/* Property summary */}
+      {/* Property */}
       <section className="max-w-5xl mx-auto px-6 lg:px-12 mb-10">
         <Section number="01" label="Байрны мэдээлэл">
-          <div
-            className="grid grid-cols-1 md:grid-cols-12 gap-6 p-5"
-            style={{
-              background: "#141414",
-              border: "1px solid rgba(201,168,76,0.15)",
-            }}
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-6 p-5"
+            style={{ background: "#141414", border: "1px solid rgba(201,168,76,0.15)" }}
           >
-            <Link
-              to={property._id ? `/properties/${property._id}` : "#"}
+            <Link to={property._id ? `/properties/${property._id}` : "#"}
               className="md:col-span-3 block relative overflow-hidden"
-              style={{
-                aspectRatio: "4/3",
-                border: "1px solid rgba(201,168,76,0.15)",
-              }}
+              style={{ aspectRatio: "4/3", border: "1px solid rgba(201,168,76,0.15)" }}
             >
-              <img
-                src={cover}
-                alt=""
-                className="w-full h-full object-cover"
+              <img src={cover} alt="" className="w-full h-full object-cover"
                 style={{ filter: "brightness(0.88)" }}
                 onError={(e) => (e.currentTarget.src = PLACEHOLDER)}
               />
             </Link>
             <div className="md:col-span-9 flex flex-col justify-center">
-              <div className="text-[10px] tracking-[0.3em] uppercase text-white/40 mb-2">
-                {property.district || "Улаанбаатар"}
-              </div>
-              <h3
-                className="font-light text-white leading-tight mb-3"
-                style={{
-                  fontFamily: "'Cormorant Garamond', serif",
-                  fontSize: 32,
-                }}
-              >
-                {property.title}
-              </h3>
-              <p className="text-sm text-white/55 mb-4">
-                {property.address || "—"}
-              </p>
+              <div className="text-[10px] tracking-[0.3em] uppercase text-white/40 mb-2">{district}</div>
+              <h3 className="font-light text-white leading-tight mb-3"
+                style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 32 }}
+              >{property.title}</h3>
+              <p className="text-sm text-white/55 mb-4">{address}, {city}</p>
               <div className="flex gap-6 text-xs text-white/60">
                 {property.rooms != null && (
                   <div className="flex items-center gap-1.5">
-                    <span style={{ color: "#C9A84C" }}>◇</span>
-                    {property.rooms} өрөө
+                    <span style={{ color: "#C9A84C" }}>◇</span>{property.rooms} өрөө
                   </div>
                 )}
-                {property.size != null && (
+                {area != null && (
                   <div className="flex items-center gap-1.5">
-                    <span style={{ color: "#C9A84C" }}>◇</span>
-                    {property.size}м²
+                    <span style={{ color: "#C9A84C" }}>◇</span>{area}м²
                   </div>
                 )}
               </div>
@@ -392,76 +281,51 @@ function Contract() {
       <section className="max-w-5xl mx-auto px-6 lg:px-12 mb-10">
         <Section number="02" label="Гэрээний талууд">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            <PartyCard
-              role="Түрээслэгч"
-              user={tenant}
-              isMe={isTenant}
-              accentColor="#C9A84C"
-            />
-            <PartyCard
-              role="Байрны эзэн"
-              user={landlord}
-              isMe={isLandlord}
-              accentColor="#C9A84C"
-            />
+            <PartyCard role="Түрээслэгч"  user={tenant}   isMe={isTenant}   accentColor="#C9A84C" />
+            <PartyCard role="Байрны эзэн" user={landlord} isMe={isLandlord} accentColor="#C9A84C" />
           </div>
         </Section>
       </section>
 
-      {/* Terms */}
+      {/* ⭐ ЗАСВАР: Terms — application-ийн бодит талбарууд */}
       <section className="max-w-5xl mx-auto px-6 lg:px-12 mb-10">
         <Section number="03" label="Гэрээний нөхцөл">
-          <div
-            className="p-6"
-            style={{
-              background: "#141414",
-              border: "1px solid rgba(201,168,76,0.15)",
-            }}
-          >
+          <div className="p-6" style={{ background: "#141414", border: "1px solid rgba(201,168,76,0.15)" }}>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+              <TermRow label="Эхлэх огноо" value={fmtDate(app.startDate)} />
+              <TermRow label="Дуусах огноо" value={fmtDate(app.endDate)} />
+              <TermRow label="Хугацаа" value={`${leaseMonths} сар`} />
               <TermRow
                 label="Сарын түрээс"
                 value={
                   <>
                     <span style={{ color: "#C9A84C" }}>{formattedPrice}₮</span>
-                    <span className="text-[10px] tracking-[0.2em] uppercase text-white/40 ml-2">
-                      / сар
-                    </span>
+                    <span className="text-[10px] tracking-[0.2em] uppercase text-white/40 ml-2">/ сар</span>
                   </>
                 }
               />
               <TermRow
-                label="Нөхцөл"
-                value={`${condition.months}+${condition.deposit}`}
-                hint={`${condition.months} сар түрээс + ${condition.deposit} сар барьцаа`}
+                label="Нийт түрээс"
+                value={<span style={{ color: "#C9A84C" }}>{formattedTotal}₮</span>}
+                hint={`${leaseMonths} × ${formattedPrice}₮`}
               />
               <TermRow
                 label="Барьцаа"
-                value={
-                  <span style={{ color: "#C9A84C" }}>
-                    {formattedDeposit}₮
-                  </span>
-                }
-              />
-              <TermRow
-                label="Эхний төлбөр"
-                value={
-                  <span style={{ color: "#C9A84C" }}>
-                    {formattedFirst}₮
-                  </span>
-                }
-                hint={`${condition.months} сар × ${formattedPrice}₮ + ${condition.deposit} сар барьцаа`}
+                value={<span style={{ color: "#C9A84C" }}>{formattedDeposit}₮</span>}
               />
             </div>
 
-            <div
-              className="pt-5 text-xs text-white/55 leading-relaxed"
+            <div className="pt-5 text-xs text-white/55 leading-relaxed"
               style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}
             >
-              <span style={{ color: "#C9A84C" }}>◇</span> Энэхүү цахим
-              гэрээнд хоёр тал гарын үсэг зурснаар хүчин төгөлдөр
-              болно. Түрээслэгч эхний төлбөрөө хийсний дараа гэрээ
-              идэвхтэй болж, түрээсийн харилцаа эхэлнэ.
+              <div className="mb-3">
+                <span style={{ color: "#C9A84C" }}>◇</span> Эхний төлбөр{" "}
+                <strong style={{ color: "#C9A84C" }}>{formattedFirst}₮</strong>{" "}
+                ({formattedPrice}₮ сарын түрээс + {formattedDeposit}₮ барьцаа)
+              </div>
+              <div>
+                <span style={{ color: "#C9A84C" }}>◇</span> Энэхүү цахим гэрээнд хоёр тал гарын үсэг зурснаар хүчин төгөлдөр болно. Түрээслэгч эхний төлбөрөө хийсний дараа гэрээ идэвхтэй болж, түрээсийн харилцаа эхэлнэ.
+              </div>
             </div>
           </div>
         </Section>
@@ -479,6 +343,7 @@ function Contract() {
               onSave={(d) => handleSign("tenant", d)}
               saving={saving}
               party={tenant.name || "Түрээслэгч"}
+              signedAt={app.tenantSignedAt}
             />
             <SignaturePanel
               role="Байрны эзний гарын үсэг"
@@ -488,21 +353,16 @@ function Contract() {
               onSave={(d) => handleSign("landlord", d)}
               saving={saving}
               party={landlord.name || "Байрны эзэн"}
+              signedAt={app.landlordSignedAt}
             />
           </div>
 
           {bothSigned && !isCancelled && (
-            <div
-              className="mt-6 p-4 flex items-center gap-3"
-              style={{
-                background: "rgba(201,168,76,0.06)",
-                borderLeft: "2px solid #C9A84C",
-              }}
+            <div className="mt-6 p-4 flex items-center gap-3"
+              style={{ background: "rgba(201,168,76,0.06)", borderLeft: "2px solid #C9A84C" }}
             >
               <span style={{ color: "#C9A84C" }}>◇</span>
-              <p className="text-sm text-white/80">
-                Хоёр тал гарын үсэг зурсан. Гэрээ хүчин төгөлдөр.
-              </p>
+              <p className="text-sm text-white/80">Хоёр тал гарын үсэг зурсан. Гэрээ хүчин төгөлдөр.</p>
             </div>
           )}
         </Section>
@@ -510,56 +370,37 @@ function Contract() {
 
       {/* Actions */}
       <section className="max-w-5xl mx-auto px-6 lg:px-12 pb-20">
-        <div
-          className="flex flex-col-reverse sm:flex-row gap-3 pt-8"
+        <div className="flex flex-col-reverse sm:flex-row gap-3 pt-8"
           style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}
         >
           {canCancel && (
-            <button
-              onClick={handleCancelContract}
-              disabled={cancelling}
+            <button onClick={handleCancelContract} disabled={cancelling}
               className="sm:px-8 py-3 text-[10px] tracking-[0.25em] uppercase text-red-300 hover:text-red-200 transition-colors disabled:opacity-50"
               style={{ border: "1px solid rgba(239,68,68,0.4)" }}
-            >
-              {cancelling ? "Цуцалж байна..." : "Гэрээ цуцлах"}
-            </button>
+            >{cancelling ? "Цуцалж байна..." : "Гэрээ цуцлах"}</button>
           )}
 
           <div className="flex-1" />
 
           {needsPayment && isTenant && (
-            <Link
-              to={`/payments/${app._id}`}
+            <Link to={`/payments/${app._id}`}
               className="sm:px-8 py-3 text-center text-[10px] tracking-[0.25em] uppercase transition-all duration-300 group flex items-center justify-center gap-2"
               style={{ background: "#C9A84C", color: "#0A0A0A" }}
-              onMouseEnter={(e) =>
-                (e.currentTarget.style.background = "#E8D49E")
-              }
-              onMouseLeave={(e) =>
-                (e.currentTarget.style.background = "#C9A84C")
-              }
+              onMouseEnter={(e) => (e.currentTarget.style.background = "#E8D49E")}
+              onMouseLeave={(e) => (e.currentTarget.style.background = "#C9A84C")}
             >
               Эхний төлбөр төлөх
-              <span className="transition-transform duration-300 group-hover:translate-x-1">
-                →
-              </span>
+              <span className="transition-transform duration-300 group-hover:translate-x-1">→</span>
             </Link>
           )}
 
           {isActive && (
-            <Link
-              to={`/payments/${app._id}`}
+            <Link to={`/payments/${app._id}`}
               className="sm:px-8 py-3 text-center text-[10px] tracking-[0.25em] uppercase transition-all duration-300"
               style={{ background: "#C9A84C", color: "#0A0A0A" }}
-              onMouseEnter={(e) =>
-                (e.currentTarget.style.background = "#E8D49E")
-              }
-              onMouseLeave={(e) =>
-                (e.currentTarget.style.background = "#C9A84C")
-              }
-            >
-              Төлбөрийн жагсаалт →
-            </Link>
+              onMouseEnter={(e) => (e.currentTarget.style.background = "#E8D49E")}
+              onMouseLeave={(e) => (e.currentTarget.style.background = "#C9A84C")}
+            >Төлбөрийн жагсаалт →</Link>
           )}
         </div>
       </section>
@@ -572,25 +413,12 @@ function Section({ number, label, children }) {
   return (
     <div>
       <div className="flex items-baseline gap-6 mb-6">
-        <span
-          className="font-light"
-          style={{
-            fontFamily: "'Cormorant Garamond', serif",
-            fontSize: 28,
-            color: "#C9A84C",
-          }}
-        >
-          {number}
-        </span>
-        <h2
-          className="font-light text-white"
-          style={{
-            fontFamily: "'Cormorant Garamond', serif",
-            fontSize: 24,
-          }}
-        >
-          {label}
-        </h2>
+        <span className="font-light"
+          style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 28, color: "#C9A84C" }}
+        >{number}</span>
+        <h2 className="font-light text-white"
+          style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 24 }}
+        >{label}</h2>
       </div>
       {children}
     </div>
@@ -601,18 +429,10 @@ function Section({ number, label, children }) {
 function TermRow({ label, value, hint }) {
   return (
     <div>
-      <div className="text-[10px] tracking-[0.3em] uppercase text-white/40 mb-2">
-        {label}
-      </div>
-      <div
-        className="font-light text-white"
-        style={{
-          fontFamily: "'Cormorant Garamond', serif",
-          fontSize: 26,
-        }}
-      >
-        {value}
-      </div>
+      <div className="text-[10px] tracking-[0.3em] uppercase text-white/40 mb-2">{label}</div>
+      <div className="font-light text-white"
+        style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 26 }}
+      >{value}</div>
       {hint && <div className="text-xs text-white/40 mt-1">{hint}</div>}
     </div>
   );
@@ -621,65 +441,45 @@ function TermRow({ label, value, hint }) {
 // ── Party card ──
 function PartyCard({ role, user, isMe, accentColor }) {
   return (
-    <div
-      className="p-5"
+    <div className="p-5"
       style={{
         background: "#141414",
-        border: isMe
-          ? `1px solid ${accentColor}`
-          : "1px solid rgba(201,168,76,0.15)",
+        border: isMe ? `1px solid ${accentColor}` : "1px solid rgba(201,168,76,0.15)",
       }}
     >
       <div className="flex items-center justify-between mb-4">
-        <div className="text-[10px] tracking-[0.3em] uppercase text-white/40">
-          {role}
-        </div>
+        <div className="text-[10px] tracking-[0.3em] uppercase text-white/40">{role}</div>
         {isMe && (
-          <div
-            className="text-[9px] tracking-[0.25em] uppercase px-2 py-0.5"
-            style={{
-              background: accentColor,
-              color: "#0A0A0A",
-            }}
-          >
-            Та
-          </div>
+          <div className="text-[9px] tracking-[0.25em] uppercase px-2 py-0.5"
+            style={{ background: accentColor, color: "#0A0A0A" }}
+          >Та</div>
         )}
       </div>
       <div className="flex items-start gap-4">
-        <div
-          className="w-12 h-12 flex items-center justify-center flex-shrink-0"
+        <div className="w-12 h-12 flex items-center justify-center flex-shrink-0"
           style={{
-            background: "rgba(201,168,76,0.12)",
-            color: "#C9A84C",
-            fontFamily: "'Cormorant Garamond', serif",
-            fontSize: 22,
+            background: "rgba(201,168,76,0.12)", color: "#C9A84C",
+            fontFamily: "'Cormorant Garamond', serif", fontSize: 22,
           }}
-        >
-          {(user.name || "?").charAt(0).toUpperCase()}
-        </div>
+        >{(user.name || "?").charAt(0).toUpperCase()}</div>
         <div className="flex-1 min-w-0">
-          <div
-            className="font-light text-white leading-tight mb-2"
-            style={{
-              fontFamily: "'Cormorant Garamond', serif",
-              fontSize: 22,
-            }}
-          >
-            {user.name || "—"}
-          </div>
+          <div className="font-light text-white leading-tight mb-2"
+            style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 22 }}
+          >{user.name || "—"}</div>
           <div className="space-y-1 text-xs text-white/55">
             {user.email && (
-              <div className="flex items-center gap-2 truncate">
-                <span style={{ color: "#C9A84C" }}>◇</span>
-                {user.email}
-              </div>
+              <a href={`mailto:${user.email}`}
+                className="flex items-center gap-2 truncate hover:text-white transition-colors"
+              >
+                <span style={{ color: "#C9A84C" }}>◇</span>{user.email}
+              </a>
             )}
             {user.phone && (
-              <div className="flex items-center gap-2">
-                <span style={{ color: "#C9A84C" }}>◇</span>
-                {user.phone}
-              </div>
+              <a href={`tel:${user.phone}`}
+                className="flex items-center gap-2 hover:text-white transition-colors"
+              >
+                <span style={{ color: "#C9A84C" }}>◇</span>{user.phone}
+              </a>
             )}
           </div>
         </div>
@@ -689,17 +489,9 @@ function PartyCard({ role, user, isMe, accentColor }) {
 }
 
 // ── Signature Panel ──
-function SignaturePanel({
-  role,
-  existing,
-  canSign,
-  waiting,
-  onSave,
-  saving,
-  party,
-}) {
+function SignaturePanel({ role, existing, canSign, waiting, onSave, saving, party, signedAt }) {
   const canvasRef = useRef(null);
-  const padRef = useRef(null);
+  const padRef    = useRef(null);
   const [hasInk, setHasInk] = useState(false);
 
   useEffect(() => {
@@ -718,7 +510,7 @@ function SignaturePanel({
 
     const resize = () => {
       const ratio = window.devicePixelRatio || 1;
-      canvas.width = canvas.offsetWidth * ratio;
+      canvas.width  = canvas.offsetWidth  * ratio;
       canvas.height = canvas.offsetHeight * ratio;
       const ctx = canvas.getContext("2d");
       ctx.scale(ratio, ratio);
@@ -736,20 +528,18 @@ function SignaturePanel({
     };
   }, [canSign]);
 
-  const handleClear = () => {
-    padRef.current?.clear();
-    setHasInk(false);
-  };
-
+  const handleClear  = () => { padRef.current?.clear(); setHasInk(false); };
   const handleSubmit = () => {
     if (!padRef.current || padRef.current.isEmpty()) return;
-    const dataURL = padRef.current.toDataURL("image/png");
-    onSave(dataURL);
+    onSave(padRef.current.toDataURL("image/png"));
   };
 
+  const fmtSignedDate = signedAt
+    ? new Date(signedAt).toLocaleDateString("mn-MN", { year: "numeric", month: "short", day: "numeric" })
+    : null;
+
   return (
-    <div
-      className="p-5 flex flex-col"
+    <div className="p-5 flex flex-col"
       style={{
         background: "#141414",
         border: existing
@@ -760,56 +550,40 @@ function SignaturePanel({
       }}
     >
       <div className="flex items-center justify-between mb-4">
-        <div className="text-[10px] tracking-[0.3em] uppercase text-white/40">
-          {role}
-        </div>
+        <div className="text-[10px] tracking-[0.3em] uppercase text-white/40">{role}</div>
         {existing && (
-          <span
-            className="text-[9px] tracking-[0.2em] uppercase"
-            style={{ color: "#C9A84C" }}
-          >
+          <span className="text-[9px] tracking-[0.2em] uppercase" style={{ color: "#C9A84C" }}>
             ◇ Зурсан
           </span>
         )}
       </div>
 
-      {/* Signature area */}
-      <div
-        className="relative flex-1 flex items-center justify-center"
+      <div className="relative flex-1 flex items-center justify-center"
         style={{
           minHeight: 180,
-          background:
-            "linear-gradient(180deg, transparent 0%, rgba(201,168,76,0.02) 100%)",
+          background: "linear-gradient(180deg, transparent 0%, rgba(201,168,76,0.02) 100%)",
           border: "1px solid rgba(255,255,255,0.06)",
         }}
       >
         {existing ? (
-          <img
-            src={existing}
-            alt={`${party} signature`}
+          <img src={existing} alt={`${party} signature`}
             className="max-w-full max-h-full object-contain p-4"
             style={{ filter: "brightness(1.4)" }}
           />
         ) : canSign ? (
           <>
-            <canvas
-              ref={canvasRef}
+            <canvas ref={canvasRef}
               className="w-full h-full absolute inset-0"
               style={{ touchAction: "none", cursor: "crosshair" }}
             />
             {!hasInk && (
               <div className="text-center pointer-events-none">
-                <div
-                  className="font-light mb-2"
+                <div className="font-light mb-2"
                   style={{
-                    fontFamily: "'Cormorant Garamond', serif",
-                    fontStyle: "italic",
-                    color: "rgba(201,168,76,0.4)",
-                    fontSize: 24,
+                    fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic",
+                    color: "rgba(201,168,76,0.4)", fontSize: 24,
                   }}
-                >
-                  Энд гарын үсгээ зураарай
-                </div>
+                >Энд гарын үсгээ зураарай</div>
                 <p className="text-[10px] tracking-[0.25em] uppercase text-white/30">
                   Хулгана эсвэл хуруугаар
                 </p>
@@ -818,12 +592,8 @@ function SignaturePanel({
           </>
         ) : waiting ? (
           <div className="text-center">
-            <div className="text-[10px] tracking-[0.3em] uppercase text-white/30 mb-2">
-              Хүлээгдэж буй
-            </div>
-            <p className="text-xs text-white/40">
-              {party} гарын үсэг зурахыг хүлээж байна
-            </p>
+            <div className="text-[10px] tracking-[0.3em] uppercase text-white/30 mb-2">Хүлээгдэж буй</div>
+            <p className="text-xs text-white/40">{party} гарын үсэг зурахыг хүлээж байна</p>
           </div>
         ) : (
           <div className="text-center text-[10px] tracking-[0.3em] uppercase text-white/30">
@@ -832,39 +602,25 @@ function SignaturePanel({
         )}
       </div>
 
-      {/* Footer */}
       <div className="mt-4 flex items-center justify-between">
         <div className="text-xs text-white/50">
           {party}
+          {fmtSignedDate && existing && (
+            <span className="ml-2 text-white/30">· {fmtSignedDate}</span>
+          )}
         </div>
         {canSign && (
           <div className="flex gap-2">
-            <button
-              onClick={handleClear}
-              disabled={!hasInk || saving}
+            <button onClick={handleClear} disabled={!hasInk || saving}
               className="px-4 py-2 text-[10px] tracking-[0.25em] uppercase text-white/50 hover:text-white transition-colors disabled:opacity-30"
               style={{ border: "1px solid rgba(255,255,255,0.12)" }}
-            >
-              Цэвэрлэх
-            </button>
-            <button
-              onClick={handleSubmit}
-              disabled={!hasInk || saving}
+            >Цэвэрлэх</button>
+            <button onClick={handleSubmit} disabled={!hasInk || saving}
               className="px-4 py-2 text-[10px] tracking-[0.25em] uppercase transition-all duration-300 disabled:opacity-30"
               style={{ background: "#C9A84C", color: "#0A0A0A" }}
-              onMouseEnter={(e) =>
-                hasInk &&
-                !saving &&
-                (e.currentTarget.style.background = "#E8D49E")
-              }
-              onMouseLeave={(e) =>
-                hasInk &&
-                !saving &&
-                (e.currentTarget.style.background = "#C9A84C")
-              }
-            >
-              {saving ? "..." : "Хадгалах"}
-            </button>
+              onMouseEnter={(e) => hasInk && !saving && (e.currentTarget.style.background = "#E8D49E")}
+              onMouseLeave={(e) => hasInk && !saving && (e.currentTarget.style.background = "#C9A84C")}
+            >{saving ? "..." : "Хадгалах"}</button>
           </div>
         )}
       </div>
@@ -874,18 +630,10 @@ function SignaturePanel({
 
 function StatusPill({ label, color }) {
   return (
-    <div
-      className="inline-flex items-center gap-2 px-4 py-2 text-[10px] tracking-[0.2em] uppercase self-start"
-      style={{
-        background: `${color}15`,
-        color,
-        border: `1px solid ${color}50`,
-      }}
+    <div className="inline-flex items-center gap-2 px-4 py-2 text-[10px] tracking-[0.2em] uppercase self-start"
+      style={{ background: `${color}15`, color, border: `1px solid ${color}50` }}
     >
-      <span
-        className="inline-block w-1.5 h-1.5 rounded-full"
-        style={{ background: color }}
-      />
+      <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ background: color }} />
       {label}
     </div>
   );
