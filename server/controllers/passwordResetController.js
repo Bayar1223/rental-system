@@ -1,80 +1,105 @@
 // ═══════════════════════════════════════════════════════════════════
 //  📁 server/controllers/passwordResetController.js
-//  ✅ ЗАСВАРЛАСАН — newPassword.length < 6 → < 8
-//     (User model дээр minlength: 8 байгаатай нэгтгэв)
+//  ⭐ PHASE 2: OTP-based password reset (client-ийн UI-тай таарна)
 // ═══════════════════════════════════════════════════════════════════
 
-const crypto    = require("crypto");
-const bcrypt    = require("bcryptjs");
-const User      = require("../models/User");
-const { sendPasswordResetEmail } = require("../services/emailService");
+const bcrypt = require("bcryptjs");
+const User = require("../models/User");
+const {
+  createOtp,
+  sendEmailOtp,
+  verifyOtp,
+} = require("../services/otpService");
 
-// POST /api/auth/forgot-password
-exports.forgotPassword = async (req, res) => {
+// POST /api/password-reset/request
+// Имэйл хаягт сэргээх 6-оронтой код илгээх
+exports.requestReset = async (req, res) => {
   try {
     const { email } = req.body;
-    if (!email) return res.status(400).json({ message: "Имэйл хаяг оруулна уу" });
 
-    const user = await User.findOne({ email });
-    // Аюулгүй байдлын үүднээс хэрэглэгч олдсон эсэхийг илчлэхгүй
-    if (!user) {
-      return res.json({ message: "Хэрэв имэйл бүртгэлтэй бол сэргээх холбоос илгээгдлээ" });
+    if (!email) {
+      return res.status(400).json({ message: "Имэйл хаяг оруулна уу" });
     }
 
-    // Reset token үүсгэх
-    const resetToken  = crypto.randomBytes(32).toString("hex");
-    const hashedToken = crypto.createHash("sha256").update(resetToken).digest("hex");
+    const user = await User.findOne({ email: email.toLowerCase().trim() });
 
-    user.passwordResetToken   = hashedToken;
-    user.passwordResetExpires = Date.now() + 60 * 60 * 1000; // 1 цаг
-    await user.save();
+    // ⚠️ Аюулгүй байдлын үүднээс — хэрэглэгч байгаа эсэхийг илчлэхгүй
+    // Хэрвээ оршдоггүй имэйл бол ч success буцаана (enumeration халдлагаас сэргийлэх)
+    if (!user) {
+      return res.json({
+        message: "Хэрэв имэйл бүртгэлтэй бол сэргээх код илгээгдсэн.",
+        email,
+      });
+    }
 
-    await sendPasswordResetEmail({
-      to:         process.env.RESEND_TEST_EMAIL || user.email,
-      resetToken,
-      firstName:  user.firstName,
+    // OTP үүсгэж имэйл рүү илгээх (одоогийн otpService infrastructure)
+    const otp = await createOtp({
+      identifier: email,
+      type: "email",
+      purpose: "forgot_password",
     });
 
-    res.json({ message: "Нууц үг сэргээх холбоос таны имэйл рүү илгээгдлээ" });
+    await sendEmailOtp({
+      email,
+      code: otp.code,
+      purpose: "forgot_password",
+      firstName: user.firstName,
+    });
+
+    res.json({
+      message: "Сэргээх код таны имэйл рүү илгээгдлээ.",
+      email,
+    });
   } catch (error) {
-    console.error("forgotPassword error:", error);
-    res.status(500).json({ message: "Имэйл илгээхэд алдаа гарлаа. Дахин оролдоно уу." });
+    console.error("requestReset error:", error);
+    res.status(500).json({
+      message: "Имэйл илгээхэд алдаа гарлаа. Дахин оролдоно уу.",
+    });
   }
 };
 
-// POST /api/auth/reset-password
-exports.resetPassword = async (req, res) => {
+// POST /api/password-reset/reset
+// OTP кодыг шалгаад нууц үгийг шинэчлэх
+exports.resetWithOtp = async (req, res) => {
   try {
-    const { token, newPassword } = req.body;
+    const { email, otp, newPassword } = req.body;
 
-    if (!token || !newPassword) {
-      return res.status(400).json({ message: "Token болон шинэ нууц үг шаардлагатай" });
+    if (!email || !otp || !newPassword) {
+      return res.status(400).json({ message: "Бүх талбарыг бөглөнө үү" });
     }
 
-    // ✅ ЗАСВАР: 6 → 8 (User model-ийн minlength-тай таарч байна)
     if (newPassword.length < 8) {
-      return res.status(400).json({ message: "Нууц үг хамгийн багадаа 8 тэмдэгт байх ёстой" });
+      return res.status(400).json({
+        message: "Нууц үг хамгийн багадаа 8 тэмдэгт байх ёстой",
+      });
     }
 
-    const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
-
-    const user = await User.findOne({
-      passwordResetToken:   hashedToken,
-      passwordResetExpires: { $gt: Date.now() },
+    // OTP шалгах
+    const result = await verifyOtp({
+      identifier: email.toLowerCase().trim(),
+      code: otp,
+      purpose: "forgot_password",
     });
 
-    if (!user) {
-      return res.status(400).json({ message: "Token хүчингүй эсвэл хугацаа дууссан байна" });
+    if (!result.valid) {
+      return res.status(400).json({ message: result.message });
     }
 
-    user.password             = await bcrypt.hash(newPassword, 10);
-    user.passwordResetToken   = undefined;
+    const user = await User.findOne({ email: email.toLowerCase().trim() });
+    if (!user) {
+      return res.status(400).json({ message: "Хэрэглэгч олдсонгүй" });
+    }
+
+    user.password = await bcrypt.hash(newPassword, 10);
+    user.passwordResetToken = undefined;
     user.passwordResetExpires = undefined;
     await user.save();
 
-    res.json({ message: "Нууц үг амжилттай шинэчлэгдлээ. Нэвтэрч орно уу." });
+    res.json({
+      message: "Нууц үг амжилттай шинэчлэгдлээ. Нэвтэрч орно уу.",
+    });
   } catch (error) {
-    console.error("resetPassword error:", error);
+    console.error("resetWithOtp error:", error);
     res.status(500).json({ message: "Алдаа гарлаа", error: error.message });
   }
 };

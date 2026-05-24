@@ -64,16 +64,20 @@ app.use("/api/auth/login",      loginLimiter);
 app.use("/api/auth/register",   registerLimiter);
 app.use("/api/auth/verify-otp", otpLimiter);
 app.use("/api/auth/resend-otp", otpLimiter);
+// ⭐ Password reset endpoint-уудад мөн otpLimiter
+app.use("/api/password-reset",  otpLimiter);
 
-app.use("/api/admin",         require("./routes/adminRoutes"));
-app.use("/api/auth",          require("./routes/authRoutes"));
-app.use("/api/properties",    require("./routes/propertyRoutes"));
-app.use("/api/applications",  require("./routes/applicationRoutes"));
-app.use("/api/notifications", require("./routes/notificationRoutes"));
-app.use("/api/users",         require("./routes/userRoutes"));
-app.use("/api/payments",      require("./routes/paymentRoutes"));
-app.use("/api/reviews",       require("./routes/reviewRoutes"));
-app.use("/api/maintenance",   require("./routes/maintenanceRoutes"));
+app.use("/api/admin",          require("./routes/adminRoutes"));
+app.use("/api/auth",           require("./routes/authRoutes"));
+// ⭐ ШИНЭ — Phase 2 password reset routes
+app.use("/api/password-reset", require("./routes/passwordResetRoutes"));
+app.use("/api/properties",     require("./routes/propertyRoutes"));
+app.use("/api/applications",   require("./routes/applicationRoutes"));
+app.use("/api/notifications",  require("./routes/notificationRoutes"));
+app.use("/api/users",          require("./routes/userRoutes"));
+app.use("/api/payments",       require("./routes/paymentRoutes"));
+app.use("/api/reviews",        require("./routes/reviewRoutes"));
+app.use("/api/maintenance",    require("./routes/maintenanceRoutes"));
 
 app.get("/api/test", protect, (req, res) => {
   res.json({ message: "Token амжилттай шалгагдлаа", user: req.user });
