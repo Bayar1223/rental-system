@@ -1,260 +1,419 @@
+// ═══════════════════════════════════════════════════════════════════
+//  📁 server/controllers/applicationController.js
+//  ⬇️ БҮХЭЛДЭЭ СОЛИНО — copy-paste дарж бичих
+// ═══════════════════════════════════════════════════════════════════
+
 const Application = require("../models/Application");
-const Property = require("../models/Property");
-const { createNotification } = require("./notificationController");
-const { generatePayments } = require("./paymentController");
+const Property    = require("../models/Property");
 
-// POST /api/applications — хүсэлт үүсгэх
-exports.createApplication = async (req, res) => {
+
+// ──────────────────────────────────────────────────────────────────
+//  POST /api/applications
+//  Tenant байрд өргөдөл гаргах
+// ──────────────────────────────────────────────────────────────────
+const createApplication = async (req, res) => {
   try {
-    const { propertyId, startDate, leaseMonths, message } = req.body;
+    const { property: propertyId, startDate, leaseMonths, message } = req.body;
 
-    const property = await Property.findById(propertyId).populate("owner", "firstName");
-    if (!property) return res.status(404).json({ message: "Орон сууц олдсонгүй" });
-
-    const userId = req.user._id || req.user.id;
-    if (property.owner._id.toString() === userId.toString()) {
-      return res.status(400).json({ message: "Өөрийн байр дээр хүсэлт явуулах боломжгүй" });
+    if (!propertyId || !startDate || !leaseMonths) {
+      return res
+        .status(400)
+        .json({ message: "Шаардлагатай талбарууд дутуу байна" });
     }
 
+    // Байр оршдог эсэх + landlord олох
+    const property = await Property.findById(propertyId);
+    if (!property) {
+      return res.status(404).json({ message: "Байр олдсонгүй" });
+    }
+
+    // Tenant өөрийнхөө байрд өргөдөл гаргахгүй
+    if (property.owner?.toString() === req.user._id.toString()) {
+      return res
+        .status(400)
+        .json({ message: "Өөрийнхөө байрд өргөдөл гаргах боломжгүй" });
+    }
+
+    if (property.status !== "available") {
+      return res.status(400).json({ message: "Байр одоогоор боломжгүй" });
+    }
+
+    // Аль хэдийн идэвхтэй өргөдөл байгаа эсэхийг шалгах
     const existing = await Application.findOne({
+      tenant: req.user._id,
       property: propertyId,
-      tenant: userId,
-      status: "pending",
+      status: { $nin: ["cancelled", "rejected"] },
     });
     if (existing) {
-      return res.status(400).json({ message: "Та энэ байранд аль хэдийн хүсэлт илгээсэн байна" });
+      return res
+        .status(400)
+        .json({ message: "Та энэ байрд аль хэдийн өргөдөл гаргасан" });
     }
 
-    const totalRent = property.monthlyRent * leaseMonths;
+    // Эцсийн огноо + нийт түрээсийг тооцох
     const start = new Date(startDate);
-    const end = new Date(start);
-    end.setMonth(end.getMonth() + Number(leaseMonths));
+    const months = Number(leaseMonths);
+    const endDate = new Date(start);
+    endDate.setMonth(endDate.getMonth() + months);
+    const totalRent = (property.price || 0) * months;
 
     const application = await Application.create({
-      property: propertyId,
-      tenant: userId,
-      landlord: property.owner._id,
-      startDate,
-      endDate: end,
-      leaseMonths,
+      property:   propertyId,
+      tenant:     req.user._id,
+      landlord:   property.owner,
+      startDate:  start,
+      leaseMonths: months,
+      endDate,
       totalRent,
-      message,
+      message:    message || "",
+      status:     "pending",
     });
 
-    await createNotification({
-      user: property.owner._id,
-      title: "Шинэ хүсэлт ирлээ",
-      message: `"${property.title}" байранд шинэ түрээсийн хүсэлт ирлээ`,
-      type: "application_received",
-      link: "/landlord-applications",
-    });
+    const populated = await Application.findById(application._id)
+      .populate("property", "title address district price photos")
+      .populate("tenant",   "name email phone")
+      .populate("landlord", "name email phone");
 
-    res.status(201).json({ message: "Хүсэлт амжилттай илгээгдлээ", application });
-  } catch (error) {
-    res.status(500).json({ message: "Хүсэлт илгээхэд алдаа гарлаа", error: error.message });
+    return res.status(201).json(populated);
+  } catch (err) {
+    console.error("createApplication:", err);
+    return res.status(500).json({ message: "Алдаа гарлаа" });
   }
 };
 
-// GET /api/applications/my — tenant-ийн хүсэлтүүд
-exports.getMyApplications = async (req, res) => {
+
+// ──────────────────────────────────────────────────────────────────
+//  GET /api/applications/my
+//  Tenant өөрийн гаргасан БҮХ өргөдлүүдийг авах
+// ──────────────────────────────────────────────────────────────────
+const getMyApplications = async (req, res) => {
   try {
-    const userId = req.user._id || req.user.id;
-    const applications = await Application.find({ tenant: userId })
-      .populate("property")
-      .populate("landlord", "firstName lastName phone email")
+    const apps = await Application.find({ tenant: req.user._id })
+      .populate("property", "title address district price photos status")
+      .populate("landlord", "name email phone")
       .sort({ createdAt: -1 });
-    res.json(applications);
-  } catch (error) {
-    res.status(500).json({ message: "Хүсэлтүүд авахад алдаа гарлаа" });
+
+    return res.json(apps);
+  } catch (err) {
+    console.error("getMyApplications:", err);
+    return res.status(500).json({ message: "Алдаа гарлаа" });
   }
 };
 
-// GET /api/applications/landlord — landlord-ийн хүсэлтүүд
-exports.getLandlordApplications = async (req, res) => {
+
+// ──────────────────────────────────────────────────────────────────
+//  GET /api/applications/landlord
+//  Landlord-ийн байруудад ирсэн БҮХ өргөдлүүд
+// ──────────────────────────────────────────────────────────────────
+const getLandlordApplications = async (req, res) => {
   try {
-    const userId = req.user._id || req.user.id;
-    const applications = await Application.find({ landlord: userId })
-      .populate("property")
-      .populate("tenant", "firstName lastName phone email")
+    const apps = await Application.find({ landlord: req.user._id })
+      .populate("property", "title address district price photos status")
+      .populate("tenant", "name email phone avatar")
       .sort({ createdAt: -1 });
-    res.json(applications);
-  } catch (error) {
-    res.status(500).json({ message: "Хүсэлтүүд авахад алдаа гарлаа" });
+
+    return res.json(apps);
+  } catch (err) {
+    console.error("getLandlordApplications:", err);
+    return res.status(500).json({ message: "Алдаа гарлаа" });
   }
 };
 
-// GET /api/applications/active — идэвхтэй түрээснүүд
-exports.getActiveRentals = async (req, res) => {
-  try {
-    const userId = req.user._id || req.user.id;
-    const role = req.user.role;
 
-    const filter = {
+// ──────────────────────────────────────────────────────────────────
+//  GET /api/applications/active
+//  Tenant-ийн ИДЭВХТЭЙ түрээслэлүүд (active contract-тай)
+// ──────────────────────────────────────────────────────────────────
+const getActiveRentals = async (req, res) => {
+  try {
+    const rentals = await Application.find({
+      tenant: req.user._id,
       status: "approved",
-      endDate: { $gte: new Date() },
-    };
-
-    if (role === "tenant") filter.tenant = userId;
-    else filter.landlord = userId;
-
-    const applications = await Application.find(filter)
-      .populate("property", "title location monthlyRent images")
-      .populate("tenant", "firstName lastName phone email")
-      .populate("landlord", "firstName lastName phone email")
+      contractStatus: { $in: ["signed", "payment_pending", "active"] },
+    })
+      .populate("property")
+      .populate("landlord", "name email phone")
       .sort({ startDate: -1 });
 
-    res.json(applications);
-  } catch (error) {
-    res.status(500).json({ message: "Алдаа гарлаа", error: error.message });
+    return res.json(rentals);
+  } catch (err) {
+    console.error("getActiveRentals:", err);
+    return res.status(500).json({ message: "Алдаа гарлаа" });
   }
 };
 
-// PUT /api/applications/:id/status — approve/reject
-exports.updateApplicationStatus = async (req, res) => {
+
+// ──────────────────────────────────────────────────────────────────
+//  PUT /api/applications/:id/status
+//  Landlord өргөдлийг ЗӨВШӨӨРӨХ / ТАТГАЛЗАХ
+// ──────────────────────────────────────────────────────────────────
+const updateApplicationStatus = async (req, res) => {
   try {
+    const { id } = req.params;
     const { status } = req.body;
-    const userId = req.user._id || req.user.id;
 
-    const application = await Application.findById(req.params.id)
-      .populate("property", "title")
-      .populate("tenant", "firstName _id");
+    if (!["approved", "rejected"].includes(status)) {
+      return res.status(400).json({ message: "Статус буруу байна" });
+    }
 
-    if (!application) return res.status(404).json({ message: "Хүсэлт олдсонгүй" });
+    const application = await Application.findById(id).populate("property");
+    if (!application) {
+      return res.status(404).json({ message: "Өргөдөл олдсонгүй" });
+    }
 
-    if (application.landlord.toString() !== userId.toString()) {
-      return res.status(403).json({ message: "Зөвшөөрөлгүй" });
+    // Зөвхөн landlord-той (эсвэл admin) болон зөвшөөрнө
+    const isLandlord =
+      application.landlord.toString() === req.user._id.toString();
+    const isAdmin = req.user.role === "admin";
+    if (!isLandlord && !isAdmin) {
+      return res.status(403).json({ message: "Эрх байхгүй" });
+    }
+
+    if (application.status !== "pending") {
+      return res
+        .status(400)
+        .json({ message: "Зөвхөн хүлээгдэж буй өргөдлийг өөрчилнө" });
     }
 
     application.status = status;
+
     if (status === "approved") {
+      // Гарын үсэг зурах шатанд оруулна
       application.contractStatus = "pending_signatures";
+
+      // Бусад өргөдлүүдийг автомат татгалзах
+      await Application.updateMany(
+        {
+          property: application.property._id,
+          _id: { $ne: application._id },
+          status: "pending",
+        },
+        { $set: { status: "rejected" } }
+      );
+
+      // Байрны статусыг "түрээслэгдсэн" болгох
+      await Property.findByIdAndUpdate(application.property._id, {
+        status: "rented",
+      });
     }
+
     await application.save();
 
-    const isApproved = status === "approved";
-    await createNotification({
-      user: application.tenant._id,
-      title: isApproved ? "Хүсэлт зөвшөөрөгдлөө! 🎉" : "Хүсэлт татгалзагдлаа",
-      message: isApproved
-        ? `"${application.property.title}" байрны хүсэлтийг зөвшөөрлөө. Гэрээгээ харна уу.`
-        : `"${application.property.title}" байрны хүсэлтийг татгалзлаа.`,
-      type: isApproved ? "application_approved" : "application_rejected",
-      link: "/my-applications",
-    });
+    const populated = await Application.findById(application._id)
+      .populate("property")
+      .populate("tenant", "name email phone avatar")
+      .populate("landlord", "name email phone");
 
-    res.json({ message: "Хүсэлтийн төлөв шинэчлэгдлээ", application });
-  } catch (error) {
-    res.status(500).json({ message: "Шинэчлэхэд алдаа гарлаа", error: error.message });
+    return res.json(populated);
+  } catch (err) {
+    console.error("updateApplicationStatus:", err);
+    return res.status(500).json({ message: "Алдаа гарлаа" });
   }
 };
 
-// PUT /api/applications/:id/sign — гэрээнд гарын үсэг зурах
-exports.signContract = async (req, res) => {
+
+// ──────────────────────────────────────────────────────────────────
+//  PUT /api/applications/:id/sign
+//  Хоёр тал гэрээнд гарын үсэг зурах
+// ──────────────────────────────────────────────────────────────────
+const signContract = async (req, res) => {
   try {
-    const { signatureUrl } = req.body;
-    const userId = req.user._id || req.user.id;
+    const { id } = req.params;
+    const { tenantSignature, landlordSignature } = req.body;
 
-    const application = await Application.findById(req.params.id)
-      .populate("property", "title _id paymentConditionText monthlyRent")
-      .populate("tenant", "firstName _id")
-      .populate("landlord", "firstName _id");
-
+    const application = await Application.findById(id);
     if (!application) {
-      return res.status(404).json({ message: "Хүсэлт олдсонгүй" });
+      return res.status(404).json({ message: "Өргөдөл олдсонгүй" });
     }
 
     if (application.status !== "approved") {
-      return res.status(400).json({ message: "Зөвхөн зөвшөөрөгдсөн хүсэлтэд гэрээ байгуулах боломжтой" });
+      return res
+        .status(400)
+        .json({ message: "Зөвхөн зөвшөөрөгдсөн өргөдөл-д гарын үсэг зурна" });
     }
 
-    if (application.contractStatus === "cancelled") {
-      return res.status(400).json({ message: "Цуцлагдсан гэрээнд гарын үсэг зурах боломжгүй" });
-    }
-
-    const isTenant   = application.tenant._id.toString() === userId.toString();
-    const isLandlord = application.landlord._id.toString() === userId.toString();
+    const userId = req.user._id.toString();
+    const isTenant = application.tenant.toString() === userId;
+    const isLandlord = application.landlord.toString() === userId;
 
     if (!isTenant && !isLandlord) {
-      return res.status(403).json({ message: "Зөвшөөрөлгүй" });
+      return res.status(403).json({ message: "Эрх байхгүй" });
     }
 
-    if (application.contractStatus === "none") {
-      application.contractStatus = "pending_signatures";
+    // Tenant гарын үсэг
+    if (isTenant && tenantSignature) {
+      application.tenantSignature = tenantSignature;
+      application.tenantSigned    = true;
+      application.tenantSignedAt  = new Date();
     }
 
-    if (isTenant && !application.tenantSigned) {
-      application.tenantSigned   = true;
-      application.tenantSignedAt = new Date();
-      if (signatureUrl) application.tenantSignature = signatureUrl;
+    // Landlord гарын үсэг
+    if (isLandlord && landlordSignature) {
+      application.landlordSignature = landlordSignature;
+      application.landlordSigned    = true;
+      application.landlordSignedAt  = new Date();
     }
 
-    if (isLandlord && !application.landlordSigned) {
-      application.landlordSigned   = true;
-      application.landlordSignedAt = new Date();
-      if (signatureUrl) application.landlordSignature = signatureUrl;
-    }
-
-    // ← ӨӨРЧЛӨЛТ: Хоёр тал зурсан бол "signed" → generatePayments → "payment_pending" болно
+    // Хоёулаа гарын үсэг зурвал → payment_pending руу шилжих
     if (application.tenantSigned && application.landlordSigned) {
-      application.contractStatus = "signed";
-
-      const propertyId = application.property._id || application.property;
-      await Property.findByIdAndUpdate(propertyId, { status: "rented" });
-
-      // generatePayments дотор contractStatus "payment_pending" болгоно
-      await generatePayments(application._id);
+      application.contractStatus = "payment_pending";
     }
 
     await application.save();
-    res.json({ message: "Гарын үсэг амжилттай зурагдлаа", application });
-  } catch (error) {
-    console.error("signContract error:", error);
-    res.status(500).json({ message: "Алдаа гарлаа", error: error.message });
+
+    const populated = await Application.findById(application._id)
+      .populate("property")
+      .populate("tenant", "name email phone avatar")
+      .populate("landlord", "name email phone");
+
+    return res.json(populated);
+  } catch (err) {
+    console.error("signContract:", err);
+    return res.status(500).json({ message: "Алдаа гарлаа" });
   }
 };
 
-// PUT /api/applications/:id/cancel — гэрээ цуцлах
-exports.requestCancellation = async (req, res) => {
+
+// ──────────────────────────────────────────────────────────────────
+//  PUT /api/applications/:id/cancel
+//  Өргөдөл / Гэрээ цуцлах хүсэлт
+// ──────────────────────────────────────────────────────────────────
+const requestCancellation = async (req, res) => {
   try {
+    const { id } = req.params;
     const { reason } = req.body;
-    const userId = req.user._id || req.user.id;
 
-    const application = await Application.findById(req.params.id)
-      .populate("property", "title _id")
-      .populate("tenant", "firstName _id")
-      .populate("landlord", "firstName _id");
-
-    if (!application) return res.status(404).json({ message: "Хүсэлт олдсонгүй" });
-
-    const isTenant   = application.tenant._id.toString() === userId.toString();
-    const isLandlord = application.landlord._id.toString() === userId.toString();
-
-    if (!isTenant && !isLandlord) {
-      return res.status(403).json({ message: "Зөвшөөрөлгүй" });
+    const application = await Application.findById(id).populate("property");
+    if (!application) {
+      return res.status(404).json({ message: "Өргөдөл олдсонгүй" });
     }
 
-    application.status                  = "cancelled";
-    application.contractStatus          = "cancelled";
-    application.cancellationRequestedBy = userId;
-    application.cancellationReason      = reason || "";
-    application.cancellationRequestedAt = new Date();
+    const userId = req.user._id.toString();
+    const isTenant = application.tenant.toString() === userId;
+    const isLandlord = application.landlord.toString() === userId;
+    const isAdmin = req.user.role === "admin";
 
-    const propertyId = application.property._id || application.property;
-    await Property.findByIdAndUpdate(propertyId, { status: "available" });
+    if (!isTenant && !isLandlord && !isAdmin) {
+      return res.status(403).json({ message: "Эрх байхгүй" });
+    }
+
+    // Аль хэдийн дууссан / цуцлагдсан бол үгүй
+    if (["cancelled", "completed"].includes(application.status)) {
+      return res
+        .status(400)
+        .json({ message: "Энэ өргөдөл аль хэдийн хаагдсан байна" });
+    }
+
+    application.status                   = "cancelled";
+    application.contractStatus           = "cancelled";
+    application.cancellationRequestedBy  = req.user._id;
+    application.cancellationReason       = reason || "Шалтгаан заагаагүй";
+    application.cancellationRequestedAt  = new Date();
 
     await application.save();
 
-    const notifyUser = isTenant ? application.landlord._id : application.tenant._id;
-    await createNotification({
-      user: notifyUser,
-      title: "Гэрээ цуцлагдлаа",
-      message: `"${application.property.title}" байрны гэрээг цуцлах хүсэлт илгээгдлээ. Шалтгаан: ${reason || "—"}`,
-      type: "application_rejected",
-      link: isTenant ? "/landlord-applications" : "/my-applications",
-    });
+    // Хэрэв гэрээ хийгдсэн байрны статусыг сэргээх
+    if (application.property?.status === "rented") {
+      await Property.findByIdAndUpdate(application.property._id, {
+        status: "available",
+      });
+    }
 
-    res.json({ message: "Гэрээ цуцлагдлаа", application });
-  } catch (error) {
-    res.status(500).json({ message: "Алдаа гарлаа", error: error.message });
+    const populated = await Application.findById(application._id)
+      .populate("property")
+      .populate("tenant", "name email phone avatar")
+      .populate("landlord", "name email phone");
+
+    return res.json(populated);
+  } catch (err) {
+    console.error("requestCancellation:", err);
+    return res.status(500).json({ message: "Алдаа гарлаа" });
   }
+};
+
+
+// ──────────────────────────────────────────────────────────────────
+//  ⭐ GET /api/applications/:id
+//  Single application авах — Contract, Payment, Detail хуудаснаас дуудна
+// ──────────────────────────────────────────────────────────────────
+const getApplicationById = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const application = await Application.findById(id)
+      .populate("property")
+      .populate("tenant",   "name email phone avatar firstName lastName")
+      .populate("landlord", "name email phone avatar firstName lastName");
+
+    if (!application) {
+      return res.status(404).json({ message: "Өргөдөл олдсонгүй" });
+    }
+
+    // Зөвхөн оролцогч талуудад харагдана (tenant, landlord, admin)
+    const userId = req.user._id.toString();
+    const tenantId = application.tenant?._id?.toString();
+    const landlordId = application.landlord?._id?.toString();
+    const isTenant = tenantId === userId;
+    const isLandlord = landlordId === userId;
+    const isAdmin = req.user.role === "admin";
+
+    if (!isTenant && !isLandlord && !isAdmin) {
+      return res
+        .status(403)
+        .json({ message: "Энэ өргөдлийг харах эрх байхгүй" });
+    }
+
+    return res.json(application);
+  } catch (err) {
+    console.error("getApplicationById:", err);
+    if (err.name === "CastError") {
+      return res.status(404).json({ message: "Өргөдөл олдсонгүй" });
+    }
+    return res.status(500).json({ message: "Алдаа гарлаа" });
+  }
+};
+
+
+// ──────────────────────────────────────────────────────────────────
+//  ⭐ GET /api/applications/me/property/:propertyId
+//  Tenant нь тухайн байрд аль хэдийн өргөдөл гаргасан эсэхийг шалгах
+// ──────────────────────────────────────────────────────────────────
+const getMyApplicationForProperty = async (req, res) => {
+  try {
+    const { propertyId } = req.params;
+
+    const application = await Application.findOne({
+      tenant:   req.user._id,
+      property: propertyId,
+      // cancelled / rejected бол дахин өргөдөл гаргаж болно
+      status:   { $nin: ["cancelled", "rejected"] },
+    })
+      .populate("property", "title address district price photos status")
+      .sort({ createdAt: -1 });
+
+    // Олдоогүй ч 404 биш — null буцаах нь UX-д сайн
+    return res.json(application || null);
+  } catch (err) {
+    console.error("getMyApplicationForProperty:", err);
+    if (err.name === "CastError") {
+      return res.json(null);
+    }
+    return res.status(500).json({ message: "Алдаа гарлаа" });
+  }
+};
+
+
+// ──────────────────────────────────────────────────────────────────
+//  EXPORTS
+// ──────────────────────────────────────────────────────────────────
+module.exports = {
+  createApplication,
+  getMyApplications,
+  getLandlordApplications,
+  updateApplicationStatus,
+  getActiveRentals,
+  signContract,
+  requestCancellation,
+  getApplicationById,           // ⭐ ШИНЭ
+  getMyApplicationForProperty,  // ⭐ ШИНЭ
 };
