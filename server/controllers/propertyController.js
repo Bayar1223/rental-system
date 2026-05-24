@@ -77,12 +77,13 @@ exports.getProperties = async (req, res) => {
 
 // ─── GET /api/properties/landlord — нэвтэрсэн landlord-ийн байр ───
 // ⭐ ШИНЭ — Phase 3-ийн дутуу endpoint
+// Client тал шууд array хүлээж байгаа учир wrapped object биш array буцаана
 exports.getMyProperties = async (req, res) => {
   try {
     const userId = req.user._id || req.user.id;
     const properties = await Property.find({ owner: userId })
       .sort({ createdAt: -1 });
-    res.status(200).json({ properties });
+    res.status(200).json(properties);   // ⭐ Шууд array
   } catch (error) {
     res.status(500).json({
       message: "Таны байруудыг авахад алдаа гарлаа",
