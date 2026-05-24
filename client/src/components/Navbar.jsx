@@ -1,439 +1,664 @@
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=Inter:wght@200;300;400;500;600&display=swap');
+import { Link, useNavigate, useLocation } from "react-router-dom";
+import api from "../api/axiosInstance";
+import { useState, useEffect, useRef, useMemo } from "react";
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+const timeAgo = (date) => {
+  if (!date) return "";
+  const diff = (Date.now() - new Date(date).getTime()) / 1000;
+  if (diff < 60) return "Дөнгөж сая";
+  if (diff < 3600) return `${Math.floor(diff / 60)}м өмнө`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}ц өмнө`;
+  return `${Math.floor(diff / 86400)}ө өмнө`;
+};
 
-/* ═══════════════════════════════════════════════════════════
-   MONTE CARLO PALETTE
-   ═══════════════════════════════════════════════════════════ */
-:root {
-  /* Backgrounds (dark) */
-  --bg-primary:    #000000;
-  --bg-secondary:  #0A0A0A;
-  --bg-tertiary:   #141414;
-  --bg-elevated:   #1A1A1A;
-  --bg-card:       #0F0F0F;
+const ROLE_LABELS = {
+  tenant: "Түрээслэгч",
+  landlord: "Байрны эзэн",
+  admin: "Админ",
+};
 
-  /* Gold */
-  --gold:          #C8A961;
-  --gold-light:    #E5D4A1;
-  --gold-dark:     #8E7741;
-  --gold-glow:     rgba(200, 169, 97, 0.25);
+function Navbar() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [currentUser, setCurrentUser] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem("user"));
+    } catch {
+      return null;
+    }
+  });
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [notifications, setNotifications] = useState([]);
+  const [showNotif, setShowNotif] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+  const notifRef = useRef(null);
+  const userMenuRef = useRef(null);
 
-  /* Text */
-  --text-primary:   #FFFFFF;
-  --text-secondary: #C8C8C8;
-  --text-muted:     #8A8A8A;
-  --text-soft:      #5A5A5A;
+  const user = currentUser;
 
-  /* Borders */
-  --border-subtle: rgba(255, 255, 255, 0.08);
-  --border-gold:   rgba(200, 169, 97, 0.25);
-  --border-strong: rgba(255, 255, 255, 0.15);
+  // Хэрэглэгчийн нэрийг firstName ЭСВЭЛ name-аас гаргаж авна (хоёр хувилбарын зэрэгцэх)
+  const displayName = useMemo(() => {
+    if (!user) return "";
+    if (user.firstName) return user.firstName;
+    if (user.name) return user.name.split(" ")[0];
+    return "Хэрэглэгч";
+  }, [user]);
 
-  /* ── Backward compatibility (хуучин variable-уудыг шинэ утгад mapping) ── */
-  --ink:           #FFFFFF;           /* хуучин: dark text → одоо: light text */
-  --ink-soft:      #C8C8C8;
-  --ink-muted:     #8A8A8A;
-  --cream:         #000000;           /* хуучин: light bg → одоо: pure black */
-  --surface:       #0F0F0F;
-  --surface-warm:  #141414;
-  --border-light:  rgba(200, 169, 97, 0.2);
+  const fullName = useMemo(() => {
+    if (!user) return "";
+    if (user.firstName) return `${user.firstName} ${user.lastName || ""}`.trim();
+    return user.name || "Хэрэглэгч";
+  }, [user]);
+
+  const initial = useMemo(() => {
+    if (!user) return "?";
+    return (user.firstName || user.name || "?").charAt(0).toUpperCase();
+  }, [user]);
+
+  // ── Scroll detection ──
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 20);
+    window.addEventListener("scroll", onScroll);
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  // ── Notification polling (every 30s) ──
+  useEffect(() => {
+    if (!user) return;
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const res = await api.get("/api/notifications/unread-count");
+        if (cancelled) return;
+        setUnreadCount(res.data?.count || 0);
+      } catch {
+        /* silent */
+      }
+    };
+
+    load();
+    const intervalId = setInterval(load, 30000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(intervalId);
+    };
+  }, [user]);
+
+  // ── Хэрэглэгчийн өөрчлөлтийг бусад tab/event-аар сонсох ──
+  useEffect(() => {
+    const handler = () => {
+      try {
+        setCurrentUser(JSON.parse(localStorage.getItem("user")));
+      } catch {
+        /* silent */
+      }
+    };
+    window.addEventListener("storage", handler);
+    window.addEventListener("userUpdated", handler);
+    return () => {
+      window.removeEventListener("storage", handler);
+      window.removeEventListener("userUpdated", handler);
+    };
+  }, []);
+
+  // ── Click outside dropdown ──
+  useEffect(() => {
+    const handler = (e) => {
+      if (notifRef.current && !notifRef.current.contains(e.target)) {
+        setShowNotif(false);
+      }
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target)) {
+        setShowUserMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  // ── Route өөрчлөгдөхөд бүх dropdown-ыг хаах ──
+  // (React-ийн албан ёсны pattern: useEffect ч биш, useRef ч биш —
+  //  useState + render-ийн үед conditional comparison)
+  const [lastPath, setLastPath] = useState(location.pathname);
+  if (lastPath !== location.pathname) {
+    setLastPath(location.pathname);
+    if (showNotif) setShowNotif(false);
+    if (showUserMenu) setShowUserMenu(false);
+    if (mobileOpen) setMobileOpen(false);
+  }
+
+  const handleBellClick = async () => {
+    if (!showNotif) {
+      try {
+        const r = await api.get("/api/notifications");
+        setNotifications(r.data || []);
+      } catch {
+        /* silent */
+      }
+      if (unreadCount > 0) {
+        try {
+          await api.put("/api/notifications/mark-all-read", {});
+          setUnreadCount(0);
+        } catch {
+          /* silent */
+        }
+      }
+    }
+    setShowNotif((p) => !p);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    setCurrentUser(null);
+    navigate("/");
+  };
+
+  const isActive = (path) => location.pathname === path;
+
+  const navLinks =
+    user?.role === "tenant"
+      ? [
+          { to: "/home", label: "Байр" },
+          { to: "/my-applications", label: "Хүсэлт" },
+          { to: "/my-rentals", label: "Түрээс" },
+        ]
+      : user?.role === "landlord"
+        ? [
+            { to: "/home", label: "Байр" },
+            { to: "/my-properties", label: "Миний байр" },
+            { to: "/landlord-applications", label: "Хүсэлт" },
+          ]
+        : user?.role === "admin"
+          ? [
+              { to: "/home", label: "Байр" },
+              { to: "/admin", label: "Админ" },
+            ]
+          : [{ to: "/home", label: "Байр" }];
+
+  // ── Хэрэглэгчийн dropdown menu ──
+  const userMenuItems = [
+    { to: "/profile", label: "Профайл" },
+    { to: "/notifications", label: "Мэдэгдэл" },
+    ...(user?.role === "tenant"
+      ? [
+          { to: "/my-rentals", label: "Миний түрээс" },
+          { to: "/maintenance", label: "Барьцаа суутгал" },
+        ]
+      : []),
+    ...(user?.role === "landlord"
+      ? [
+          { to: "/add-property", label: "Байр нэмэх" },
+          { to: "/maintenance", label: "Барьцаа суутгал" },
+        ]
+      : []),
+    ...(user?.role === "admin" ? [{ to: "/admin", label: "Админ самбар" }] : []),
+  ];
+
+  // ── Хар scrolled background (CSS variable дээр /95 opacity ажиллахгүй тул inline) ──
+  const navStyle = scrolled
+    ? {
+        height: 72,
+        background: "rgba(10, 10, 10, 0.92)",
+        backdropFilter: "blur(12px)",
+        borderBottom: "1px solid var(--border-gold)",
+      }
+    : { height: 72, background: "transparent" };
+
+  return (
+    <>
+      <nav
+        className="fixed top-0 left-0 right-0 z-50 transition-all duration-500"
+        style={navStyle}
+      >
+        <div className="max-w-7xl mx-auto px-6 lg:px-10 h-full flex items-center justify-between">
+          {/* Logo */}
+          <Link to={user ? "/home" : "/"} className="flex items-center gap-3 group">
+            <div className="relative w-8 h-8">
+              <div
+                className="absolute inset-0 rotate-45 transition-transform duration-500 group-hover:rotate-[135deg]"
+                style={{ border: "1px solid var(--gold)" }}
+              />
+              <div
+                className="absolute inset-1.5 rotate-45 transition-all duration-500 group-hover:scale-50"
+                style={{ background: "var(--gold)" }}
+              />
+            </div>
+            <div className="hidden sm:block">
+              <span
+                className="font-display text-xl tracking-[0.2em] font-light"
+                style={{ color: "var(--text-primary)" }}
+              >
+                Rental<span style={{ color: "var(--gold)", fontStyle: "italic" }}>Sy</span>
+              </span>
+            </div>
+          </Link>
+
+          {/* Desktop center nav */}
+          <div className="hidden md:flex items-center gap-1">
+            {navLinks.map(({ to, label }) => (
+              <Link
+                key={to}
+                to={to}
+                className="px-5 py-2 text-[10px] font-medium tracking-[0.2em] uppercase transition-all duration-300 relative"
+                style={{
+                  color: isActive(to) ? "var(--gold)" : "rgba(255,255,255,0.55)",
+                }}
+                onMouseEnter={(e) => {
+                  if (!isActive(to)) e.currentTarget.style.color = "var(--text-primary)";
+                }}
+                onMouseLeave={(e) => {
+                  if (!isActive(to)) e.currentTarget.style.color = "rgba(255,255,255,0.55)";
+                }}
+              >
+                {label}
+                {isActive(to) && (
+                  <span
+                    className="absolute bottom-0 left-5 right-5"
+                    style={{
+                      height: 1,
+                      background: "var(--gold)",
+                      animation: "slideRight 0.4s ease both",
+                    }}
+                  />
+                )}
+              </Link>
+            ))}
+          </div>
+
+          {/* Right side */}
+          <div className="flex items-center gap-3">
+            {user ? (
+              <>
+                {/* Bell */}
+                <div className="relative" ref={notifRef}>
+                  <button
+                    onClick={handleBellClick}
+                    className="relative w-10 h-10 flex items-center justify-center transition-colors"
+                    style={{ color: "rgba(255,255,255,0.55)" }}
+                    onMouseEnter={(e) => (e.currentTarget.style.color = "var(--gold)")}
+                    onMouseLeave={(e) =>
+                      (e.currentTarget.style.color = "rgba(255,255,255,0.55)")
+                    }
+                    aria-label="Мэдэгдэл"
+                  >
+                    <svg
+                      width="18"
+                      height="18"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.2"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        d="M15 17H9m6 0a6 6 0 10-6 0m6 0v1a2 2 0 11-4 0v-1M12 3v1"
+                      />
+                    </svg>
+                    {unreadCount > 0 && (
+                      <span
+                        className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full"
+                        style={{
+                          background: "var(--gold)",
+                          animation: "pulseGold 2s infinite",
+                        }}
+                      />
+                    )}
+                  </button>
+
+                  {showNotif && (
+                    <div
+                      className="absolute right-0 top-12 w-80 z-50 animate-fadeIn"
+                      style={{
+                        background: "var(--bg-tertiary)",
+                        border: "1px solid var(--border-gold)",
+                      }}
+                    >
+                      <div
+                        className="px-5 py-4 flex items-center justify-between"
+                        style={{ borderBottom: "1px solid var(--border-subtle)" }}
+                      >
+                        <span
+                          className="text-[10px] font-medium tracking-[0.25em] uppercase"
+                          style={{ color: "var(--gold)" }}
+                        >
+                          Мэдэгдэл
+                        </span>
+                        {unreadCount > 0 && (
+                          <span className="badge-gold">{unreadCount} шинэ</span>
+                        )}
+                      </div>
+
+                      <div className="max-h-80 overflow-y-auto">
+                        {notifications.length === 0 ? (
+                          <div className="py-16 text-center" style={{ color: "var(--text-muted)" }}>
+                            <div className="text-sm">Мэдэгдэл байхгүй</div>
+                          </div>
+                        ) : (
+                          notifications.slice(0, 5).map((n) => (
+                            <button
+                              key={n._id}
+                              onClick={() => {
+                                setShowNotif(false);
+                                if (n.link) navigate(n.link);
+                              }}
+                              className="w-full text-left px-5 py-4 transition-colors"
+                              style={{
+                                borderBottom: "1px solid var(--border-subtle)",
+                                background: !n.isRead
+                                  ? "rgba(201,168,76,0.04)"
+                                  : "transparent",
+                                borderLeft: !n.isRead
+                                  ? "2px solid var(--gold)"
+                                  : "2px solid transparent",
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.background = "rgba(255,255,255,0.03)";
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.background = !n.isRead
+                                  ? "rgba(201,168,76,0.04)"
+                                  : "transparent";
+                              }}
+                            >
+                              <p
+                                className="text-sm mb-0.5 line-clamp-1"
+                                style={{
+                                  color: !n.isRead
+                                    ? "var(--text-primary)"
+                                    : "var(--text-secondary)",
+                                  fontWeight: !n.isRead ? 500 : 400,
+                                }}
+                              >
+                                {n.title}
+                              </p>
+                              {n.message && (
+                                <p
+                                  className="text-xs line-clamp-1"
+                                  style={{ color: "var(--text-muted)" }}
+                                >
+                                  {n.message}
+                                </p>
+                              )}
+                              <p
+                                className="text-[10px] tracking-[0.2em] uppercase mt-1.5"
+                                style={{ color: "var(--text-soft)" }}
+                              >
+                                {timeAgo(n.createdAt)}
+                              </p>
+                            </button>
+                          ))
+                        )}
+                      </div>
+
+                      <Link
+                        to="/notifications"
+                        onClick={() => setShowNotif(false)}
+                        className="flex items-center justify-center gap-2 py-3 text-[10px] font-medium tracking-[0.25em] uppercase transition-colors"
+                        style={{
+                          color: "var(--gold)",
+                          borderTop: "1px solid var(--border-subtle)",
+                        }}
+                        onMouseEnter={(e) =>
+                          (e.currentTarget.style.background = "rgba(201,168,76,0.05)")
+                        }
+                        onMouseLeave={(e) =>
+                          (e.currentTarget.style.background = "transparent")
+                        }
+                      >
+                        Бүгдийг харах →
+                      </Link>
+                    </div>
+                  )}
+                </div>
+
+                {/* User menu */}
+                <div className="relative" ref={userMenuRef}>
+                  <button
+                    onClick={() => setShowUserMenu((p) => !p)}
+                    className="flex items-center gap-2.5 px-3 py-1.5 transition-colors"
+                    onMouseEnter={(e) =>
+                      (e.currentTarget.style.background = "rgba(255,255,255,0.03)")
+                    }
+                    onMouseLeave={(e) =>
+                      (e.currentTarget.style.background = "transparent")
+                    }
+                  >
+                    <div
+                      className="w-8 h-8 flex items-center justify-center text-xs font-medium overflow-hidden"
+                      style={{
+                        border: "1px solid var(--gold)",
+                        color: "var(--gold)",
+                        fontFamily: "'Cormorant Garamond', serif",
+                        fontSize: 14,
+                      }}
+                    >
+                      {user.avatar ? (
+                        <img
+                          src={user.avatar}
+                          className="w-full h-full object-cover"
+                          alt=""
+                        />
+                      ) : (
+                        initial
+                      )}
+                    </div>
+                    <span
+                      className="hidden sm:block text-xs font-light tracking-wider"
+                      style={{ color: "var(--text-primary)" }}
+                    >
+                      {displayName}
+                    </span>
+                    <svg
+                      className={`w-3 h-3 transition-transform ${showUserMenu ? "rotate-180" : ""}`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                      style={{ color: "var(--text-muted)" }}
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={1.5}
+                        d="M19 9l-7 7-7-7"
+                      />
+                    </svg>
+                  </button>
+
+                  {showUserMenu && (
+                    <div
+                      className="absolute right-0 top-12 w-60 z-50 animate-fadeIn"
+                      style={{
+                        background: "var(--bg-tertiary)",
+                        border: "1px solid var(--border-gold)",
+                      }}
+                    >
+                      <div
+                        className="px-5 py-4"
+                        style={{ borderBottom: "1px solid var(--border-subtle)" }}
+                      >
+                        <p
+                          className="text-sm leading-tight"
+                          style={{
+                            color: "var(--text-primary)",
+                            fontFamily: "'Cormorant Garamond', serif",
+                            fontSize: 18,
+                          }}
+                        >
+                          {fullName}
+                        </p>
+                        <p
+                          className="text-[10px] tracking-[0.25em] uppercase mt-1.5"
+                          style={{ color: "var(--gold)" }}
+                        >
+                          ◇ {ROLE_LABELS[user.role] || user.role}
+                        </p>
+                      </div>
+
+                      <div className="py-1">
+                        {userMenuItems.map(({ to, label }) => (
+                          <Link
+                            key={to}
+                            to={to}
+                            onClick={() => setShowUserMenu(false)}
+                            className="flex items-center px-5 py-2.5 text-xs tracking-wide transition-colors"
+                            style={{ color: "var(--text-secondary)" }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.color = "var(--gold)";
+                              e.currentTarget.style.background = "rgba(201,168,76,0.04)";
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.color = "var(--text-secondary)";
+                              e.currentTarget.style.background = "transparent";
+                            }}
+                          >
+                            {label}
+                          </Link>
+                        ))}
+                      </div>
+
+                      <div style={{ borderTop: "1px solid var(--border-subtle)" }}>
+                        <button
+                          onClick={handleLogout}
+                          className="w-full flex items-center px-5 py-3 text-xs tracking-wide transition-colors"
+                          style={{ color: "#EF4444" }}
+                          onMouseEnter={(e) =>
+                            (e.currentTarget.style.background = "rgba(239,68,68,0.06)")
+                          }
+                          onMouseLeave={(e) =>
+                            (e.currentTarget.style.background = "transparent")
+                          }
+                        >
+                          Гарах
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Mobile burger */}
+                <button
+                  onClick={() => setMobileOpen((p) => !p)}
+                  className="md:hidden w-10 h-10 flex flex-col items-center justify-center gap-1"
+                  aria-label="Меню"
+                >
+                  <span
+                    className={`block w-5 h-px transition-all duration-300 ${mobileOpen ? "rotate-45 translate-y-1.5" : ""}`}
+                    style={{ background: "var(--text-primary)" }}
+                  />
+                  <span
+                    className={`block w-5 h-px transition-all duration-300 ${mobileOpen ? "opacity-0" : ""}`}
+                    style={{ background: "var(--text-primary)" }}
+                  />
+                  <span
+                    className={`block w-5 h-px transition-all duration-300 ${mobileOpen ? "-rotate-45 -translate-y-1.5" : ""}`}
+                    style={{ background: "var(--text-primary)" }}
+                  />
+                </button>
+              </>
+            ) : (
+              <div className="flex items-center gap-3">
+                <Link to="/login" className="btn-ghost">
+                  Нэвтрэх
+                </Link>
+                <Link
+                  to="/register"
+                  className="btn-gold"
+                  style={{ padding: "11px 22px", fontSize: 10 }}
+                >
+                  Бүртгүүлэх
+                </Link>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Бүхэл өргөнтэй алтан байрс */}
+        <div
+          className="h-px"
+          style={{
+            background: "linear-gradient(90deg, transparent, var(--gold), transparent)",
+            opacity: scrolled ? 0.3 : 0.15,
+          }}
+        />
+      </nav>
+
+      {/* Mobile fullscreen menu */}
+      {mobileOpen && user && (
+        <div
+          className="md:hidden fixed inset-0 z-40 pt-20 animate-fadeIn"
+          style={{ background: "var(--bg-primary)" }}
+        >
+          <div className="px-8 py-8">
+            <div className="flex items-center gap-3 mb-8">
+              <div className="h-px w-8" style={{ background: "var(--gold)" }} />
+              <span
+                className="text-[10px] tracking-[0.3em] uppercase"
+                style={{ color: "var(--gold)" }}
+              >
+                Menu
+              </span>
+            </div>
+
+            <div className="space-y-0 mb-8">
+              {navLinks.map(({ to, label }) => (
+                <Link
+                  key={to}
+                  to={to}
+                  onClick={() => setMobileOpen(false)}
+                  className="block py-5 transition-colors"
+                  style={{
+                    color: isActive(to) ? "var(--gold)" : "var(--text-secondary)",
+                    borderBottom: "1px solid var(--border-subtle)",
+                    fontFamily: "'Cormorant Garamond', serif",
+                    fontSize: 24,
+                    fontWeight: 300,
+                  }}
+                >
+                  {label}
+                </Link>
+              ))}
+            </div>
+
+            {/* User menu items in mobile */}
+            <div className="space-y-0 mb-8">
+              {userMenuItems.map(({ to, label }) => (
+                <Link
+                  key={to}
+                  to={to}
+                  onClick={() => setMobileOpen(false)}
+                  className="block py-3 text-sm tracking-wide"
+                  style={{
+                    color: "var(--text-secondary)",
+                    borderBottom: "1px solid var(--border-subtle)",
+                  }}
+                >
+                  {label}
+                </Link>
+              ))}
+            </div>
+
+            <button
+              onClick={handleLogout}
+              className="block w-full text-left py-4 text-sm tracking-[0.2em] uppercase"
+              style={{
+                color: "#EF4444",
+                borderTop: "1px solid rgba(239,68,68,0.3)",
+                marginTop: 24,
+              }}
+            >
+              Гарах
+            </button>
+          </div>
+        </div>
+      )}
+    </>
+  );
 }
 
-/* ═══════════════════════════════════════════════════════════
-   BASE
-   ═══════════════════════════════════════════════════════════ */
-* { box-sizing: border-box; }
-
-html, body {
-  background: var(--bg-primary);
-  color: var(--text-primary);
-}
-
-body {
-  font-family: 'Inter', sans-serif;
-  font-weight: 300;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  letter-spacing: 0.01em;
-}
-
-/* ═══════════════════════════════════════════════════════════
-   TAILWIND OVERRIDES (хар theme рүү шилжүүлэх)
-   ═══════════════════════════════════════════════════════════ */
-.bg-white                     { background-color: var(--bg-card) !important; }
-.bg-gray-50, .bg-gray-100     { background-color: var(--bg-secondary) !important; }
-.bg-gray-200                  { background-color: var(--bg-tertiary) !important; }
-.bg-amber-50, .bg-yellow-50   { background-color: rgba(200,169,97,0.08) !important; }
-.bg-red-50                    { background-color: rgba(239,68,68,0.08) !important; }
-.bg-green-50                  { background-color: rgba(34,197,94,0.08) !important; }
-.bg-blue-50, .bg-indigo-50    { background-color: rgba(99,102,241,0.08) !important; }
-.bg-orange-50                 { background-color: rgba(249,115,22,0.08) !important; }
-.bg-purple-50                 { background-color: rgba(168,85,247,0.08) !important; }
-
-.text-gray-900, .text-gray-800 { color: var(--text-primary) !important; }
-.text-gray-700, .text-gray-600 { color: var(--text-secondary) !important; }
-.text-gray-500                 { color: var(--text-muted) !important; }
-.text-gray-400, .text-gray-300 { color: var(--text-soft) !important; }
-
-.border-gray-100, .border-gray-200 { border-color: var(--border-subtle) !important; }
-.border-gray-300                    { border-color: var(--border-strong) !important; }
-
-.shadow, .shadow-sm, .shadow-md, .shadow-lg, .shadow-xl, .shadow-2xl {
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.6), 0 1px 2px rgba(200, 169, 97, 0.05) !important;
-}
-
-/* Indigo accent classes → gold */
-.bg-indigo-600, .bg-indigo-500, .bg-indigo-400 { background-color: var(--gold) !important; color: #000 !important; }
-.text-indigo-600, .text-indigo-500, .text-indigo-400 { color: var(--gold) !important; }
-.border-indigo-400, .border-indigo-500 { border-color: var(--gold) !important; }
-.hover\:bg-indigo-700:hover { background-color: var(--gold-dark) !important; }
-.focus\:border-indigo-400:focus { border-color: var(--gold) !important; }
-
-/* Form inputs — dark style */
-input, textarea, select {
-  background-color: var(--bg-secondary);
-  color: var(--text-primary);
-  border-color: var(--border-subtle);
-}
-input::placeholder, textarea::placeholder { color: var(--text-soft); }
-
-/* Scrollbar */
-::-webkit-scrollbar { width: 10px; height: 10px; }
-::-webkit-scrollbar-track { background: var(--bg-primary); }
-::-webkit-scrollbar-thumb { background: var(--bg-tertiary); border-radius: 0; }
-::-webkit-scrollbar-thumb:hover { background: var(--gold-dark); }
-
-/* ═══════════════════════════════════════════════════════════
-   ANIMATIONS
-   ═══════════════════════════════════════════════════════════ */
-@keyframes fadeUp { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
-@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-@keyframes slideRight { from { transform: scaleX(0); } to { transform: scaleX(1); } }
-@keyframes shimmer { 0% { background-position: -200% center; } 100% { background-position: 200% center; } }
-@keyframes floatY { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
-@keyframes scrollDot { 0% { transform: translateY(0); opacity: 0; } 30% { opacity: 1; } 70% { opacity: 1; } 100% { transform: translateY(12px); opacity: 0; } }
-@keyframes pulseGold { 0%, 100% { box-shadow: 0 0 0 0 var(--gold-glow); } 50% { box-shadow: 0 0 0 12px rgba(200,169,97,0); } }
-@keyframes textFadeSlide {
-  0%, 25% { opacity: 1; transform: translateY(0); }
-  33%, 92% { opacity: 0; transform: translateY(-20px); }
-  100% { opacity: 1; transform: translateY(0); }
-}
-
-.animate-fadeUp { animation: fadeUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) both; }
-.animate-fadeIn { animation: fadeIn 0.6s ease both; }
-.delay-100 { animation-delay: 0.1s; }
-.delay-200 { animation-delay: 0.2s; }
-.delay-300 { animation-delay: 0.3s; }
-.delay-400 { animation-delay: 0.4s; }
-.delay-500 { animation-delay: 0.5s; }
-.delay-700 { animation-delay: 0.7s; }
-
-/* ═══════════════════════════════════════════════════════════
-   TYPOGRAPHY
-   ═══════════════════════════════════════════════════════════ */
-.font-display {
-  font-family: 'Cormorant Garamond', serif;
-  font-weight: 300;
-  letter-spacing: 0.005em;
-}
-
-.mc-eyebrow {
-  font-family: 'Inter', sans-serif;
-  font-size: 11px;
-  font-weight: 400;
-  letter-spacing: 0.35em;
-  text-transform: uppercase;
-  color: var(--gold);
-}
-
-.mc-heading {
-  font-family: 'Cormorant Garamond', serif;
-  font-weight: 300;
-  line-height: 1.05;
-  letter-spacing: -0.01em;
-}
-
-/* ═══════════════════════════════════════════════════════════
-   BUTTONS
-   ═══════════════════════════════════════════════════════════ */
-.btn-gold {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  background: var(--gold);
-  color: #000;
-  font-family: 'Inter', sans-serif;
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  padding: 14px 32px;
-  border: 1px solid var(--gold);
-  cursor: pointer;
-  position: relative;
-  overflow: hidden;
-  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
-}
-.btn-gold::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: var(--gold-dark);
-  transform: translateX(-101%);
-  transition: transform 0.4s ease;
-}
-.btn-gold > * { position: relative; z-index: 1; }
-.btn-gold:hover::before { transform: translateX(0); }
-.btn-gold:hover { color: #fff; }
-
-.btn-outline-gold {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  background: transparent;
-  color: var(--gold);
-  border: 1px solid var(--gold);
-  font-family: 'Inter', sans-serif;
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  padding: 13px 31px;
-  cursor: pointer;
-  transition: all 0.35s ease;
-}
-.btn-outline-gold:hover {
-  background: var(--gold);
-  color: #000;
-}
-
-.btn-ghost {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  background: transparent;
-  color: var(--text-muted);
-  border: none;
-  font-size: 11px;
-  font-weight: 400;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  padding: 10px 18px;
-  cursor: pointer;
-  transition: color 0.2s;
-}
-.btn-ghost:hover { color: var(--gold); }
-
-/* ═══════════════════════════════════════════════════════════
-   CARDS
-   ═══════════════════════════════════════════════════════════ */
-.luxury-card {
-  background: var(--bg-card);
-  border: 1px solid var(--border-subtle);
-  transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
-  position: relative;
-  overflow: hidden;
-}
-.luxury-card::before {
-  content: '';
-  position: absolute;
-  bottom: 0; left: 0; right: 0;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, var(--gold), transparent);
-  transform: scaleX(0);
-  transition: transform 0.5s ease;
-}
-.luxury-card:hover {
-  border-color: var(--border-gold);
-  transform: translateY(-4px);
-}
-.luxury-card:hover::before { transform: scaleX(1); }
-
-/* ═══════════════════════════════════════════════════════════
-   INPUTS
-   ═══════════════════════════════════════════════════════════ */
-.luxury-input {
-  width: 100%;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-subtle);
-  border-radius: 0;
-  padding: 16px 18px;
-  font-family: 'Inter', sans-serif;
-  font-size: 14px;
-  font-weight: 300;
-  color: var(--text-primary);
-  outline: none;
-  transition: border-color 0.25s;
-}
-.luxury-input:focus { border-color: var(--gold); }
-.luxury-input::placeholder { color: var(--text-soft); }
-
-.luxury-select {
-  appearance: none;
-  width: 100%;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-subtle);
-  border-radius: 0;
-  padding: 16px 44px 16px 18px;
-  font-family: 'Inter', sans-serif;
-  font-size: 14px;
-  font-weight: 300;
-  color: var(--text-primary);
-  outline: none;
-  cursor: pointer;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%23C8A961' viewBox='0 0 16 16'><path d='M8 11L3 6h10z'/></svg>");
-  background-repeat: no-repeat;
-  background-position: right 18px center;
-  transition: border-color 0.25s;
-}
-.luxury-select:focus { border-color: var(--gold); }
-
-/* ═══════════════════════════════════════════════════════════
-   BADGES
-   ═══════════════════════════════════════════════════════════ */
-.badge-gold {
-  display: inline-block;
-  background: var(--gold);
-  color: #000;
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  padding: 4px 12px;
-}
-.badge-ink {
-  display: inline-block;
-  background: rgba(0,0,0,0.85);
-  color: var(--gold);
-  border: 1px solid var(--border-gold);
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  padding: 4px 12px;
-}
-.badge-outline {
-  display: inline-block;
-  border: 1px solid var(--border-subtle);
-  color: var(--text-muted);
-  font-size: 10px;
-  font-weight: 400;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  padding: 3px 10px;
-  background: rgba(255,255,255,0.02);
-}
-
-/* ═══════════════════════════════════════════════════════════
-   DIVIDERS / LINES
-   ═══════════════════════════════════════════════════════════ */
-.gold-line {
-  display: block;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, var(--gold) 50%, transparent);
-  transform-origin: center;
-  animation: slideRight 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-.gold-line-static {
-  display: block;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, var(--gold) 50%, transparent);
-}
-.divider-gold {
-  display: flex;
-  align-items: center;
-  gap: 18px;
-  color: var(--text-soft);
-  font-size: 10px;
-  letter-spacing: 0.25em;
-  text-transform: uppercase;
-}
-.divider-gold::before, .divider-gold::after {
-  content: '';
-  flex: 1;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, var(--border-gold));
-}
-.divider-gold::after { background: linear-gradient(90deg, var(--border-gold), transparent); }
-
-/* ═══════════════════════════════════════════════════════════
-   SCROLL INDICATOR (Monte Carlo style)
-   ═══════════════════════════════════════════════════════════ */
-.scroll-indicator {
-  width: 22px;
-  height: 36px;
-  border: 1px solid var(--gold);
-  border-radius: 12px;
-  position: relative;
-}
-.scroll-indicator::before {
-  content: '';
-  position: absolute;
-  top: 6px;
-  left: 50%;
-  width: 2px;
-  height: 6px;
-  background: var(--gold);
-  border-radius: 2px;
-  transform: translateX(-50%);
-  animation: scrollDot 2s ease-in-out infinite;
-}
-
-/* ═══════════════════════════════════════════════════════════
-   REVEAL ON SCROLL
-   ═══════════════════════════════════════════════════════════ */
-.reveal {
-  opacity: 0;
-  transform: translateY(32px);
-  transition: opacity 0.9s cubic-bezier(0.16, 1, 0.3, 1), transform 0.9s cubic-bezier(0.16, 1, 0.3, 1);
-}
-.reveal.visible { opacity: 1; transform: translateY(0); }
-
-/* ═══════════════════════════════════════════════════════════
-   STAT NUMBERS
-   ═══════════════════════════════════════════════════════════ */
-.stat-number {
-  font-family: 'Cormorant Garamond', serif;
-  font-weight: 300;
-  color: var(--gold);
-  line-height: 1;
-}
-
-/* ═══════════════════════════════════════════════════════════
-   HERO VIDEO TAGLINE ROTATOR
-   ═══════════════════════════════════════════════════════════ */
-.hero-tagline {
-  animation: textFadeSlide 6s ease-in-out infinite;
-}
-
-/* ═══════════════════════════════════════════════════════════
-   LEAFLET MAP DARK
-   ═══════════════════════════════════════════════════════════ */
-.leaflet-container { background: var(--bg-secondary) !important; }
-.leaflet-tile { filter: invert(1) hue-rotate(180deg) brightness(0.85) contrast(0.92); }
-.leaflet-popup-content-wrapper, .leaflet-popup-tip {
-  background: var(--bg-card) !important;
-  color: var(--text-primary) !important;
-  border-radius: 0 !important;
-  box-shadow: 0 4px 24px rgba(0,0,0,0.8) !important;
-}
-
-/* ═══════════════════════════════════════════════════════════
-   PAGE TRANSITION
-   ═══════════════════════════════════════════════════════════ */
-.page-enter { animation: fadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) both; }
-
-/* ═══════════════════════════════════════════════════════════
-   NOTIF DOT
-   ═══════════════════════════════════════════════════════════ */
-.notif-dot {
-  width: 6px; height: 6px;
-  background: var(--gold);
-  border-radius: 50%;
-  animation: pulseGold 2s infinite;
-}
+export default Navbar;

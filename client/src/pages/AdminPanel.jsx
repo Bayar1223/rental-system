@@ -1,282 +1,755 @@
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect, useMemo } from "react";
 import api from "../api/axiosInstance";
-import Navbar from "../components/Navbar";
+import { Link, useNavigate } from "react-router-dom";
 
-const ROLE_LABELS   = { tenant: "Түрээслэгч", landlord: "Түрээслүүлэгч", admin: "Админ" };
-const STATUS_LABELS = { available: "Боломжтой", rented: "Түрээслэгдсэн", inactive: "Идэвхгүй" };
+const PLACEHOLDER =
+  "https://images.unsplash.com/photo-1494526585095-c41746248156?auto=format&fit=crop&w=400&q=70";
 
-function StatCard({ label, value, sub, color = "var(--gold)" }) {
-  return (
-    <div style={{ background: "var(--dark)", border: "1px solid var(--border-dim)", padding: 28 }}>
-      <div className="font-display" style={{ fontSize: 48, fontWeight: 300, color, lineHeight: 1, marginBottom: 8 }}>{value}</div>
-      <p style={{ fontFamily: "'Montserrat'", fontSize: 10, fontWeight: 500, letterSpacing: "0.15em", textTransform: "uppercase", color: "var(--text-muted)", marginBottom: sub ? 4 : 0 }}>{label}</p>
-      {sub && <p style={{ fontFamily: "'Montserrat'", fontSize: 9, color: "var(--text-soft)" }}>{sub}</p>}
-    </div>
-  );
+const ROLES = [
+  { v: "tenant", label: "Түрээслэгч" },
+  { v: "landlord", label: "Байрны эзэн" },
+  { v: "admin", label: "Админ" },
+];
+
+const ROLE_COLORS = {
+  tenant: "#C9A84C",
+  landlord: "#10B981",
+  admin: "#EF4444",
+};
+
+function formatDate(d) {
+  if (!d) return "—";
+  return new Date(d).toLocaleDateString("mn-MN", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function formatMNT(n) {
+  return new Intl.NumberFormat("mn-MN").format(n || 0);
 }
 
 function AdminPanel() {
   const navigate = useNavigate();
-  const currentUser = JSON.parse(localStorage.getItem("user") || "null");
-  const [tab, setTab]           = useState("stats");
-  const [stats, setStats]       = useState(null);
-  const [users, setUsers]       = useState([]);
-  const [properties, setProperties] = useState([]);
-  const [applications, setApplications] = useState([]);
-  const [payments, setPayments] = useState([]);
-  const [loading, setLoading]   = useState(true);
-  const [search, setSearch]     = useState("");
-  const [roleFilter, setRoleFilter] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
+  const me = useMemo(
+    () => JSON.parse(localStorage.getItem("user") || "null"),
+    []
+  );
 
-  useEffect(() => { if (!currentUser || currentUser.role !== "admin") navigate("/home"); }, [currentUser, navigate]);
+  const [tab, setTab] = useState("users");
+  const [users, setUsers] = useState([]);
+  const [properties, setProperties] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [userSearch, setUserSearch] = useState("");
+  const [propSearch, setPropSearch] = useState("");
+  const [actioningId, setActioningId] = useState(null);
 
   useEffect(() => {
-    const load = async () => {
-      setLoading(true);
+    if (!me) {
+      navigate("/login");
+      return;
+    }
+    if (me.role !== "admin") {
+      navigate("/home");
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
       try {
-        if (tab === "stats") { const res = await api.get("/api/admin/stats"); setStats(res.data); }
-        else if (tab === "users") { const res = await api.get("/api/admin/users", { params: { search, role: roleFilter } }); setUsers(res.data); }
-        else if (tab === "properties") { const res = await api.get("/api/admin/properties", { params: { search, status: statusFilter } }); setProperties(res.data); }
-        else if (tab === "applications") { const res = await api.get("/api/admin/applications"); setApplications(res.data); }
-        else if (tab === "payments") { const res = await api.get("/api/admin/payments"); setPayments(res.data); }
-      } catch (err) { console.error(err); } finally { setLoading(false); }
+        const [uRes, pRes] = await Promise.all([
+          api.get("/api/admin/users"),
+          api.get("/api/admin/properties"),
+        ]);
+        if (cancelled) return;
+        setUsers(uRes.data || []);
+        setProperties(pRes.data || []);
+      } catch (err) {
+        if (cancelled) return;
+        setError(err.response?.data?.message || "Татаж чадсангүй");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
     };
-    load();
-  }, [tab, search, roleFilter, statusFilter]);
+  }, [me, navigate]);
 
-  const handleRoleChange = async (userId, role) => {
-    if (!window.confirm(`Role-г "${role}" болгох уу?`)) return;
-    try { await api.put(`/api/admin/users/${userId}/role`, { role }); setUsers(prev => prev.map(u => u._id === userId ? { ...u, role } : u)); }
-    catch { alert("Алдаа гарлаа"); }
+  // ── User actions ──
+  const handleRoleChange = async (userId, newRole) => {
+    if (userId === me._id) {
+      alert("Та өөрийн үүргийг өөрчилж чадахгүй");
+      return;
+    }
+    if (!confirm(`Үүргийг "${newRole}" болгох уу?`)) return;
+    setActioningId(userId);
+    setUsers((prev) =>
+      prev.map((u) => (u._id === userId ? { ...u, role: newRole } : u))
+    );
+    try {
+      await api.put(`/api/admin/users/${userId}`, { role: newRole });
+    } catch (err) {
+      alert(err.response?.data?.message || "Алдаа");
+    } finally {
+      setActioningId(null);
+    }
   };
-  const handleToggleBlock = async (userId, isBlocked, name) => {
-    const action = isBlocked ? "идэвхжүүлэх" : "блоклох";
-    if (!window.confirm(`"${name}" хэрэглэгчийг ${action} уу?`)) return;
-    try { const res = await api.put(`/api/admin/users/${userId}/block`); setUsers(prev => prev.map(u => u._id === userId ? { ...u, isBlocked: res.data.user.isBlocked } : u)); }
-    catch { alert("Алдаа гарлаа"); }
+
+  const handleToggleBlock = async (userId, currentlyBlocked) => {
+    if (userId === me._id) {
+      alert("Та өөрийгөө хориглож чадахгүй");
+      return;
+    }
+    const action = currentlyBlocked ? "сэргээх" : "хориглох";
+    if (!confirm(`Энэ хэрэглэгчийг ${action} уу?`)) return;
+    setActioningId(userId);
+    setUsers((prev) =>
+      prev.map((u) =>
+        u._id === userId ? { ...u, isBlocked: !currentlyBlocked } : u
+      )
+    );
+    try {
+      await api.put(`/api/admin/users/${userId}`, {
+        isBlocked: !currentlyBlocked,
+      });
+    } catch (err) {
+      alert(err.response?.data?.message || "Алдаа");
+    } finally {
+      setActioningId(null);
+    }
   };
-  const handleDeleteUser = async (userId, name) => {
-    if (!window.confirm(`"${name}" хэрэглэгчийг устгах уу?`)) return;
-    try { await api.delete(`/api/admin/users/${userId}`); setUsers(prev => prev.filter(u => u._id !== userId)); }
-    catch { alert("Алдаа гарлаа"); }
+
+  const handleDeleteUser = async (userId, userName) => {
+    if (userId === me._id) {
+      alert("Та өөрийгөө устгаж чадахгүй");
+      return;
+    }
+    if (
+      !confirm(
+        `"${userName}" хэрэглэгчийг устгахдаа итгэлтэй байна уу? Энэ үйлдэл буцаагдахгүй.`
+      )
+    )
+      return;
+    setActioningId(userId);
+    const original = users;
+    setUsers((prev) => prev.filter((u) => u._id !== userId));
+    try {
+      await api.delete(`/api/admin/users/${userId}`);
+    } catch (err) {
+      alert(err.response?.data?.message || "Устгаж чадсангүй");
+      setUsers(original);
+    } finally {
+      setActioningId(null);
+    }
   };
+
+  // ── Property actions ──
   const handleDeleteProperty = async (propId, title) => {
-    if (!window.confirm(`"${title}" байрыг устгах уу?`)) return;
-    try { await api.delete(`/api/admin/properties/${propId}`); setProperties(prev => prev.filter(p => p._id !== propId)); }
-    catch { alert("Алдаа гарлаа"); }
+    if (!confirm(`"${title}" байрыг устгах уу?`)) return;
+    setActioningId(propId);
+    const original = properties;
+    setProperties((prev) => prev.filter((p) => p._id !== propId));
+    try {
+      await api.delete(`/api/admin/properties/${propId}`);
+    } catch (err) {
+      alert(err.response?.data?.message || "Устгаж чадсангүй");
+      setProperties(original);
+    } finally {
+      setActioningId(null);
+    }
   };
 
-  const TABS = [
-    { key: "stats", label: "Статистик" },
-    { key: "users", label: "Хэрэглэгч" },
-    { key: "properties", label: "Байрнууд" },
-    { key: "applications", label: "Хүсэлтүүд" },
-    { key: "payments", label: "Төлбөрүүд" },
-  ];
+  // ── Filters ──
+  const filteredUsers = useMemo(() => {
+    if (!userSearch) return users;
+    const q = userSearch.toLowerCase();
+    return users.filter(
+      (u) =>
+        u.name?.toLowerCase().includes(q) ||
+        u.email?.toLowerCase().includes(q) ||
+        u.phone?.includes(q)
+    );
+  }, [users, userSearch]);
+
+  const filteredProperties = useMemo(() => {
+    if (!propSearch) return properties;
+    const q = propSearch.toLowerCase();
+    return properties.filter(
+      (p) =>
+        p.title?.toLowerCase().includes(q) ||
+        p.district?.toLowerCase().includes(q) ||
+        p.address?.toLowerCase().includes(q) ||
+        p.owner?.name?.toLowerCase().includes(q)
+    );
+  }, [properties, propSearch]);
+
+  // Stats
+  const stats = useMemo(
+    () => ({
+      users: users.length,
+      blocked: users.filter((u) => u.isBlocked).length,
+      properties: properties.length,
+      available: properties.filter((p) => p.status === "available").length,
+    }),
+    [users, properties]
+  );
 
   return (
-    <div style={{ minHeight: "100vh", background: "var(--black)", paddingTop: 70 }}>
-      <Navbar />
-      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "48px 48px" }}>
-
-        {/* Header */}
-        <div style={{ marginBottom: 40 }}>
-          <div className="flex items-center gap-4 mb-4">
-            <div style={{ width: 32, height: 1, background: "var(--gold)" }} />
-            <span style={{ fontFamily: "'Montserrat'", fontSize: 9, fontWeight: 500, letterSpacing: "0.25em", textTransform: "uppercase", color: "var(--gold)" }}>Хянах самбар</span>
-          </div>
-          <h1 className="font-display" style={{ fontSize: 48, fontWeight: 300, color: "var(--white)" }}>Admin Panel</h1>
+    <div
+      className="min-h-screen pt-20"
+      style={{ background: "#0A0A0A", fontFamily: "'DM Sans', sans-serif" }}
+    >
+      {/* Header */}
+      <header className="max-w-7xl mx-auto px-6 lg:px-12 py-12">
+        <div className="flex items-center gap-3 mb-5">
+          <div className="h-px w-8" style={{ background: "#C9A84C" }} />
+          <span
+            className="text-[10px] tracking-[0.3em] uppercase"
+            style={{ color: "#C9A84C" }}
+          >
+            Administration
+          </span>
         </div>
+        <h1
+          className="font-light text-white leading-[1] tracking-tight"
+          style={{
+            fontFamily: "'Cormorant Garamond', serif",
+            fontSize: "clamp(40px, 5vw, 64px)",
+          }}
+        >
+          Админ<br />
+          <em style={{ color: "#C9A84C", fontStyle: "italic" }}>
+            самбар
+          </em>
+        </h1>
+      </header>
 
-        {/* Tab navigation */}
-        <div style={{ display: "flex", borderBottom: "1px solid var(--border-dim)", marginBottom: 32, gap: 0 }}>
-          {TABS.map((t) => (
-            <button key={t.key} onClick={() => { setTab(t.key); setSearch(""); }}
+      {/* Stats */}
+      {!loading && (
+        <section className="max-w-7xl mx-auto px-6 lg:px-12 mb-10">
+          <div
+            className="grid grid-cols-2 lg:grid-cols-4 gap-3"
+            style={{ border: "1px solid rgba(201,168,76,0.15)" }}
+          >
+            {[
+              { label: "Нийт хэрэглэгч", value: stats.users, color: "#C9A84C" },
+              { label: "Хориглосон", value: stats.blocked, color: "#EF4444" },
+              { label: "Нийт байр", value: stats.properties, color: "#C9A84C" },
+              { label: "Боломжтой", value: stats.available, color: "#10B981" },
+            ].map((s, i) => (
+              <div
+                key={s.label}
+                className="p-6"
+                style={{
+                  borderRight:
+                    i < 3
+                      ? "1px solid rgba(201,168,76,0.08)"
+                      : "none",
+                }}
+              >
+                <div className="text-[10px] tracking-[0.25em] uppercase text-white/40 mb-2">
+                  {s.label}
+                </div>
+                <div
+                  className="font-light leading-none"
+                  style={{
+                    fontFamily: "'Cormorant Garamond', serif",
+                    fontSize: 36,
+                    color: s.color,
+                  }}
+                >
+                  {s.value}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Tabs */}
+      <section className="max-w-7xl mx-auto px-6 lg:px-12 mb-8">
+        <div
+          className="flex gap-1"
+          style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}
+        >
+          {[
+            { v: "users", label: "Хэрэглэгчид", count: stats.users },
+            { v: "properties", label: "Байр", count: stats.properties },
+          ].map((t) => (
+            <button
+              key={t.v}
+              onClick={() => setTab(t.v)}
+              className="px-6 py-4 text-[10px] tracking-[0.25em] uppercase transition-colors flex items-center gap-2 relative"
               style={{
-                padding: "10px 24px",
-                fontFamily: "'Montserrat'", fontSize: 9, fontWeight: 500, letterSpacing: "0.18em", textTransform: "uppercase",
-                background: "transparent", border: "none",
-                borderBottom: tab === t.key ? "1px solid var(--gold)" : "1px solid transparent",
-                color: tab === t.key ? "var(--gold)" : "var(--text-muted)",
-                cursor: "pointer", marginBottom: -1, transition: "all 0.2s",
-              }}>
+                color: tab === t.v ? "#C9A84C" : "rgba(255,255,255,0.5)",
+              }}
+            >
               {t.label}
+              <span
+                className="inline-flex items-center justify-center min-w-5 px-1.5 text-[10px]"
+                style={{
+                  background:
+                    tab === t.v ? "#C9A84C" : "rgba(255,255,255,0.05)",
+                  color: tab === t.v ? "#0A0A0A" : "rgba(255,255,255,0.5)",
+                }}
+              >
+                {t.count}
+              </span>
+              {tab === t.v && (
+                <div
+                  className="absolute bottom-0 left-0 right-0"
+                  style={{ height: 1, background: "#C9A84C" }}
+                />
+              )}
             </button>
           ))}
         </div>
+      </section>
 
-        {loading ? (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }}>
-            {[1,2,3,4].map(i => <div key={i} style={{ height: 120, background: "var(--dark)", border: "1px solid var(--border-dim)", animation: "pulse 2s ease infinite" }} />)}
+      {error && (
+        <section className="max-w-7xl mx-auto px-6 lg:px-12 mb-6">
+          <div
+            className="p-4 flex items-start gap-3"
+            style={{
+              background: "rgba(239,68,68,0.08)",
+              borderLeft: "2px solid #EF4444",
+            }}
+          >
+            <span style={{ color: "#EF4444" }}>✕</span>
+            <p className="text-sm text-red-300">{error}</p>
           </div>
-        ) : (
+        </section>
+      )}
+
+      {/* Content */}
+      <main className="max-w-7xl mx-auto px-6 lg:px-12 pb-20">
+        {tab === "users" ? (
           <>
-            {/* STATS */}
-            {tab === "stats" && stats && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
-                  <StatCard label="Нийт хэрэглэгч" value={stats.users.total} sub={`${stats.users.tenants} түрээслэгч · ${stats.users.landlords} эзэмшигч`} />
-                  <StatCard label="Нийт байр" value={stats.properties.total} sub={`${stats.properties.available} боломжтой · ${stats.properties.rented} түрээслэгдсэн`} color="var(--white)" />
-                  <StatCard label="Нийт хүсэлт" value={stats.applications.total} sub={`${stats.applications.active} идэвхтэй`} color="#22C55E" />
-                  <StatCard label="Нийт орлого" value={`${(stats.payments.totalRevenue/1000000).toFixed(1)}M₮`} sub={`${stats.payments.paid} төлбөр`} color="var(--gold)" />
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
-                  {[
-                    { t: "Хэрэглэгчид", rows: [["Нийт", stats.users.total], ["Түрээслэгч", stats.users.tenants], ["Түрээслүүлэгч", stats.users.landlords]] },
-                    { t: "Байрнууд", rows: [["Нийт", stats.properties.total], ["Боломжтой", stats.properties.available], ["Түрээслэгдсэн", stats.properties.rented]] },
-                    { t: "Төлбөр", rows: [["Нийт", stats.payments.total], ["Төлөгдсөн", stats.payments.paid], ["Нийт орлого", `${stats.payments.totalRevenue?.toLocaleString()}₮`]] },
-                  ].map(({ t, rows }) => (
-                    <div key={t} style={{ background: "var(--dark)", border: "1px solid var(--border-dim)", padding: 24 }}>
-                      <p style={{ fontFamily: "'Montserrat'", fontSize: 9, fontWeight: 500, letterSpacing: "0.2em", textTransform: "uppercase", color: "var(--gold)", marginBottom: 16 }}>{t}</p>
-                      {rows.map(([k, v]) => (
-                        <div key={k} className="flex justify-between" style={{ padding: "8px 0", borderBottom: "1px solid var(--border-dim)" }}>
-                          <span style={{ fontFamily: "'Montserrat'", fontSize: 11, color: "var(--text-muted)" }}>{k}</span>
-                          <span style={{ fontFamily: "'Montserrat'", fontSize: 11, fontWeight: 500, color: "var(--white)" }}>{v}</span>
-                        </div>
-                      ))}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+            {/* Search */}
+            <div
+              className="flex items-center gap-4 px-5 py-4 mb-6"
+              style={{
+                background: "#141414",
+                border: "1px solid rgba(201,168,76,0.15)",
+              }}
+            >
+              <span style={{ color: "#C9A84C", fontSize: 18 }}>◇</span>
+              <input
+                type="text"
+                value={userSearch}
+                onChange={(e) => setUserSearch(e.target.value)}
+                placeholder="Нэр, имэйл, утсаар хайх..."
+                className="flex-1 bg-transparent text-white text-sm outline-none placeholder:text-white/30"
+              />
+              {userSearch && (
+                <button
+                  onClick={() => setUserSearch("")}
+                  className="text-[10px] tracking-widest uppercase text-white/40 hover:text-white"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
 
-            {/* USERS */}
-            {tab === "users" && (
-              <div>
-                <div style={{ display: "flex", gap: 12, marginBottom: 20 }}>
-                  <input type="text" placeholder="Нэр, имэйл, утас хайх..." value={search} onChange={(e) => setSearch(e.target.value)} className="luxury-input" style={{ flex: 1 }} />
-                  <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)} className="luxury-select" style={{ width: 160 }}>
-                    <option value="">Бүгд</option>
-                    <option value="tenant">Түрээслэгч</option>
-                    <option value="landlord">Түрээслүүлэгч</option>
-                    <option value="admin">Админ</option>
-                  </select>
-                </div>
-                <div style={{ background: "var(--dark)", border: "1px solid var(--border-dim)", overflow: "hidden" }}>
-                  <div style={{ padding: "12px 20px", borderBottom: "1px solid var(--border-dim)" }}>
-                    <p style={{ fontFamily: "'Montserrat'", fontSize: 9, letterSpacing: "0.15em", color: "var(--text-soft)" }}>Нийт {users.length} хэрэглэгч</p>
-                  </div>
-                  {users.map((u) => (
-                    <div key={u._id} style={{ padding: "14px 20px", borderBottom: "1px solid var(--border-dim)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
-                        <div style={{ width: 36, height: 36, background: "var(--dark-2)", border: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--gold)", fontFamily: "'Cormorant Garamond'", fontSize: 16, fontWeight: 400, flexShrink: 0, overflow: "hidden" }}>
-                          {u.avatar ? <img src={u.avatar} style={{ width: "100%", height: "100%", objectFit: "cover" }} alt="" /> : u.firstName?.[0]?.toUpperCase()}
-                        </div>
-                        <div style={{ minWidth: 0 }}>
-                          <p style={{ fontFamily: "'Montserrat'", fontSize: 12, fontWeight: u.isBlocked ? 300 : 400, color: u.isBlocked ? "var(--text-soft)" : "var(--white)", textDecoration: u.isBlocked ? "line-through" : "none" }}>
-                            {u.firstName} {u.lastName}
-                            {u.isBlocked && <span style={{ fontSize: 8, letterSpacing: "0.15em", color: "#EF4444", marginLeft: 8, textDecoration: "none" }}>БЛОКЛОГДСОН</span>}
-                          </p>
-                          <p style={{ fontFamily: "'Montserrat'", fontSize: 10, color: "var(--text-soft)" }}>{u.email} · {u.phone}</p>
-                        </div>
-                      </div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
-                        <span style={{ fontFamily: "'Montserrat'", fontSize: 8, letterSpacing: "0.15em", textTransform: "uppercase", padding: "3px 10px", border: "1px solid var(--border)", color: "var(--gold)" }}>
-                          {ROLE_LABELS[u.role]}
-                        </span>
-                        <select value={u.role} onChange={(e) => handleRoleChange(u._id, e.target.value)} className="luxury-select" style={{ fontSize: 10, padding: "5px 10px", width: "auto" }}>
-                          <option value="tenant">Түрээслэгч</option>
-                          <option value="landlord">Түрээслүүлэгч</option>
-                          <option value="admin">Админ</option>
-                        </select>
-                        <button onClick={() => handleToggleBlock(u._id, u.isBlocked, `${u.firstName}`)} className="btn-ghost" style={{ padding: "5px 12px", fontSize: 9, color: u.isBlocked ? "#22C55E" : "#F97316" }}>
-                          {u.isBlocked ? "Идэвхжүүлэх" : "Блоклох"}
-                        </button>
-                        <button onClick={() => handleDeleteUser(u._id, `${u.firstName}`)} className="btn-danger" style={{ padding: "5px 12px", fontSize: 9 }}>Устгах</button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* PROPERTIES */}
-            {tab === "properties" && (
-              <div>
-                <div style={{ display: "flex", gap: 12, marginBottom: 20 }}>
-                  <input type="text" placeholder="Байрны нэр, байршил хайх..." value={search} onChange={(e) => setSearch(e.target.value)} className="luxury-input" style={{ flex: 1 }} />
-                  <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="luxury-select" style={{ width: 160 }}>
-                    <option value="">Бүгд</option>
-                    <option value="available">Боломжтой</option>
-                    <option value="rented">Түрээслэгдсэн</option>
-                  </select>
-                </div>
-                <div style={{ background: "var(--dark)", border: "1px solid var(--border-dim)" }}>
-                  <div style={{ padding: "12px 20px", borderBottom: "1px solid var(--border-dim)" }}>
-                    <p style={{ fontFamily: "'Montserrat'", fontSize: 9, letterSpacing: "0.15em", color: "var(--text-soft)" }}>Нийт {properties.length} байр</p>
-                  </div>
-                  {properties.map((p) => {
-                    const img = p.images?.[0] || "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688";
-                    return (
-                      <div key={p._id} style={{ padding: "14px 20px", borderBottom: "1px solid var(--border-dim)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
-                          <img src={img} alt="" style={{ width: 56, height: 44, objectFit: "cover", flexShrink: 0 }} />
-                          <div style={{ minWidth: 0 }}>
-                            <p style={{ fontFamily: "'Montserrat'", fontSize: 12, color: "var(--white)" }} className="line-clamp-1">{p.title}</p>
-                            <p style={{ fontFamily: "'Montserrat'", fontSize: 10, color: "var(--text-soft)" }}>{p.location?.district}, {p.location?.city} · {p.monthlyRent?.toLocaleString()}₮/сар</p>
-                            <p style={{ fontFamily: "'Montserrat'", fontSize: 9, color: "var(--text-soft)" }}>Эзэн: {p.owner?.firstName} {p.owner?.lastName}</p>
-                          </div>
-                        </div>
-                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                          <span style={{ fontFamily: "'Montserrat'", fontSize: 8, letterSpacing: "0.15em", textTransform: "uppercase", padding: "3px 10px", color: p.status === "available" ? "#22C55E" : "var(--gold)", border: `1px solid ${p.status === "available" ? "#22C55E30" : "var(--gold-dim)"}` }}>
-                            {STATUS_LABELS[p.status]}
-                          </span>
-                          <button onClick={() => handleDeleteProperty(p._id, p.title)} className="btn-danger" style={{ padding: "5px 12px", fontSize: 9 }}>Устгах</button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* APPLICATIONS */}
-            {tab === "applications" && (
-              <div style={{ background: "var(--dark)", border: "1px solid var(--border-dim)" }}>
-                <div style={{ padding: "12px 20px", borderBottom: "1px solid var(--border-dim)" }}>
-                  <p style={{ fontFamily: "'Montserrat'", fontSize: 9, letterSpacing: "0.15em", color: "var(--text-soft)" }}>Нийт {applications.length} хүсэлт</p>
-                </div>
-                {applications.map((a) => (
-                  <div key={a._id} style={{ padding: "14px 20px", borderBottom: "1px solid var(--border-dim)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
-                    <div style={{ minWidth: 0 }}>
-                      <p style={{ fontFamily: "'Montserrat'", fontSize: 12, color: "var(--white)" }} className="line-clamp-1">{a.property?.title}</p>
-                      <p style={{ fontFamily: "'Montserrat'", fontSize: 10, color: "var(--text-soft)" }}>{a.tenant?.firstName} {a.tenant?.lastName} → {a.landlord?.firstName} {a.landlord?.lastName}</p>
-                      <p style={{ fontFamily: "'Montserrat'", fontSize: 9, color: "var(--text-soft)" }}>{a.leaseMonths} сар · {a.totalRent?.toLocaleString()}₮</p>
-                    </div>
-                    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
-                      <span style={{ fontFamily: "'Montserrat'", fontSize: 8, letterSpacing: "0.12em", textTransform: "uppercase", padding: "3px 10px", color: a.status === "approved" ? "#22C55E" : a.status === "rejected" ? "#EF4444" : "var(--gold)", border: "1px solid currentcolor", opacity: 0.7 }}>{a.status}</span>
-                      <span style={{ fontFamily: "'Montserrat'", fontSize: 9, color: "var(--text-soft)" }}>{a.contractStatus}</span>
-                    </div>
-                  </div>
+            {loading ? (
+              <LoadingList />
+            ) : filteredUsers.length === 0 ? (
+              <EmptyState
+                title="Хэрэглэгч олдсонгүй"
+                body={
+                  userSearch
+                    ? "Хайлтанд таарсан хэрэглэгч байхгүй."
+                    : "Систем дээр хэрэглэгч бүртгэгдээгүй."
+                }
+              />
+            ) : (
+              <div className="space-y-2">
+                {filteredUsers.map((u) => (
+                  <UserRow
+                    key={u._id}
+                    user={u}
+                    isMe={u._id === me._id}
+                    onRoleChange={handleRoleChange}
+                    onToggleBlock={handleToggleBlock}
+                    onDelete={handleDeleteUser}
+                    actioning={actioningId === u._id}
+                  />
                 ))}
               </div>
             )}
+          </>
+        ) : (
+          <>
+            {/* Search */}
+            <div
+              className="flex items-center gap-4 px-5 py-4 mb-6"
+              style={{
+                background: "#141414",
+                border: "1px solid rgba(201,168,76,0.15)",
+              }}
+            >
+              <span style={{ color: "#C9A84C", fontSize: 18 }}>◇</span>
+              <input
+                type="text"
+                value={propSearch}
+                onChange={(e) => setPropSearch(e.target.value)}
+                placeholder="Гарчиг, дүүрэг, хаяг, эзэмшигчээр хайх..."
+                className="flex-1 bg-transparent text-white text-sm outline-none placeholder:text-white/30"
+              />
+              {propSearch && (
+                <button
+                  onClick={() => setPropSearch("")}
+                  className="text-[10px] tracking-widest uppercase text-white/40 hover:text-white"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
 
-            {/* PAYMENTS */}
-            {tab === "payments" && (
-              <div style={{ background: "var(--dark)", border: "1px solid var(--border-dim)" }}>
-                <div style={{ padding: "12px 20px", borderBottom: "1px solid var(--border-dim)" }}>
-                  <p style={{ fontFamily: "'Montserrat'", fontSize: 9, letterSpacing: "0.15em", color: "var(--text-soft)" }}>Нийт {payments.length} төлбөр</p>
-                </div>
-                {payments.map((p) => (
-                  <div key={p._id} style={{ padding: "14px 20px", borderBottom: "1px solid var(--border-dim)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
-                    <div style={{ minWidth: 0 }}>
-                      <p style={{ fontFamily: "'Montserrat'", fontSize: 12, color: "var(--white)" }} className="line-clamp-1">{p.paymentNumber}-р төлбөр · {p.property?.title}</p>
-                      <p style={{ fontFamily: "'Montserrat'", fontSize: 10, color: "var(--text-soft)" }}>{p.tenant?.firstName} {p.tenant?.lastName}</p>
-                      <p style={{ fontFamily: "'Montserrat'", fontSize: 9, color: "var(--text-soft)" }}>{p.totalAmount?.toLocaleString()}₮ · {p.dueDate ? new Date(p.dueDate).toLocaleDateString("mn-MN") : "—"}</p>
-                    </div>
-                    <span style={{ fontFamily: "'Montserrat'", fontSize: 8, letterSpacing: "0.12em", textTransform: "uppercase", padding: "3px 10px", color: p.status === "paid" ? "#22C55E" : p.status === "overdue" ? "#EF4444" : p.status === "urgent" ? "#F97316" : "var(--gold)", border: "1px solid currentcolor", opacity: 0.8, flexShrink: 0 }}>
-                      {p.status}
-                    </span>
-                  </div>
+            {loading ? (
+              <LoadingList />
+            ) : filteredProperties.length === 0 ? (
+              <EmptyState
+                title="Байр олдсонгүй"
+                body={
+                  propSearch
+                    ? "Хайлтанд таарсан байр байхгүй."
+                    : "Систем дээр байр бүртгэгдээгүй."
+                }
+              />
+            ) : (
+              <div className="space-y-2">
+                {filteredProperties.map((p) => (
+                  <PropertyRow
+                    key={p._id}
+                    property={p}
+                    onDelete={handleDeleteProperty}
+                    actioning={actioningId === p._id}
+                  />
                 ))}
               </div>
             )}
           </>
         )}
+      </main>
+    </div>
+  );
+}
+
+// ── User row ──
+function UserRow({ user, isMe, onRoleChange, onToggleBlock, onDelete, actioning }) {
+  const roleColor = ROLE_COLORS[user.role] || "#C9A84C";
+  const initial = (user.name || "?").charAt(0).toUpperCase();
+  const isBlocked = user.isBlocked;
+
+  return (
+    <div
+      className="grid grid-cols-12 gap-4 p-4 items-center transition-all duration-300"
+      style={{
+        background: isBlocked ? "rgba(239,68,68,0.03)" : "#141414",
+        border: `1px solid ${
+          isBlocked ? "rgba(239,68,68,0.2)" : isMe ? "#C9A84C" : "rgba(201,168,76,0.1)"
+        }`,
+        opacity: actioning ? 0.6 : 1,
+      }}
+    >
+      {/* Avatar + name */}
+      <div className="col-span-12 md:col-span-4 flex items-center gap-3">
+        <div
+          className="w-11 h-11 flex items-center justify-center flex-shrink-0 overflow-hidden"
+          style={{
+            background: "rgba(201,168,76,0.12)",
+            color: "#C9A84C",
+            border: isBlocked ? "1px solid rgba(239,68,68,0.4)" : "none",
+          }}
+        >
+          {user.avatar ? (
+            <img
+              src={user.avatar}
+              alt=""
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <span
+              style={{
+                fontFamily: "'Cormorant Garamond', serif",
+                fontSize: 18,
+              }}
+            >
+              {initial}
+            </span>
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-white truncate">{user.name}</span>
+            {isMe && (
+              <span
+                className="text-[9px] tracking-[0.25em] uppercase px-1.5 py-0.5"
+                style={{
+                  background: "#C9A84C",
+                  color: "#0A0A0A",
+                }}
+              >
+                Та
+              </span>
+            )}
+          </div>
+          <div className="text-xs text-white/45 truncate">
+            {user.email}
+            {user.phone && (
+              <>
+                <span className="mx-2 text-white/20">·</span>
+                {user.phone}
+              </>
+            )}
+          </div>
+        </div>
       </div>
+
+      {/* Role select */}
+      <div className="col-span-6 md:col-span-2">
+        <select
+          value={user.role}
+          onChange={(e) => onRoleChange(user._id, e.target.value)}
+          disabled={isMe || actioning}
+          className="w-full bg-transparent text-xs py-2 px-3 outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+          style={{
+            border: `1px solid ${roleColor}40`,
+            color: roleColor,
+            colorScheme: "dark",
+          }}
+        >
+          {ROLES.map((r) => (
+            <option key={r.v} value={r.v} style={{ background: "#141414" }}>
+              {r.label}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* Status */}
+      <div className="col-span-6 md:col-span-2">
+        <StatusPill
+          label={isBlocked ? "Хориглосон" : "Идэвхтэй"}
+          color={isBlocked ? "#EF4444" : "#10B981"}
+        />
+      </div>
+
+      {/* Joined */}
+      <div className="hidden md:block md:col-span-2 text-xs text-white/45">
+        {formatDate(user.createdAt)}
+      </div>
+
+      {/* Actions */}
+      <div className="col-span-12 md:col-span-2 flex gap-2 justify-end">
+        <button
+          onClick={() => onToggleBlock(user._id, isBlocked)}
+          disabled={isMe || actioning}
+          className="px-3 py-1.5 text-[10px] tracking-[0.2em] uppercase transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          style={{
+            border: `1px solid ${isBlocked ? "rgba(16,185,129,0.4)" : "rgba(245,158,11,0.4)"}`,
+            color: isBlocked ? "#10B981" : "#F59E0B",
+          }}
+        >
+          {isBlocked ? "Сэргээх" : "Хориглох"}
+        </button>
+        <button
+          onClick={() => onDelete(user._id, user.name)}
+          disabled={isMe || actioning}
+          className="px-3 py-1.5 text-[10px] tracking-[0.2em] uppercase text-red-300 hover:text-red-200 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          style={{ border: "1px solid rgba(239,68,68,0.4)" }}
+        >
+          Устгах
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── Property row ──
+function PropertyRow({ property, onDelete, actioning }) {
+  const cover = property.photos?.[0] || PLACEHOLDER;
+  const isAvailable = property.status === "available";
+
+  return (
+    <div
+      className="grid grid-cols-12 gap-4 p-4 items-center transition-all duration-300"
+      style={{
+        background: "#141414",
+        border: "1px solid rgba(201,168,76,0.1)",
+        opacity: actioning ? 0.6 : 1,
+      }}
+    >
+      <Link
+        to={`/property/${property._id}`}
+        className="col-span-3 md:col-span-1 block relative overflow-hidden"
+        style={{
+          aspectRatio: "1/1",
+          border: "1px solid rgba(201,168,76,0.15)",
+        }}
+      >
+        <img
+          src={cover}
+          alt=""
+          className="w-full h-full object-cover"
+          style={{ filter: "brightness(0.88)" }}
+        />
+      </Link>
+
+      <div className="col-span-9 md:col-span-4">
+        <div className="text-[10px] tracking-[0.25em] uppercase text-white/40 mb-1">
+          {property.district || "—"}
+        </div>
+        <h4
+          className="font-light text-white leading-tight"
+          style={{
+            fontFamily: "'Cormorant Garamond', serif",
+            fontSize: 18,
+          }}
+        >
+          {property.title}
+        </h4>
+        <p className="text-xs text-white/45 mt-1 truncate">
+          {property.address}
+        </p>
+      </div>
+
+      <div className="hidden md:block md:col-span-2 text-xs text-white/55">
+        <div className="text-[9px] tracking-[0.25em] uppercase text-white/40 mb-1">
+          Эзэмшигч
+        </div>
+        {property.owner?.name || "—"}
+      </div>
+
+      <div className="col-span-6 md:col-span-2">
+        <div
+          className="font-light"
+          style={{
+            fontFamily: "'Cormorant Garamond', serif",
+            color: "#C9A84C",
+            fontSize: 18,
+          }}
+        >
+          {formatMNT(property.price)}₮
+        </div>
+      </div>
+
+      <div className="col-span-6 md:col-span-1">
+        <StatusPill
+          label={isAvailable ? "Боломжтой" : "Түрээслэгдсэн"}
+          color={isAvailable ? "#10B981" : "#888"}
+        />
+      </div>
+
+      <div className="col-span-12 md:col-span-2 flex gap-2 justify-end">
+        <Link
+          to={`/property/${property._id}`}
+          className="px-3 py-1.5 text-[10px] tracking-[0.2em] uppercase text-white/60 hover:text-white transition-colors"
+          style={{ border: "1px solid rgba(255,255,255,0.12)" }}
+        >
+          Үзэх
+        </Link>
+        <button
+          onClick={() => onDelete(property._id, property.title)}
+          disabled={actioning}
+          className="px-3 py-1.5 text-[10px] tracking-[0.2em] uppercase text-red-300 hover:text-red-200 transition-colors disabled:opacity-30"
+          style={{ border: "1px solid rgba(239,68,68,0.4)" }}
+        >
+          Устгах
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function StatusPill({ label, color }) {
+  return (
+    <div
+      className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[10px] tracking-[0.2em] uppercase"
+      style={{
+        background: `${color}15`,
+        color,
+        border: `1px solid ${color}50`,
+      }}
+    >
+      <span
+        className="inline-block w-1.5 h-1.5 rounded-full"
+        style={{ background: color }}
+      />
+      {label}
+    </div>
+  );
+}
+
+function LoadingList() {
+  return (
+    <div className="space-y-2">
+      {[...Array(4)].map((_, i) => (
+        <div
+          key={i}
+          className="grid grid-cols-12 gap-4 p-4 animate-pulse items-center"
+          style={{
+            background: "#141414",
+            border: "1px solid rgba(201,168,76,0.06)",
+          }}
+        >
+          <div
+            className="col-span-1 h-11 w-11"
+            style={{ background: "rgba(255,255,255,0.04)" }}
+          />
+          <div className="col-span-11 space-y-2">
+            <div
+              className="h-4 w-1/3"
+              style={{ background: "rgba(255,255,255,0.07)" }}
+            />
+            <div
+              className="h-3 w-2/3"
+              style={{ background: "rgba(255,255,255,0.04)" }}
+            />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function EmptyState({ title, body }) {
+  return (
+    <div
+      className="flex flex-col items-center justify-center text-center py-20 px-6"
+      style={{
+        border: "1px solid rgba(201,168,76,0.15)",
+        background: "rgba(201,168,76,0.02)",
+      }}
+    >
+      <div
+        className="w-14 h-14 mb-6 flex items-center justify-center"
+        style={{ border: "1px solid #C9A84C" }}
+      >
+        <div
+          style={{
+            width: 20,
+            height: 20,
+            background: "#C9A84C",
+            transform: "rotate(45deg)",
+          }}
+        />
+      </div>
+      <h3
+        className="font-light text-white mb-2"
+        style={{
+          fontFamily: "'Cormorant Garamond', serif",
+          fontSize: 26,
+        }}
+      >
+        {title}
+      </h3>
+      <p className="text-sm text-white/50 max-w-md">{body}</p>
     </div>
   );
 }

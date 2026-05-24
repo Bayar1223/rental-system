@@ -1,209 +1,424 @@
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect, useMemo } from "react";
 import api from "../api/axiosInstance";
-import Navbar from "../components/Navbar";
+import { Link, useNavigate } from "react-router-dom";
 
-const timeAgo = (date) => {
-  const diff = (Date.now() - new Date(date).getTime()) / 1000;
-  if (diff < 60) return "Дөнгөж сая";
-  if (diff < 3600) return `${Math.floor(diff / 60)} минутын өмнө`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)} цагийн өмнө`;
-  return `${Math.floor(diff / 86400)} өдрийн өмнө`;
+const TYPE_META = {
+  info: { color: "#C9A84C", icon: "◇" },
+  success: { color: "#10B981", icon: "◆" },
+  warning: { color: "#F59E0B", icon: "▲" },
+  error: { color: "#EF4444", icon: "✕" },
+  payment: { color: "#C9A84C", icon: "◇" },
+  contract: { color: "#C9A84C", icon: "◇" },
+  application: { color: "#C9A84C", icon: "◇" },
 };
 
-const TYPE_CONFIG = {
-  application_received: { icon: "📨", color: "var(--gold)", label: "Хүсэлт" },
-  application_approved: { icon: "✓",  color: "#22C55E", label: "Зөвшөөрөл" },
-  application_rejected: { icon: "✕",  color: "#EF4444", label: "Татгалзал" },
-  general:              { icon: "◈",  color: "var(--text-muted)", label: "Мэдэгдэл" },
-};
+const FILTER_TABS = [
+  { v: "all", label: "Бүгд" },
+  { v: "unread", label: "Уншаагүй" },
+  { v: "read", label: "Уншсан" },
+];
+
+function timeAgo(date) {
+  if (!date) return "";
+  const d = new Date(date);
+  const diff = Date.now() - d.getTime();
+  const min = Math.floor(diff / 60000);
+  const hr = Math.floor(diff / 3600000);
+  const day = Math.floor(diff / 86400000);
+  if (min < 1) return "Дөнгөж сая";
+  if (min < 60) return `${min} мин өмнө`;
+  if (hr < 24) return `${hr} цаг өмнө`;
+  if (day < 7) return `${day} өдөр өмнө`;
+  return d.toLocaleDateString("mn-MN", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+}
 
 function Notifications() {
   const navigate = useNavigate();
-  const [notifications, setNotifications] = useState([]);
-  const [loading, setLoading]             = useState(true);
-  const [filter, setFilter]               = useState("all");
+  const [notifs, setNotifs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [filter, setFilter] = useState("all");
+  const [actioning, setActioning] = useState(false);
 
   useEffect(() => {
-    let cancelled = false;
-    const fetch = async () => {
-      try { const res = await api.get("/api/notifications"); if (!cancelled) setNotifications(res.data); }
-      catch { /* silent */ } finally { if (!cancelled) setLoading(false); }
-    };
-    fetch();
-    return () => { cancelled = true; };
-  }, []);
-
-  const handleClick = async (notif) => {
-    if (!notif.isRead) {
-      try {
-        await api.put(`/api/notifications/${notif._id}/read`);
-        setNotifications((prev) => prev.map((n) => (n._id === notif._id ? { ...n, isRead: true } : n)));
-      } catch { /* silent */ }
+    const user = JSON.parse(localStorage.getItem("user") || "null");
+    if (!user) {
+      navigate("/login");
+      return;
     }
-    if (notif.link) navigate(notif.link);
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await api.get("/api/notifications/me");
+        if (cancelled) return;
+        setNotifs(res.data || []);
+      } catch (err) {
+        if (cancelled) return;
+        setError(err.response?.data?.message || "Татаж чадсангүй");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [navigate]);
+
+  const handleMarkRead = async (id) => {
+    setNotifs((prev) =>
+      prev.map((n) => (n._id === id ? { ...n, read: true } : n))
+    );
+    try {
+      await api.patch(`/api/notifications/${id}/read`);
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const handleMarkAllRead = async () => {
-    try { await api.put("/api/notifications/mark-all-read", {}); setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true }))); }
-    catch { /* silent */ }
+    if (!confirm("Бүх мэдэгдлийг уншсан гэж тэмдэглэх үү?")) return;
+    setActioning(true);
+    setNotifs((prev) => prev.map((n) => ({ ...n, read: true })));
+    try {
+      await api.patch("/api/notifications/read-all");
+    } catch (err) {
+      alert(err.response?.data?.message || "Алдаа гарлаа");
+    } finally {
+      setActioning(false);
+    }
   };
 
-  const handleDelete = async (e, id) => {
-    e.stopPropagation();
-    try { await api.delete(`/api/notifications/${id}`); setNotifications((prev) => prev.filter((n) => n._id !== id)); }
-    catch { /* silent */ }
+  const handleDelete = async (id) => {
+    if (!confirm("Энэ мэдэгдлийг устгах уу?")) return;
+    const original = notifs;
+    setNotifs((prev) => prev.filter((n) => n._id !== id));
+    try {
+      await api.delete(`/api/notifications/${id}`);
+    } catch (err) {
+      alert(err.response?.data?.message || "Устгаж чадсангүй");
+      setNotifs(original);
+    }
   };
 
-  const handleDeleteAll = async () => {
-    if (!window.confirm("Бүх мэдэгдлийг устгах уу?")) return;
-    try { await api.delete("/api/notifications/all"); setNotifications([]); }
-    catch { /* silent */ }
-  };
+  const filtered = useMemo(() => {
+    if (filter === "all") return notifs;
+    if (filter === "unread") return notifs.filter((n) => !n.read);
+    return notifs.filter((n) => n.read);
+  }, [notifs, filter]);
 
-  const filtered = notifications.filter((n) => {
-    if (filter === "unread") return !n.isRead;
-    if (filter === "read")   return n.isRead;
-    return true;
-  });
-  const unreadCount = notifications.filter((n) => !n.isRead).length;
+  const counts = useMemo(() => ({
+    all: notifs.length,
+    unread: notifs.filter((n) => !n.read).length,
+    read: notifs.filter((n) => n.read).length,
+  }), [notifs]);
 
   return (
-    <div style={{ minHeight: "100vh", background: "var(--black)", paddingTop: 70 }}>
-      <Navbar />
-      <div style={{ maxWidth: 680, margin: "0 auto", padding: "48px 48px" }}>
+    <div
+      className="min-h-screen pt-20"
+      style={{ background: "#0A0A0A", fontFamily: "'DM Sans', sans-serif" }}
+    >
+      {/* Header */}
+      <header className="max-w-4xl mx-auto px-6 lg:px-12 py-12">
+        <div className="flex items-center gap-3 mb-5">
+          <div className="h-px w-8" style={{ background: "#C9A84C" }} />
+          <span
+            className="text-[10px] tracking-[0.3em] uppercase"
+            style={{ color: "#C9A84C" }}
+          >
+            Notifications
+          </span>
+        </div>
+        <div className="flex items-end justify-between gap-6">
+          <h1
+            className="font-light text-white leading-[1] tracking-tight"
+            style={{
+              fontFamily: "'Cormorant Garamond', serif",
+              fontSize: "clamp(40px, 5vw, 64px)",
+            }}
+          >
+            Мэдэгдэл<br />
+            <em style={{ color: "#C9A84C", fontStyle: "italic" }}>
+              хүлээн авах
+            </em>
+          </h1>
 
-        {/* Header */}
-        <div style={{ marginBottom: 40 }}>
-          <div className="flex items-center gap-4 mb-4">
-            <div style={{ width: 32, height: 1, background: "var(--gold)" }} />
-            <span style={{ fontFamily: "'Montserrat'", fontSize: 9, fontWeight: 500, letterSpacing: "0.25em", textTransform: "uppercase", color: "var(--gold)" }}>Системийн</span>
-          </div>
-          <div className="flex items-start justify-between">
-            <h1 className="font-display" style={{ fontSize: 48, fontWeight: 300, color: "var(--white)" }}>Мэдэгдлүүд</h1>
-            <div className="flex gap-3 mt-3">
-              {unreadCount > 0 && (
-                <button onClick={handleMarkAllRead} className="btn-ghost" style={{ padding: "8px 14px" }}>Бүгд уншсан</button>
-              )}
-              {notifications.length > 0 && (
-                <button onClick={handleDeleteAll} className="btn-danger" style={{ padding: "8px 14px" }}>Бүгд устгах</button>
-              )}
-            </div>
-          </div>
-          {unreadCount > 0 && (
-            <p style={{ fontFamily: "'Montserrat'", fontSize: 11, color: "var(--gold)", marginTop: 8 }}>{unreadCount} уншаагүй мэдэгдэл</p>
+          {counts.unread > 0 && (
+            <button
+              onClick={handleMarkAllRead}
+              disabled={actioning}
+              className="text-[10px] tracking-[0.25em] uppercase transition-colors disabled:opacity-50"
+              style={{ color: "#C9A84C" }}
+            >
+              ◇ Бүгдийг уншсан болгох
+            </button>
           )}
         </div>
+      </header>
 
-        {/* Filter tabs */}
-        {notifications.length > 0 && (
-          <div style={{ display: "flex", borderBottom: "1px solid var(--border-dim)", marginBottom: 24 }}>
-            {[
-              { key: "all",    label: `Бүгд (${notifications.length})` },
-              { key: "unread", label: `Уншаагүй (${unreadCount})` },
-              { key: "read",   label: `Уншсан (${notifications.length - unreadCount})` },
-            ].map((f) => (
-              <button
-                key={f.key}
-                onClick={() => setFilter(f.key)}
+      {/* Filter tabs */}
+      <section className="max-w-4xl mx-auto px-6 lg:px-12 mb-8">
+        <div
+          className="flex flex-wrap gap-1 overflow-x-auto"
+          style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}
+        >
+          {FILTER_TABS.map((tab) => (
+            <button
+              key={tab.v}
+              onClick={() => setFilter(tab.v)}
+              className="px-5 py-4 text-[10px] tracking-[0.25em] uppercase transition-all duration-300 flex items-center gap-2 whitespace-nowrap relative"
+              style={{
+                color:
+                  filter === tab.v ? "#C9A84C" : "rgba(255,255,255,0.5)",
+              }}
+            >
+              {tab.label}
+              <span
+                className="inline-flex items-center justify-center min-w-5 px-1.5 text-[10px]"
                 style={{
-                  padding: "10px 20px",
-                  fontFamily: "'Montserrat'",
-                  fontSize: 9,
-                  fontWeight: 500,
-                  letterSpacing: "0.18em",
-                  textTransform: "uppercase",
-                  background: "transparent",
-                  border: "none",
-                  borderBottom: filter === f.key ? "1px solid var(--gold)" : "1px solid transparent",
-                  color: filter === f.key ? "var(--gold)" : "var(--text-muted)",
-                  cursor: "pointer",
-                  marginBottom: -1,
-                  transition: "all 0.2s",
+                  background:
+                    filter === tab.v
+                      ? "#C9A84C"
+                      : "rgba(255,255,255,0.05)",
+                  color: filter === tab.v ? "#0A0A0A" : "rgba(255,255,255,0.5)",
                 }}
               >
-                {f.label}
-              </button>
-            ))}
+                {counts[tab.v]}
+              </span>
+              {filter === tab.v && (
+                <div
+                  className="absolute bottom-0 left-0 right-0"
+                  style={{ height: 1, background: "#C9A84C" }}
+                />
+              )}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      {/* Content */}
+      <main className="max-w-4xl mx-auto px-6 lg:px-12 pb-20">
+        {error && (
+          <div
+            className="mb-6 p-4 flex items-start gap-3"
+            style={{
+              background: "rgba(239,68,68,0.08)",
+              borderLeft: "2px solid #EF4444",
+            }}
+          >
+            <span style={{ color: "#EF4444" }}>✕</span>
+            <p className="text-sm text-red-300">{error}</p>
           </div>
         )}
 
-        {/* List */}
         {loading ? (
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {[1, 2, 3].map((i) => (
-              <div key={i} style={{ height: 80, background: "var(--dark)", border: "1px solid var(--border-dim)", animation: "pulse 2s ease infinite" }} />
+          <LoadingList />
+        ) : filtered.length === 0 ? (
+          <EmptyState filter={filter} />
+        ) : (
+          <div className="space-y-2">
+            {filtered.map((n) => (
+              <NotificationItem
+                key={n._id}
+                notif={n}
+                onRead={handleMarkRead}
+                onDelete={handleDelete}
+              />
             ))}
           </div>
-        ) : filtered.length === 0 ? (
-          <div style={{ textAlign: "center", padding: "80px 0" }}>
-            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 40, fontWeight: 300, color: "rgba(201,160,80,0.15)", marginBottom: 16 }}>◈</div>
-            <p style={{ fontFamily: "'Montserrat'", fontSize: 12, color: "var(--text-soft)" }}>
-              {filter === "unread" ? "Уншаагүй мэдэгдэл байхгүй" : filter === "read" ? "Уншсан мэдэгдэл байхгүй" : "Мэдэгдэл байхгүй байна"}
-            </p>
-          </div>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            {filtered.map((notif) => {
-              const cfg = TYPE_CONFIG[notif.type] || TYPE_CONFIG.general;
-              return (
-                <div
-                  key={notif._id}
-                  onClick={() => handleClick(notif)}
-                  className="group"
-                  style={{
-                    background: !notif.isRead ? "rgba(201,160,80,0.04)" : "var(--dark)",
-                    border: "1px solid",
-                    borderColor: !notif.isRead ? "rgba(201,160,80,0.15)" : "var(--border-dim)",
-                    padding: "18px 20px",
-                    cursor: "pointer",
-                    transition: "all 0.2s",
-                    display: "flex",
-                    gap: 16,
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.borderColor = "rgba(201,160,80,0.25)"}
-                  onMouseLeave={e => e.currentTarget.style.borderColor = !notif.isRead ? "rgba(201,160,80,0.15)" : "var(--border-dim)"}
-                >
-                  {/* Icon */}
-                  <div style={{ width: 36, height: 36, border: "1px solid", borderColor: cfg.color + "30", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: cfg.color, fontSize: 14 }}>
-                    {cfg.icon}
-                  </div>
+        )}
+      </main>
+    </div>
+  );
+}
 
-                  {/* Content */}
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div className="flex items-start justify-between gap-3">
-                      <div style={{ minWidth: 0, flex: 1 }}>
-                        <p style={{ fontFamily: "'Montserrat'", fontSize: 12, fontWeight: !notif.isRead ? 500 : 400, color: !notif.isRead ? "var(--white)" : "var(--text-muted)", marginBottom: 4 }}>
-                          {notif.title}
-                        </p>
-                        <p style={{ fontFamily: "'Montserrat'", fontSize: 11, fontWeight: 300, color: "var(--text-soft)", lineHeight: 1.6 }} className="line-clamp-1">
-                          {notif.message}
-                        </p>
-                      </div>
-                      <button
-                        onClick={(e) => handleDelete(e, notif._id)}
-                        style={{ color: "var(--text-soft)", background: "none", border: "none", cursor: "pointer", fontSize: 18, lineHeight: 1, opacity: 0, transition: "opacity 0.2s", flexShrink: 0 }}
-                        className="group-hover:opacity-100"
-                        onMouseEnter={e => { e.currentTarget.style.opacity = 1; e.currentTarget.style.color = "#EF4444"; }}
-                        onMouseLeave={e => { e.currentTarget.style.opacity = 0; e.currentTarget.style.color = "var(--text-soft)"; }}
-                      >
-                        ×
-                      </button>
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 8 }}>
-                      <span style={{ fontFamily: "'Montserrat'", fontSize: 8, fontWeight: 500, letterSpacing: "0.15em", textTransform: "uppercase", color: cfg.color, background: cfg.color + "15", padding: "2px 8px" }}>
-                        {cfg.label}
-                      </span>
-                      <span style={{ fontFamily: "'Montserrat'", fontSize: 9, color: "var(--text-soft)" }}>{timeAgo(notif.createdAt)}</span>
-                      {!notif.isRead && <span style={{ width: 4, height: 4, background: "var(--gold)", borderRadius: "50%" }} />}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+function NotificationItem({ notif, onRead, onDelete }) {
+  const meta = TYPE_META[notif.type] || TYPE_META.info;
+  const handleClick = () => {
+    if (!notif.read) onRead(notif._id);
+  };
+
+  const content = (
+    <div
+      onClick={handleClick}
+      className="grid grid-cols-12 gap-4 p-5 transition-all duration-300 cursor-pointer group"
+      style={{
+        background: notif.read ? "transparent" : "#141414",
+        borderLeft: notif.read
+          ? "2px solid transparent"
+          : `2px solid ${meta.color}`,
+        border: notif.read
+          ? "1px solid rgba(255,255,255,0.04)"
+          : `1px solid rgba(201,168,76,0.15)`,
+        borderLeftWidth: notif.read ? "1px" : "2px",
+        borderLeftColor: notif.read ? "rgba(255,255,255,0.04)" : meta.color,
+      }}
+      onMouseEnter={(e) =>
+        (e.currentTarget.style.borderColor =
+          "rgba(201,168,76,0.35)")
+      }
+      onMouseLeave={(e) =>
+        (e.currentTarget.style.borderColor = notif.read
+          ? "rgba(255,255,255,0.04)"
+          : "rgba(201,168,76,0.15)")
+      }
+    >
+      {/* Icon */}
+      <div className="col-span-1 flex items-start justify-center pt-1">
+        <div
+          className="w-9 h-9 flex items-center justify-center"
+          style={{
+            background: `${meta.color}15`,
+            color: meta.color,
+            border: `1px solid ${meta.color}40`,
+          }}
+        >
+          {meta.icon}
+        </div>
+      </div>
+
+      {/* Body */}
+      <div className="col-span-9">
+        <div className="flex items-start gap-2 mb-1">
+          {!notif.read && (
+            <span
+              className="inline-block w-1.5 h-1.5 rounded-full mt-2 flex-shrink-0"
+              style={{ background: "#C9A84C" }}
+            />
+          )}
+          <h4
+            className={`leading-snug ${
+              notif.read ? "text-white/70" : "text-white"
+            }`}
+            style={{
+              fontFamily: "'Cormorant Garamond', serif",
+              fontSize: 20,
+              fontWeight: notif.read ? 300 : 400,
+            }}
+          >
+            {notif.title || "Мэдэгдэл"}
+          </h4>
+        </div>
+        {notif.message && (
+          <p className="text-sm text-white/55 mt-1 leading-relaxed">
+            {notif.message}
+          </p>
+        )}
+        <div className="text-[10px] tracking-[0.2em] uppercase text-white/30 mt-3">
+          {timeAgo(notif.createdAt)}
+        </div>
+      </div>
+
+      {/* Actions */}
+      <div className="col-span-2 flex flex-col items-end gap-2">
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete(notif._id);
+          }}
+          className="w-8 h-8 flex items-center justify-center text-white/30 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
+          aria-label="Устгах"
+        >
+          ✕
+        </button>
+        {notif.link && (
+          <span
+            className="text-[10px] tracking-[0.25em] uppercase opacity-0 group-hover:opacity-100 transition-opacity"
+            style={{ color: "#C9A84C" }}
+          >
+            Үзэх →
+          </span>
         )}
       </div>
+    </div>
+  );
+
+  return notif.link ? (
+    <Link to={notif.link} className="block">
+      {content}
+    </Link>
+  ) : (
+    content
+  );
+}
+
+function LoadingList() {
+  return (
+    <div className="space-y-2">
+      {[...Array(4)].map((_, i) => (
+        <div
+          key={i}
+          className="grid grid-cols-12 gap-4 p-5 animate-pulse"
+          style={{
+            background: "#141414",
+            border: "1px solid rgba(201,168,76,0.06)",
+          }}
+        >
+          <div
+            className="col-span-1 h-9 w-9"
+            style={{ background: "rgba(255,255,255,0.05)" }}
+          />
+          <div className="col-span-11 space-y-2">
+            <div
+              className="h-4 w-2/3"
+              style={{ background: "rgba(255,255,255,0.08)" }}
+            />
+            <div
+              className="h-3 w-full"
+              style={{ background: "rgba(255,255,255,0.04)" }}
+            />
+            <div
+              className="h-2 w-20 mt-2"
+              style={{ background: "rgba(255,255,255,0.04)" }}
+            />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function EmptyState({ filter }) {
+  const messages = {
+    all: "Танд одоогоор мэдэгдэл алга",
+    unread: "Уншаагүй мэдэгдэл байхгүй",
+    read: "Уншсан мэдэгдэл байхгүй",
+  };
+  return (
+    <div
+      className="flex flex-col items-center justify-center text-center py-24 px-6"
+      style={{
+        border: "1px solid rgba(201,168,76,0.15)",
+        background: "rgba(201,168,76,0.02)",
+      }}
+    >
+      <div
+        className="w-14 h-14 mb-6 flex items-center justify-center"
+        style={{ border: "1px solid #C9A84C" }}
+      >
+        <div
+          style={{
+            width: 20,
+            height: 20,
+            background: "#C9A84C",
+            transform: "rotate(45deg)",
+          }}
+        />
+      </div>
+      <h3
+        className="font-light text-white"
+        style={{
+          fontFamily: "'Cormorant Garamond', serif",
+          fontSize: 28,
+        }}
+      >
+        {messages[filter]}
+      </h3>
     </div>
   );
 }

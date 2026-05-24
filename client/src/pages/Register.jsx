@@ -1,225 +1,613 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import api from "../api/axiosInstance";
-import { useNavigate, Link, useLocation } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 
-function Login() {
+function Register() {
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [role, setRole] = useState("tenant");
+  const [otpMethod, setOtpMethod] = useState("email");
+  const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [showPw, setShowPw] = useState(false);
-  const navigate = useNavigate();
-  const location = useLocation();
-  const idleLogout = location.state?.reason === "idle";
 
-  const handleLogin = async (e) => {
+  const navigate = useNavigate();
+
+  // ── Password strength ──
+  const strength = useMemo(() => {
+    let s = 0;
+    if (password.length >= 8) s++;
+    if (/[A-Z]/.test(password)) s++;
+    if (/[0-9]/.test(password)) s++;
+    if (/[^A-Za-z0-9]/.test(password)) s++;
+    return s; // 0-4
+  }, [password]);
+
+  const strengthLabel = ["Сул", "Сул", "Дунд", "Сайн", "Хүчтэй"][strength];
+  const strengthColor = [
+    "#3a3a3a",
+    "#EF4444",
+    "#F59E0B",
+    "#C9A84C",
+    "#10B981",
+  ][strength];
+
+  const handleRegister = async (e) => {
     e.preventDefault();
-    setLoading(true); setError("");
+    setError("");
+
+    if (password !== confirmPassword) {
+      setError("Нууц үг таарахгүй байна");
+      return;
+    }
+    if (password.length < 8) {
+      setError("Нууц үг хамгийн багадаа 8 тэмдэгттэй байх ёстой");
+      return;
+    }
+    if (!/^\d{8}$/.test(phone)) {
+      setError("Утасны дугаар 8 оронтой байх ёстой");
+      return;
+    }
+
+    setLoading(true);
     try {
-      const res = await api.post("/api/auth/login", { email, password });
-      localStorage.setItem("token", res.data.token);
-      localStorage.setItem("user", JSON.stringify(res.data.user));
-      navigate("/home");
-    } catch { setError("Имэйл эсвэл нууц үг буруу байна"); }
-    finally { setLoading(false); }
+      const fullPhone = "+976" + phone;
+      await api.post("/api/auth/register", {
+        name,
+        email,
+        password,
+        phone: fullPhone,
+        role,
+        otpMethod,
+      });
+      navigate("/verify-otp", {
+        state: {
+          email,
+          phone: fullPhone,
+          method: otpMethod,
+          purpose: "register",
+        },
+      });
+    } catch (err) {
+      setError(
+        err.response?.data?.message || "Бүртгэл амжилтгүй боллоо"
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div style={{ minHeight: "100vh", display: "flex", background: "var(--black)" }}>
-
-      {/* LEFT VISUAL */}
+    <div
+      className="min-h-screen flex"
+      style={{ background: "#0A0A0A", fontFamily: "'DM Sans', sans-serif" }}
+    >
+      {/* ── LEFT: Hero ── */}
       <div
         className="hidden lg:flex flex-col justify-between w-1/2 relative overflow-hidden"
-        style={{ padding: "48px 64px" }}
+        style={{ borderRight: "1px solid rgba(201,168,76,0.15)" }}
       >
-        {/* Background grid */}
-        <div className="absolute inset-0" style={{
-          backgroundImage: `
-            linear-gradient(rgba(201,160,80,0.04) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(201,160,80,0.04) 1px, transparent 1px)
-          `,
-          backgroundSize: "80px 80px",
-        }} />
-
-        {/* Glow */}
-        <div className="absolute" style={{
-          width: 500, height: 500, borderRadius: "50%",
-          background: "radial-gradient(circle, rgba(201,160,80,0.08) 0%, transparent 70%)",
-          bottom: "-10%", left: "-10%",
-          pointerEvents: "none",
-        }} />
-
-        {/* Logo */}
-        <Link to="/" className="relative flex items-center gap-4" style={{ textDecoration: "none" }}>
-          <div className="relative" style={{ width: 32, height: 32 }}>
-            <div className="absolute inset-0 rotate-45" style={{ border: "1px solid var(--gold)", opacity: 0.7 }} />
-            <div className="absolute rotate-45" style={{ inset: "7px", background: "var(--gold)" }} />
-          </div>
-          <span className="font-display" style={{ fontSize: 22, fontWeight: 300, color: "var(--white)", letterSpacing: "0.04em" }}>
-            Rental<span style={{ color: "var(--gold)" }}>Sy</span>
-          </span>
-        </Link>
-
-        {/* Content */}
-        <div className="relative">
-          <div className="flex items-center gap-4 mb-6">
-            <div style={{ width: 40, height: 1, background: "var(--gold)" }} />
-            <span style={{ fontFamily: "'Montserrat'", fontSize: 9, fontWeight: 500, letterSpacing: "0.25em", textTransform: "uppercase", color: "var(--gold)" }}>
-              Тавтай морил
-            </span>
-          </div>
-          <h2 className="font-display" style={{ fontSize: "clamp(48px,4vw,68px)", fontWeight: 300, color: "var(--white)", lineHeight: 1.1, marginBottom: 20 }}>
-            Мөрөөдлийн<br />байраа<br />
-            <em style={{ color: "var(--gold)", fontStyle: "italic" }}>эндээс олоорой</em>
-          </h2>
-          <p style={{ fontWeight: 300, fontSize: 13, color: "rgba(255,255,255,0.35)", lineHeight: 1.8, maxWidth: 300 }}>
-            Улаанбаатар хотын орон сууц түрээсийн нэгдсэн систем
-          </p>
+        <div className="absolute inset-0">
+          <img
+            src="https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1400&q=80"
+            alt=""
+            className="w-full h-full object-cover opacity-40"
+            style={{ filter: "grayscale(40%)" }}
+          />
+          <div
+            className="absolute inset-0"
+            style={{
+              background:
+                "linear-gradient(135deg, rgba(10,10,10,0.92) 0%, rgba(10,10,10,0.7) 50%, rgba(10,10,10,0.95) 100%)",
+            }}
+          />
         </div>
 
-        {/* Stats */}
-        <div className="relative flex gap-12">
-          {[{ num: "500+", label: "Байр" }, { num: "9", label: "Дүүрэг" }, { num: "98%", label: "Ханамж" }].map(({ num, label }) => (
-            <div key={label}>
-              <div className="stat-number" style={{ fontSize: 32, marginBottom: 6 }}>{num}</div>
-              <div style={{ fontFamily: "'Montserrat'", fontSize: 9, letterSpacing: "0.15em", textTransform: "uppercase", color: "rgba(255,255,255,0.25)" }}>
-                {label}
-              </div>
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            backgroundImage:
+              "linear-gradient(rgba(201,168,76,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(201,168,76,0.04) 1px, transparent 1px)",
+            backgroundSize: "80px 80px",
+          }}
+        />
+
+        <div className="relative p-12 z-10">
+          <Link to="/" className="inline-flex items-center gap-3 group">
+            <div className="relative w-9 h-9">
+              <div className="absolute inset-0 border border-[#C9A84C] rotate-45 transition-transform duration-500 group-hover:rotate-[55deg]" />
+              <div className="absolute inset-2 bg-[#C9A84C] rotate-45" />
             </div>
-          ))}
+            <span
+              className="text-2xl font-light tracking-[0.2em] text-white"
+              style={{ fontFamily: "'Cormorant Garamond', serif" }}
+            >
+              RENTAL<span style={{ color: "#C9A84C" }}>SY</span>
+            </span>
+          </Link>
+        </div>
+
+        <div className="relative px-12 z-10">
+          <div className="flex items-center gap-4 mb-10">
+            <div className="h-px w-12" style={{ background: "#C9A84C" }} />
+            <span
+              className="text-[10px] tracking-[0.3em] uppercase"
+              style={{ color: "#C9A84C" }}
+            >
+              Become a member
+            </span>
+          </div>
+
+          <h1
+            className="font-light text-white leading-[1.05] mb-8"
+            style={{
+              fontFamily: "'Cormorant Garamond', serif",
+              fontSize: "clamp(48px, 5vw, 76px)",
+            }}
+          >
+            Эрхэмлэн<br />
+            <em style={{ color: "#C9A84C", fontStyle: "italic" }}>
+              үнэлдэг
+            </em><br />
+            нийгэмлэг
+          </h1>
+
+          <p
+            className="text-white/50 text-sm leading-relaxed font-light mb-10"
+            style={{ maxWidth: 420 }}
+          >
+            Түрээслэгч ба байрны эзний хоорондын итгэлцэлд тулгуурласан
+            нэгдсэн систем. Бүртгэл үүсгэснээр та цахим гэрээ,
+            автомат төлбөр, найдвартай үйлчилгээний бүх давуу талыг
+            эзэмшинэ.
+          </p>
+
+          <div
+            className="flex items-center gap-4 pt-6"
+            style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}
+          >
+            <div
+              style={{
+                fontFamily: "'Cormorant Garamond', serif",
+                fontStyle: "italic",
+                fontSize: 26,
+                color: "#C9A84C",
+                letterSpacing: "0.02em",
+              }}
+            >
+              Indra
+            </div>
+            <div className="text-[10px] tracking-[0.25em] uppercase text-white/40">
+              Founder · RentalSy
+            </div>
+          </div>
+        </div>
+
+        <div className="relative p-12 z-10">
+          <div
+            className="grid grid-cols-3 gap-8 pt-8"
+            style={{ borderTop: "1px solid rgba(201,168,76,0.2)" }}
+          >
+            {[
+              { num: "01", label: "Бүртгэл" },
+              { num: "02", label: "Баталгаажуулах" },
+              { num: "03", label: "Эхлэх" },
+            ].map(({ num, label }) => (
+              <div key={label}>
+                <div
+                  className="font-light mb-1"
+                  style={{
+                    fontFamily: "'Cormorant Garamond', serif",
+                    fontSize: 28,
+                    color: "#C9A84C",
+                  }}
+                >
+                  {num}
+                </div>
+                <div className="text-[10px] tracking-[0.25em] uppercase text-white/40">
+                  {label}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
-      {/* RIGHT FORM */}
-      <div
-        className="flex-1 flex items-center justify-center"
-        style={{ padding: "48px 64px", background: "var(--dark)", borderLeft: "1px solid var(--border-dim)" }}
-      >
-        <div className="w-full animate-fadeUp" style={{ maxWidth: 380 }}>
+      {/* ── RIGHT: Form ── */}
+      <div className="flex-1 flex items-center justify-center p-8 py-12 relative overflow-y-auto">
+        <div
+          className="absolute inset-0 opacity-[0.03] pointer-events-none"
+          style={{
+            backgroundImage:
+              "radial-gradient(circle, #C9A84C 1px, transparent 1px)",
+            backgroundSize: "30px 30px",
+          }}
+        />
 
+        <div className="w-full max-w-sm relative animate-fadeUp">
           {/* Mobile logo */}
-          <Link to="/" className="lg:hidden flex items-center gap-3 mb-10" style={{ textDecoration: "none" }}>
-            <div className="relative" style={{ width: 24, height: 24 }}>
-              <div className="absolute inset-0 rotate-45" style={{ border: "1px solid var(--gold)", opacity: 0.7 }} />
-              <div className="absolute rotate-45" style={{ inset: "5px", background: "var(--gold)" }} />
+          <Link to="/" className="lg:hidden flex items-center gap-3 mb-10">
+            <div className="relative w-7 h-7">
+              <div className="absolute inset-0 border border-[#C9A84C] rotate-45" />
+              <div className="absolute inset-1.5 bg-[#C9A84C] rotate-45" />
             </div>
-            <span className="font-display" style={{ fontSize: 18, color: "var(--white)" }}>
-              Rental<span style={{ color: "var(--gold)" }}>Sy</span>
+            <span
+              className="font-light tracking-[0.2em] text-white text-lg"
+              style={{ fontFamily: "'Cormorant Garamond', serif" }}
+            >
+              RENTAL<span style={{ color: "#C9A84C" }}>SY</span>
             </span>
           </Link>
 
-          {/* Header */}
-          <div style={{ marginBottom: 40 }}>
-            <div className="flex items-center gap-3 mb-4">
-              <div style={{ width: 24, height: 1, background: "var(--gold)" }} />
-              <span style={{ fontFamily: "'Montserrat'", fontSize: 9, fontWeight: 500, letterSpacing: "0.25em", textTransform: "uppercase", color: "var(--gold)" }}>
-                Нэвтрэх
+          <div className="mb-10">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="h-px w-8" style={{ background: "#C9A84C" }} />
+              <span
+                className="text-[10px] tracking-[0.3em] uppercase"
+                style={{ color: "#C9A84C" }}
+              >
+                Create Account
               </span>
             </div>
-            <h1 className="font-display" style={{ fontSize: 44, fontWeight: 300, color: "var(--white)" }}>
-              Тавтай морил
-            </h1>
+            <h2
+              className="font-light text-white leading-tight"
+              style={{
+                fontFamily: "'Cormorant Garamond', serif",
+                fontSize: 48,
+              }}
+            >
+              Шинэ<br />
+              <em style={{ color: "#C9A84C", fontStyle: "italic" }}>
+                бүртгэл
+              </em>
+            </h2>
           </div>
 
-          {/* Alerts */}
-          {idleLogout && (
-            <div style={{ marginBottom: 24, padding: "12px 16px", borderLeft: "2px solid var(--gold)", background: "rgba(201,160,80,0.06)" }}>
-              <p style={{ fontFamily: "'Montserrat'", fontSize: 11, color: "var(--text-muted)" }}>
-                30 минут идэвхгүй байсан тул автоматаар гарлаа
-              </p>
-            </div>
-          )}
           {error && (
-            <div style={{ marginBottom: 24, padding: "12px 16px", borderLeft: "2px solid #EF4444", background: "rgba(239,68,68,0.06)" }}>
-              <p style={{ fontFamily: "'Montserrat'", fontSize: 11, color: "#EF4444" }}>{error}</p>
+            <div
+              className="mb-6 p-4 flex items-start gap-3"
+              style={{
+                background: "rgba(239,68,68,0.08)",
+                borderLeft: "2px solid #EF4444",
+              }}
+            >
+              <span style={{ color: "#EF4444" }}>✕</span>
+              <p className="text-xs text-red-300">{error}</p>
             </div>
           )}
 
-          {/* Form */}
-          <form onSubmit={handleLogin} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <form onSubmit={handleRegister} className="space-y-6">
+            {/* Role selector */}
             <div>
-              <label className="input-label">Имэйл</label>
+              <label className="block text-[10px] tracking-[0.3em] uppercase text-white/40 mb-3">
+                Та хэн бэ?
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { v: "tenant", label: "Түрээслэгч" },
+                  { v: "landlord", label: "Байрны эзэн" },
+                ].map((r) => (
+                  <button
+                    key={r.v}
+                    type="button"
+                    onClick={() => setRole(r.v)}
+                    className="py-3 text-xs tracking-[0.15em] uppercase transition-all duration-300"
+                    style={{
+                      background:
+                        role === r.v
+                          ? "rgba(201,168,76,0.12)"
+                          : "transparent",
+                      border:
+                        role === r.v
+                          ? "1px solid #C9A84C"
+                          : "1px solid rgba(255,255,255,0.12)",
+                      color: role === r.v ? "#C9A84C" : "rgba(255,255,255,0.55)",
+                    }}
+                  >
+                    {r.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Name */}
+            <div>
+              <label className="block text-[10px] tracking-[0.3em] uppercase text-white/40 mb-3">
+                Овог нэр
+              </label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Бат-Эрдэнэ"
+                required
+                className="w-full bg-transparent text-white text-sm py-3 outline-none transition-colors"
+                style={{
+                  borderBottom: "1px solid rgba(255,255,255,0.15)",
+                }}
+                onFocus={(e) =>
+                  (e.target.style.borderBottomColor = "#C9A84C")
+                }
+                onBlur={(e) =>
+                  (e.target.style.borderBottomColor =
+                    "rgba(255,255,255,0.15)")
+                }
+              />
+            </div>
+
+            {/* Email */}
+            <div>
+              <label className="block text-[10px] tracking-[0.3em] uppercase text-white/40 mb-3">
+                Имэйл хаяг
+              </label>
               <input
                 type="email"
                 value={email}
-                onChange={e => setEmail(e.target.value)}
+                onChange={(e) => setEmail(e.target.value)}
                 placeholder="example@gmail.com"
                 required
-                className="luxury-input"
+                className="w-full bg-transparent text-white text-sm py-3 outline-none transition-colors"
+                style={{
+                  borderBottom: "1px solid rgba(255,255,255,0.15)",
+                }}
+                onFocus={(e) =>
+                  (e.target.style.borderBottomColor = "#C9A84C")
+                }
+                onBlur={(e) =>
+                  (e.target.style.borderBottomColor =
+                    "rgba(255,255,255,0.15)")
+                }
               />
             </div>
+
+            {/* Phone */}
             <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="input-label" style={{ marginBottom: 0 }}>Нууц үг</label>
-                <Link to="/forgot-password" style={{ fontFamily: "'Montserrat'", fontSize: 9, letterSpacing: "0.12em", color: "var(--gold)", textDecoration: "none" }}>
-                  Мартсан?
-                </Link>
+              <label className="block text-[10px] tracking-[0.3em] uppercase text-white/40 mb-3">
+                Утасны дугаар
+              </label>
+              <div className="flex items-center gap-3">
+                <span
+                  className="text-sm text-white/50 py-3"
+                  style={{
+                    borderBottom: "1px solid rgba(255,255,255,0.15)",
+                  }}
+                >
+                  +976
+                </span>
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={(e) =>
+                    setPhone(e.target.value.replace(/\D/g, "").slice(0, 8))
+                  }
+                  placeholder="99112233"
+                  required
+                  className="flex-1 bg-transparent text-white text-sm py-3 outline-none transition-colors"
+                  style={{
+                    borderBottom: "1px solid rgba(255,255,255,0.15)",
+                  }}
+                  onFocus={(e) =>
+                    (e.target.style.borderBottomColor = "#C9A84C")
+                  }
+                  onBlur={(e) =>
+                    (e.target.style.borderBottomColor =
+                      "rgba(255,255,255,0.15)")
+                  }
+                />
               </div>
-              <div style={{ position: "relative" }}>
+            </div>
+
+            {/* Password */}
+            <div>
+              <label className="block text-[10px] tracking-[0.3em] uppercase text-white/40 mb-3">
+                Нууц үг
+              </label>
+              <div className="relative">
                 <input
                   type={showPw ? "text" : "password"}
                   value={password}
-                  onChange={e => setPassword(e.target.value)}
+                  onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
                   required
-                  className="luxury-input"
-                  style={{ paddingRight: 60 }}
+                  className="w-full bg-transparent text-white text-sm py-3 outline-none pr-16 transition-colors"
+                  style={{
+                    borderBottom: "1px solid rgba(255,255,255,0.15)",
+                  }}
+                  onFocus={(e) =>
+                    (e.target.style.borderBottomColor = "#C9A84C")
+                  }
+                  onBlur={(e) =>
+                    (e.target.style.borderBottomColor =
+                      "rgba(255,255,255,0.15)")
+                  }
                 />
                 <button
                   type="button"
-                  onClick={() => setShowPw(p => !p)}
-                  style={{
-                    position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)",
-                    fontFamily: "'Montserrat'", fontSize: 9, letterSpacing: "0.12em",
-                    color: "var(--text-soft)", background: "none", border: "none", cursor: "pointer",
-                    textTransform: "uppercase",
-                  }}
+                  onClick={() => setShowPw((p) => !p)}
+                  className="absolute right-0 top-1/2 -translate-y-1/2 text-[10px] tracking-widest uppercase text-white/40 hover:text-white transition-colors"
                 >
                   {showPw ? "Нуух" : "Харах"}
                 </button>
               </div>
+
+              {/* Strength meter */}
+              {password && (
+                <div className="mt-3">
+                  <div className="flex gap-1 mb-2">
+                    {[1, 2, 3, 4].map((i) => (
+                      <div
+                        key={i}
+                        className="flex-1 h-[2px] transition-colors duration-300"
+                        style={{
+                          background:
+                            i <= strength
+                              ? strengthColor
+                              : "rgba(255,255,255,0.08)",
+                        }}
+                      />
+                    ))}
+                  </div>
+                  <div className="flex items-center justify-between text-[10px] tracking-widest uppercase">
+                    <span className="text-white/40">Хүч</span>
+                    <span style={{ color: strengthColor }}>
+                      {strengthLabel}
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
 
-            <div style={{ paddingTop: 8 }}>
+            {/* Confirm Password */}
+            <div>
+              <label className="block text-[10px] tracking-[0.3em] uppercase text-white/40 mb-3">
+                Нууц үг давтах
+              </label>
+              <input
+                type={showPw ? "text" : "password"}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="••••••••"
+                required
+                className="w-full bg-transparent text-white text-sm py-3 outline-none transition-colors"
+                style={{
+                  borderBottom: "1px solid rgba(255,255,255,0.15)",
+                }}
+                onFocus={(e) =>
+                  (e.target.style.borderBottomColor = "#C9A84C")
+                }
+                onBlur={(e) =>
+                  (e.target.style.borderBottomColor =
+                    "rgba(255,255,255,0.15)")
+                }
+              />
+            </div>
+
+            {/* OTP Method */}
+            <div>
+              <label className="block text-[10px] tracking-[0.3em] uppercase text-white/40 mb-3">
+                Баталгаажуулах арга
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { v: "email", label: "Имэйл" },
+                  { v: "phone", label: "Утас" },
+                ].map((m) => (
+                  <button
+                    key={m.v}
+                    type="button"
+                    onClick={() => setOtpMethod(m.v)}
+                    className="py-3 text-xs tracking-[0.15em] uppercase transition-all duration-300"
+                    style={{
+                      background:
+                        otpMethod === m.v
+                          ? "rgba(201,168,76,0.12)"
+                          : "transparent",
+                      border:
+                        otpMethod === m.v
+                          ? "1px solid #C9A84C"
+                          : "1px solid rgba(255,255,255,0.12)",
+                      color:
+                        otpMethod === m.v
+                          ? "#C9A84C"
+                          : "rgba(255,255,255,0.55)",
+                    }}
+                  >
+                    {m.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Submit */}
+            <div className="pt-4">
               <button
                 type="submit"
                 disabled={loading}
-                className="btn-gold w-full justify-center"
-                style={{ padding: "16px 0", opacity: loading ? 0.7 : 1 }}
+                className="w-full flex items-center justify-center gap-3 py-4 text-xs font-medium tracking-[0.25em] uppercase transition-all duration-300 group disabled:opacity-50"
+                style={{
+                  background: "#C9A84C",
+                  color: "#0A0A0A",
+                }}
+                onMouseEnter={(e) =>
+                  !loading && (e.currentTarget.style.background = "#E8D49E")
+                }
+                onMouseLeave={(e) =>
+                  !loading && (e.currentTarget.style.background = "#C9A84C")
+                }
               >
                 {loading ? (
-                  <span className="flex items-center gap-2">
-                    <svg className="animate-spin" width="14" height="14" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                  <>
+                    <svg
+                      className="w-4 h-4 animate-spin"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="3"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8v8H4z"
+                      />
                     </svg>
-                    Нэвтэрч байна...
-                  </span>
-                ) : "Нэвтрэх"}
+                    Илгээж байна
+                  </>
+                ) : (
+                  <>
+                    Үргэлжлүүлэх
+                    <span className="transition-transform duration-300 group-hover:translate-x-1">
+                      →
+                    </span>
+                  </>
+                )}
               </button>
             </div>
           </form>
 
-          {/* Divider */}
-          <div className="flex items-center gap-4 my-8">
-            <div className="divider flex-1" />
-            <span style={{ fontFamily: "'Montserrat'", fontSize: 9, letterSpacing: "0.15em", textTransform: "uppercase", color: "var(--text-soft)" }}>
-              эсвэл
-            </span>
-            <div className="divider flex-1" />
+          <div className="mt-10 text-center">
+            <div className="flex items-center gap-4 mb-6">
+              <div
+                className="flex-1 h-px"
+                style={{
+                  background:
+                    "linear-gradient(90deg, transparent, rgba(201,168,76,0.3))",
+                }}
+              />
+              <span className="text-[10px] tracking-[0.3em] uppercase text-white/30">
+                or
+              </span>
+              <div
+                className="flex-1 h-px"
+                style={{
+                  background:
+                    "linear-gradient(90deg, rgba(201,168,76,0.3), transparent)",
+                }}
+              />
+            </div>
+            <p className="text-xs text-white/40 tracking-wide">
+              Бүртгэлтэй юу?
+              <Link
+                to="/login"
+                className="font-medium tracking-wider transition-colors hover:underline ml-2"
+                style={{ color: "#C9A84C" }}
+              >
+                Нэвтрэх
+              </Link>
+            </p>
           </div>
-
-          {/* Sign up */}
-          <p style={{ textAlign: "center", fontFamily: "'Montserrat'", fontSize: 12, fontWeight: 300, color: "var(--text-muted)" }}>
-            Бүртгэл байхгүй юу?{" "}
-            <Link to="/register" style={{ color: "var(--gold)", fontWeight: 400, textDecoration: "none" }}>
-              Бүртгүүлэх
-            </Link>
-          </p>
         </div>
       </div>
     </div>
   );
 }
 
-export default Login;
+export default Register;

@@ -1,543 +1,810 @@
-import { useState, useEffect, useCallback } from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import { MapContainer, TileLayer, Marker, useMapEvents } from "react-leaflet";
-import "leaflet/dist/leaflet.css";
-import L from "leaflet";
+import { useState, useEffect, useRef } from "react";
 import api from "../api/axiosInstance";
-import Navbar from "../components/Navbar";
+import { useNavigate, useParams, Link } from "react-router-dom";
+import {
+  MapContainer,
+  TileLayer,
+  Marker,
+  useMapEvents,
+} from "react-leaflet";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
 
-delete L.Icon.Default.prototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
-  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
-  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+const DISTRICTS = [
+  "Хан-Уул",
+  "Сүхбаатар",
+  "Чингэлтэй",
+  "Баянзүрх",
+  "Сонгинохайрхан",
+  "Баянгол",
+  "Налайх",
+  "Багануур",
+  "Багахангай",
+];
+
+const UB_CENTER = [47.9184, 106.9177];
+
+const goldDiamondIcon = L.divIcon({
+  className: "rentalsy-marker",
+  html: `<div style="position:relative;width:34px;height:34px;display:flex;align-items:center;justify-content:center;">
+    <div style="position:absolute;inset:5px;background:#C9A84C;transform:rotate(45deg);box-shadow:0 4px 14px rgba(201,168,76,0.7),0 0 0 2px #0A0A0A;"></div>
+    <div style="position:absolute;width:7px;height:7px;background:#0A0A0A;transform:rotate(45deg);"></div>
+  </div>`,
+  iconSize: [34, 34],
+  iconAnchor: [17, 17],
 });
 
-function MapPinSelector({ onSelect }) {
-  useMapEvents({ click(e) { onSelect([e.latlng.lat, e.latlng.lng]); } });
+function MapClickHandler({ onPick }) {
+  useMapEvents({
+    click(e) {
+      onPick(e.latlng.lat, e.latlng.lng);
+    },
+  });
   return null;
 }
-
-const districts = ["Багануур","Багахангай","Баянгол","Баянзүрх","Налайх","Сонгинохайрхан","Сүхбаатар","Хан-Уул","Чингэлтэй"];
-const khoroos   = Array.from({ length: 30 }, (_, i) => `${i + 1}-р хороо`);
-const years     = Array.from({ length: 40 }, (_, i) => 2026 - i);
-const numbers   = Array.from({ length: 30 }, (_, i) => i + 1);
-
-const districtCoords = {
-  "Баянзүрх":       [47.9184, 106.9612],
-  "Баянгол":        [47.9077, 106.8432],
-  "Сүхбаатар":      [47.9195, 106.9077],
-  "Чингэлтэй":      [47.9268, 106.8782],
-  "Хан-Уул":        [47.8748, 106.8815],
-  "Сонгинохайрхан": [47.9268, 106.7782],
-  "Налайх":         [47.7577, 107.2682],
-  "Багануур":       [47.7121, 108.2821],
-  "Багахангай":     [47.8241, 106.9121],
-};
 
 function EditProperty() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const user = JSON.parse(localStorage.getItem("user") || "null");
 
-  const [formData, setFormData] = useState({
-    title: "", city: "Улаанбаатар", district: "", khoroo: "",
-    address: "", rooms: "", balconyCount: "", doorType: "",
-    garageInfo: "", windowType: "", floorMaterial: "", area: "",
-    windowCount: "", floorNumber: "", builtYear: "", totalFloors: "",
-    paymentConditionText: "", monthlyRent: "", details: "",
-    isFurnished: "", hasOutdoorParking: "", contactName: "",
-    contactPhone: "", contactEmail: "",
-  });
+  const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
 
-  const [existingImages, setExistingImages]     = useState([]);
-  const [newImageFiles, setNewImageFiles]       = useState([]);
-  const [newImagePreviews, setNewImagePreviews] = useState([]);
-  const [loading, setLoading]                   = useState(true);
-  const [submitting, setSubmitting]             = useState(false);
-  const [deleting, setDeleting]                 = useState(false);
-  const [showLocationModal, setShowLocationModal] = useState(false);
-  const [showMapModal, setShowMapModal]         = useState(false);
-  const [pinCoords, setPinCoords]               = useState(null);
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [district, setDistrict] = useState("");
+  const [address, setAddress] = useState("");
+  const [price, setPrice] = useState("");
+  const [rooms, setRooms] = useState("");
+  const [size, setSize] = useState("");
+  const [existingPhotos, setExistingPhotos] = useState([]); // URL strings
+  const [photos, setPhotos] = useState([]); // Array<{file, preview}>
+  const [position, setPosition] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+  const fileInputRef = useRef(null);
 
+  // ── Fetch property ──
   useEffect(() => {
-    const fetchProperty = async () => {
+    if (!user) {
+      navigate("/login");
+      return;
+    }
+
+    let mounted = true;
+    (async () => {
+      setLoading(true);
       try {
         const res = await api.get(`/api/properties/${id}`);
+        if (!mounted) return;
         const p = res.data;
-        const khorooMatch = p.location?.address?.match(/\d+-р хороо/);
-        const khoroo  = khorooMatch ? khorooMatch[0] : "";
-        const address = p.location?.address?.replace(khoroo, "").trim() || "";
-        setFormData({
-          title: p.title || "",
-          city: p.location?.city || "Улаанбаатар",
-          district: p.location?.district || "",
-          khoroo,
-          address,
-          rooms: p.rooms || "",
-          balconyCount: p.balconyCount ?? "",
-          doorType: p.doorType || "",
-          garageInfo: p.hasGarage ? "Байгаа" : (p.garageInfo || ""),
-          windowType: p.windowType || "",
-          floorMaterial: p.floorMaterial || "",
-          area: p.area || "",
-          windowCount: p.windowCount ?? "",
-          floorNumber: p.floorNumber ?? "",
-          builtYear: p.builtYear ?? "",
-          totalFloors: p.totalFloors ?? "",
-          paymentConditionText: p.paymentConditionText || "",
-          monthlyRent: p.monthlyRent || "",
-          details: p.details || "",
-          isFurnished: p.isFurnished ? "Тавилгатай" : "Тавилгагүй",
-          hasOutdoorParking: p.hasOutdoorParking ? "Байгаа" : "Байхгүй",
-          contactName: p.contactName || "",
-          contactPhone: p.contactPhone || "",
-          contactEmail: p.contactEmail || "",
-        });
-        if (p.latitude && p.longitude) setPinCoords([p.latitude, p.longitude]);
-        setExistingImages(p.images || []);
+        const ownerId = p.owner?._id || p.owner;
+        if (ownerId !== user._id && user.role !== "admin") {
+          navigate("/my-properties");
+          return;
+        }
+        setTitle(p.title || "");
+        setDescription(p.description || "");
+        setDistrict(p.district || "");
+        setAddress(p.address || "");
+        setPrice(p.price?.toString() || "");
+        setRooms(p.rooms?.toString() || "");
+        setSize(p.size?.toString() || "");
+        setExistingPhotos(p.photos || []);
+        if (p.latitude && p.longitude) {
+          setPosition([p.latitude, p.longitude]);
+        }
       } catch {
-        alert("Байрны мэдээлэл авахад алдаа гарлаа");
-        navigate("/my-properties");
+        if (mounted) setNotFound(true);
       } finally {
-        setLoading(false);
+        if (mounted) setLoading(false);
       }
+    })();
+    return () => {
+      mounted = false;
     };
-    fetchProperty();
-  }, [id, navigate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
 
-  const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
+  // ── Cleanup object URLs ──
+  useEffect(() => {
+    return () => {
+      photos.forEach((p) => p.preview && URL.revokeObjectURL(p.preview));
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  const handleNewImages = (e) => {
-    const files = Array.from(e.target.files);
-    setNewImageFiles(files);
-    setNewImagePreviews(files.map((f) => URL.createObjectURL(f)));
+  const handlePhotoSelect = (e) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    const valid = files.filter((f) => f.type.startsWith("image/"));
+    const newOnes = valid.map((file) => ({
+      file,
+      preview: URL.createObjectURL(file),
+    }));
+    setPhotos((prev) => [...prev, ...newOnes]);
+    e.target.value = "";
   };
 
-  const removeExistingImage = (index) =>
-    setExistingImages(existingImages.filter((_, i) => i !== index));
-
-  const removeNewImage = (index) => {
-    setNewImageFiles(newImageFiles.filter((_, i) => i !== index));
-    setNewImagePreviews(newImagePreviews.filter((_, i) => i !== index));
+  const removeNewPhoto = (idx) => {
+    setPhotos((prev) => {
+      const removed = prev[idx];
+      if (removed?.preview) URL.revokeObjectURL(removed.preview);
+      return prev.filter((_, i) => i !== idx);
+    });
   };
 
-  const handlePinSelect = useCallback((coords) => setPinCoords(coords), []);
+  const removeExistingPhoto = (idx) => {
+    setExistingPhotos((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  const moveExistingPhotoFirst = (idx) => {
+    setExistingPhotos((prev) => {
+      const next = [...prev];
+      const [item] = next.splice(idx, 1);
+      next.unshift(item);
+      return next;
+    });
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError("");
+
+    if (!title.trim() || !district || !address.trim() || !price || !rooms || !size) {
+      setError("Бүх шаардлагатай талбарыг бөглөнө үү");
+      return;
+    }
+    if (!position) {
+      setError("Газрын зурган дээр байршлаа сонгоно уу");
+      return;
+    }
+    if (Number(price) <= 0 || Number(rooms) <= 0 || Number(size) <= 0) {
+      setError("Үнэ, өрөө, талбай эерэг тоо байх ёстой");
+      return;
+    }
+    if (existingPhotos.length + photos.length === 0) {
+      setError("Хамгийн багадаа 1 зураг шаардлагатай");
+      return;
+    }
+
     setSubmitting(true);
     try {
-      const data = new FormData();
-      data.append("title", formData.title);
-      data.append("location[city]", formData.city);
-      data.append("location[district]", formData.district);
-      data.append("location[address]", `${formData.khoroo} ${formData.address}`.trim());
-      data.append("monthlyRent", formData.monthlyRent);
-      data.append("paymentConditionText", formData.paymentConditionText);
-      data.append("rooms", formData.rooms);
-      data.append("area", formData.area);
-      data.append("floorMaterial", formData.floorMaterial);
-      data.append("doorType", formData.doorType);
-      data.append("balconyCount", formData.balconyCount);
-      data.append("builtYear", formData.builtYear);
-      data.append("garageInfo", formData.garageInfo);
-      data.append("hasGarage", formData.garageInfo === "Байгаа");
-      data.append("windowType", formData.windowType);
-      data.append("windowCount", formData.windowCount);
-      data.append("floorNumber", formData.floorNumber);
-      data.append("totalFloors", formData.totalFloors);
-      data.append("isFurnished", formData.isFurnished === "Тавилгатай");
-      data.append("hasOutdoorParking", formData.hasOutdoorParking === "Байгаа");
-      data.append("contactName", formData.contactName);
-      data.append("contactPhone", formData.contactPhone);
-      data.append("contactEmail", formData.contactEmail);
-      data.append("details", formData.details);
-      data.append("description", formData.details);
-      if (pinCoords) {
-        data.append("latitude", pinCoords[0]);
-        data.append("longitude", pinCoords[1]);
-      }
-      existingImages.forEach((img) => data.append("existingImages", img));
-      newImageFiles.forEach((file) => data.append("images", file));
-      await api.put(`/api/properties/${id}`, data);
-      navigate(`/properties/${id}`);
-    } catch (error) {
-      alert(error.response?.data?.message || "Алдаа гарлаа");
+      const fd = new FormData();
+      fd.append("title", title.trim());
+      fd.append("description", description.trim());
+      fd.append("district", district);
+      fd.append("address", address.trim());
+      fd.append("price", price);
+      fd.append("rooms", rooms);
+      fd.append("size", size);
+      fd.append("latitude", position[0]);
+      fd.append("longitude", position[1]);
+      fd.append("existingPhotos", JSON.stringify(existingPhotos));
+      photos.forEach((p) => fd.append("photos", p.file));
+
+      await api.put(`/api/properties/${id}`, fd, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      navigate(`/property/${id}`);
+    } catch (err) {
+      setError(
+        err.response?.data?.message || "Хадгалахад алдаа гарлаа"
+      );
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleDelete = async () => {
-    if (!window.confirm("Энэ байрыг устгах уу?")) return;
-    setDeleting(true);
-    try {
-      await api.delete(`/api/properties/${id}`);
-      navigate("/my-properties");
-    } catch { alert("Алдаа гарлаа"); }
-    finally { setDeleting(false); }
-  };
-
-  const selectedLocation = `${formData.city}${formData.district ? " — " + formData.district : ""}${formData.khoroo ? " — " + formData.khoroo : ""}`;
-  const mapCenter = formData.district && districtCoords[formData.district]
-    ? districtCoords[formData.district]
-    : pinCoords || [47.9077, 106.8832];
-
-  const inputCls  = "luxury-input w-full";
-  const selectCls = "luxury-select w-full";
-  const labelCls  = "block text-xs tracking-widest uppercase mb-2";
-
-  if (loading) return (
-    <div className="min-h-screen flex items-center justify-center" style={{ background: "var(--cream)" }}>
-      <Navbar />
-      <div className="text-center">
-        <div className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin mx-auto mb-4"
-          style={{ borderColor: "var(--gold)", borderTopColor: "transparent" }} />
-        <p className="text-xs tracking-widest uppercase" style={{ color: "var(--text-muted)" }}>Ачааллаж байна</p>
+  // ── Loading / Not Found ──
+  if (loading) {
+    return (
+      <div
+        className="min-h-screen pt-20 flex items-center justify-center"
+        style={{ background: "#0A0A0A" }}
+      >
+        <div className="text-center">
+          <div
+            className="w-12 h-12 mx-auto mb-6 animate-spin"
+            style={{
+              border: "2px solid rgba(201,168,76,0.2)",
+              borderTopColor: "#C9A84C",
+              borderRadius: "50%",
+            }}
+          />
+          <p className="text-[10px] tracking-[0.3em] uppercase text-white/40">
+            Уншиж байна
+          </p>
+        </div>
       </div>
-    </div>
-  );
+    );
+  }
+
+  if (notFound) {
+    return (
+      <div
+        className="min-h-screen pt-20 flex items-center justify-center px-6"
+        style={{ background: "#0A0A0A" }}
+      >
+        <div className="text-center max-w-md">
+          <h2
+            className="font-light text-white mb-4"
+            style={{
+              fontFamily: "'Cormorant Garamond', serif",
+              fontSize: 36,
+            }}
+          >
+            Байр <em style={{ color: "#C9A84C", fontStyle: "italic" }}>олдсонгүй</em>
+          </h2>
+          <Link
+            to="/my-properties"
+            className="inline-block px-8 py-3 text-[10px] tracking-[0.3em] uppercase mt-6"
+            style={{ background: "#C9A84C", color: "#0A0A0A" }}
+          >
+            Миний байрууд руу →
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div style={{ minHeight: "100vh", background: "var(--cream)", paddingTop: 64 }}>
-      <Navbar />
-      <div className="max-w-3xl mx-auto px-6 py-10">
+    <div
+      className="min-h-screen pt-20"
+      style={{ background: "#0A0A0A", fontFamily: "'DM Sans', sans-serif" }}
+    >
+      <style>{`
+        .leaflet-container { background: #0A0A0A; font-family: 'DM Sans', sans-serif; cursor: crosshair; }
+        .leaflet-control-zoom a {
+          background: #141414 !important;
+          color: #C9A84C !important;
+          border: 1px solid rgba(201,168,76,0.3) !important;
+        }
+        .leaflet-control-attribution {
+          background: rgba(10,10,10,0.7) !important;
+          color: rgba(255,255,255,0.4) !important;
+          font-size: 9px !important;
+        }
+        .leaflet-control-attribution a { color: #C9A84C !important; }
+        .rentalsy-marker { background: transparent !important; border: none !important; }
+      `}</style>
 
-        <div className="flex items-start justify-between mb-8">
-          <div>
-            <p className="text-xs tracking-widest uppercase mb-2" style={{ color: "var(--gold)" }}>Байр засах</p>
-            <h1 className="font-display text-4xl font-light" style={{ color: "var(--ink)" }}>Мэдээлэл шинэчлэх</h1>
-          </div>
-          <button onClick={handleDelete} disabled={deleting}
-            className="text-xs px-4 py-2 border transition-colors"
-            style={{ borderColor: "#FCA5A5", color: "#EF4444", background: "white" }}>
-            {deleting ? "Устгаж байна..." : "Байр устгах"}
-          </button>
+      <div className="max-w-5xl mx-auto px-6 lg:px-12 py-8">
+        <Link
+          to={`/property/${id}`}
+          className="text-[10px] tracking-[0.3em] uppercase text-white/40 hover:text-white transition-colors"
+        >
+          ← Дэлгэрэнгүй рүү буцах
+        </Link>
+      </div>
+
+      {/* Header */}
+      <header className="max-w-5xl mx-auto px-6 lg:px-12 mb-12">
+        <div className="flex items-center gap-3 mb-5">
+          <div className="h-px w-8" style={{ background: "#C9A84C" }} />
+          <span
+            className="text-[10px] tracking-[0.3em] uppercase"
+            style={{ color: "#C9A84C" }}
+          >
+            Edit Listing
+          </span>
         </div>
+        <h1
+          className="font-light text-white leading-[1] tracking-tight"
+          style={{
+            fontFamily: "'Cormorant Garamond', serif",
+            fontSize: "clamp(40px, 5vw, 64px)",
+          }}
+        >
+          Байр<br />
+          <em style={{ color: "#C9A84C", fontStyle: "italic" }}>
+            засварлах
+          </em>
+        </h1>
+      </header>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+      <form
+        onSubmit={handleSubmit}
+        className="max-w-5xl mx-auto px-6 lg:px-12 pb-20"
+      >
+        {error && (
+          <div
+            className="mb-8 p-4 flex items-start gap-3"
+            style={{
+              background: "rgba(239,68,68,0.08)",
+              borderLeft: "2px solid #EF4444",
+            }}
+          >
+            <span style={{ color: "#EF4444" }}>✕</span>
+            <p className="text-sm text-red-300">{error}</p>
+          </div>
+        )}
 
-          <div className="bg-white border p-6" style={{ borderColor: "var(--border-subtle)" }}>
-            <p className="text-xs tracking-widest uppercase mb-4" style={{ color: "var(--gold)" }}>Байршил</p>
-            <button type="button" onClick={() => setShowLocationModal(true)}
-              className="luxury-input w-full text-left mb-3"
-              style={{ color: formData.district ? "var(--ink)" : "var(--text-soft)" }}>
-              {formData.district ? `📍 ${selectedLocation}` : "📍 Дүүрэг, хороо сонгох..."}
-            </button>
-            <button type="button" onClick={() => setShowMapModal(true)}
-              className="w-full p-4 text-left text-sm border-2 transition-all mb-4"
+        {/* ── Section 1 ── */}
+        <FormSection number="01" label="Үндсэн мэдээлэл">
+          <Field label="Гарчиг" required>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              required
+              className="w-full bg-transparent text-white text-sm py-3 outline-none transition-colors"
               style={{
-                borderStyle: "dashed",
-                borderColor: pinCoords ? "var(--gold)" : "var(--border-subtle)",
-                background: pinCoords ? "var(--cream)" : "white",
-                color: pinCoords ? "var(--gold)" : "var(--text-soft)",
-              }}>
-              {pinCoords
-                ? `🗺️ Байршил тэмдэглэгдсэн (${pinCoords[0].toFixed(4)}, ${pinCoords[1].toFixed(4)}) — өөрчлөх`
-                : "🗺️ Газрын зураг дээр байршил тэмдэглэх"}
-            </button>
-            <div>
-              <label className={labelCls} style={{ color: "var(--text-muted)" }}>Дэлгэрэнгүй хаяг</label>
-              <input name="address" className={inputCls} placeholder="Гудамж, байр, орц, тоот"
-                value={formData.address} onChange={handleChange} />
-            </div>
-          </div>
+                borderBottom: "1px solid rgba(255,255,255,0.15)",
+              }}
+              onFocus={(e) =>
+                (e.target.style.borderBottomColor = "#C9A84C")
+              }
+              onBlur={(e) =>
+                (e.target.style.borderBottomColor =
+                  "rgba(255,255,255,0.15)")
+              }
+            />
+          </Field>
 
-          <div className="bg-white border p-6" style={{ borderColor: "var(--border-subtle)" }}>
-            <p className="text-xs tracking-widest uppercase mb-4" style={{ color: "var(--gold)" }}>Үндсэн мэдээлэл</p>
-            <div className="space-y-4">
-              <div>
-                <label className={labelCls} style={{ color: "var(--text-muted)" }}>Гарчиг *</label>
-                <input name="title" className={inputCls} placeholder="Зарын гарчиг"
-                  value={formData.title} onChange={handleChange} required />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className={labelCls} style={{ color: "var(--text-muted)" }}>Өрөө *</label>
-                  <select name="rooms" className={selectCls} value={formData.rooms} onChange={handleChange} required>
-                    <option value="">Сонгох</option>
-                    {[1,2,3,4,5].map(n => <option key={n} value={n}>{n} өрөө</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className={labelCls} style={{ color: "var(--text-muted)" }}>Талбай (м²) *</label>
-                  <input name="area" inputMode="numeric" className={inputCls} placeholder="60"
-                    value={formData.area} onChange={handleChange} required />
-                </div>
-              </div>
-              <div>
-                <label className={labelCls} style={{ color: "var(--text-muted)" }}>Сарын түрээс (₮) *</label>
-                <input name="monthlyRent" inputMode="numeric" className={inputCls} placeholder="800,000"
-                  value={formData.monthlyRent} onChange={handleChange} required />
-              </div>
-              <div>
-                <label className={labelCls} style={{ color: "var(--text-muted)" }}>Төлбөрийн нөхцөл</label>
-                <select name="paymentConditionText" className={selectCls} value={formData.paymentConditionText} onChange={handleChange}>
-                  <option value="">Сонгох</option>
-                  {["Барьцаа байхгүй","1+1","2+1","3+1","4+1","5+1","6+1","12+1"].map(v => <option key={v} value={v}>{v}</option>)}
-                </select>
-              </div>
-            </div>
-          </div>
+          <Field label="Тайлбар">
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={5}
+              className="w-full bg-transparent text-white text-sm py-3 px-4 outline-none resize-none transition-colors"
+              style={{ border: "1px solid rgba(255,255,255,0.15)" }}
+              onFocus={(e) => (e.target.style.borderColor = "#C9A84C")}
+              onBlur={(e) =>
+                (e.target.style.borderColor = "rgba(255,255,255,0.15)")
+              }
+            />
+          </Field>
+        </FormSection>
 
-          <div className="bg-white border p-6" style={{ borderColor: "var(--border-subtle)" }}>
-            <p className="text-xs tracking-widest uppercase mb-4" style={{ color: "var(--gold)" }}>Дэлгэрэнгүй мэдээлэл</p>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className={labelCls} style={{ color: "var(--text-muted)" }}>Тагт</label>
-                <select name="balconyCount" className={selectCls} value={formData.balconyCount} onChange={handleChange}>
-                  <option value="">Сонгох</option>
-                  <option value="0">Тагтгүй</option>
-                  <option value="1">1 тагт</option>
-                  <option value="2">2 тагт</option>
-                  <option value="3">3+ тагт</option>
-                </select>
-              </div>
-              <div>
-                <label className={labelCls} style={{ color: "var(--text-muted)" }}>Хаалга</label>
-                <select name="doorType" className={selectCls} value={formData.doorType} onChange={handleChange}>
-                  <option value="">Сонгох</option>
-                  {["Мод","Төмөр","Бүргэд","Вакум"].map(v => <option key={v} value={v}>{v}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className={labelCls} style={{ color: "var(--text-muted)" }}>Гараж</label>
-                <select name="garageInfo" className={selectCls} value={formData.garageInfo} onChange={handleChange}>
-                  <option value="">Сонгох</option>
-                  <option value="Байгаа">Байгаа</option>
-                  <option value="Байхгүй">Байхгүй</option>
-                </select>
-              </div>
-              <div>
-                <label className={labelCls} style={{ color: "var(--text-muted)" }}>Цонхны төрөл</label>
-                <select name="windowType" className={selectCls} value={formData.windowType} onChange={handleChange}>
-                  <option value="">Сонгох</option>
-                  {["Мод","Вакум","Төмөр вакум","Модон вакум"].map(v => <option key={v} value={v}>{v}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className={labelCls} style={{ color: "var(--text-muted)" }}>Цонхны тоо</label>
-                <select name="windowCount" className={selectCls} value={formData.windowCount} onChange={handleChange}>
-                  <option value="">Сонгох</option>
-                  {numbers.slice(0,10).map(n => <option key={n} value={n}>{n}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className={labelCls} style={{ color: "var(--text-muted)" }}>Шалны материал</label>
-                <select name="floorMaterial" className={selectCls} value={formData.floorMaterial} onChange={handleChange}>
-                  <option value="">Сонгох</option>
-                  {["Мод","Паркет","Ламинат","Чулуу","Плита"].map(v => <option key={v} value={v}>{v}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className={labelCls} style={{ color: "var(--text-muted)" }}>Давхар</label>
-                <select name="floorNumber" className={selectCls} value={formData.floorNumber} onChange={handleChange}>
-                  <option value="">Сонгох</option>
-                  {numbers.map(n => <option key={n} value={n}>{n}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className={labelCls} style={{ color: "var(--text-muted)" }}>Нийт давхар</label>
-                <select name="totalFloors" className={selectCls} value={formData.totalFloors} onChange={handleChange}>
-                  <option value="">Сонгох</option>
-                  {numbers.map(n => <option key={n} value={n}>{n}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className={labelCls} style={{ color: "var(--text-muted)" }}>Ашиглалтад орсон он</label>
-                <select name="builtYear" className={selectCls} value={formData.builtYear} onChange={handleChange}>
-                  <option value="">Сонгох</option>
-                  {years.map(y => <option key={y} value={y}>{y}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className={labelCls} style={{ color: "var(--text-muted)" }}>Тавилга *</label>
-                <select name="isFurnished" className={selectCls} value={formData.isFurnished} onChange={handleChange} required>
-                  <option value="">Сонгох</option>
-                  <option value="Тавилгатай">Тавилгатай</option>
-                  <option value="Тавилгагүй">Тавилгагүй</option>
-                </select>
-              </div>
-              <div>
-                <label className={labelCls} style={{ color: "var(--text-muted)" }}>Гадна зогсоол *</label>
-                <select name="hasOutdoorParking" className={selectCls} value={formData.hasOutdoorParking} onChange={handleChange} required>
-                  <option value="">Сонгох</option>
-                  <option value="Байгаа">Байгаа</option>
-                  <option value="Байхгүй">Байхгүй</option>
-                </select>
-              </div>
-            </div>
-            <div className="mt-4">
-              <label className={labelCls} style={{ color: "var(--text-muted)" }}>Тайлбар *</label>
-              <textarea name="details" rows={4} className="luxury-input w-full resize-none"
-                placeholder="Байрны онцлог, давуу талуудаа тайлбарлана уу..."
-                value={formData.details} onChange={handleChange} required />
-            </div>
-          </div>
+        {/* ── Section 2 ── */}
+        <FormSection number="02" label="Тодорхойлолт">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Field label="Дүүрэг" required>
+              <select
+                value={district}
+                onChange={(e) => setDistrict(e.target.value)}
+                required
+                className="w-full bg-transparent text-white text-sm py-3 outline-none"
+                style={{
+                  borderBottom: "1px solid rgba(255,255,255,0.15)",
+                  colorScheme: "dark",
+                }}
+              >
+                <option value="" style={{ background: "#141414" }}>
+                  Сонгоно уу
+                </option>
+                {DISTRICTS.map((d) => (
+                  <option
+                    key={d}
+                    value={d}
+                    style={{ background: "#141414" }}
+                  >
+                    {d}
+                  </option>
+                ))}
+              </select>
+            </Field>
 
-          <div className="bg-white border p-6" style={{ borderColor: "var(--border-subtle)" }}>
-            <p className="text-xs tracking-widest uppercase mb-4" style={{ color: "var(--gold)" }}>Холбоо барих мэдээлэл</p>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className={labelCls} style={{ color: "var(--text-muted)" }}>Нэр *</label>
-                <input name="contactName" className={inputCls} placeholder="Нэр"
-                  value={formData.contactName} onChange={handleChange} required />
-              </div>
-              <div>
-                <label className={labelCls} style={{ color: "var(--text-muted)" }}>Утас *</label>
-                <input name="contactPhone" className={inputCls} placeholder="99001122"
-                  value={formData.contactPhone} onChange={handleChange} required />
-              </div>
-              <div>
-                <label className={labelCls} style={{ color: "var(--text-muted)" }}>Имэйл</label>
-                <input name="contactEmail" type="email" className={inputCls} placeholder="email@example.com"
-                  value={formData.contactEmail} onChange={handleChange} />
-              </div>
-            </div>
-          </div>
+            <Field label="Хаяг" required>
+              <input
+                type="text"
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                required
+                className="w-full bg-transparent text-white text-sm py-3 outline-none transition-colors"
+                style={{
+                  borderBottom: "1px solid rgba(255,255,255,0.15)",
+                }}
+                onFocus={(e) =>
+                  (e.target.style.borderBottomColor = "#C9A84C")
+                }
+                onBlur={(e) =>
+                  (e.target.style.borderBottomColor =
+                    "rgba(255,255,255,0.15)")
+                }
+              />
+            </Field>
 
-          <div className="bg-white border p-6" style={{ borderColor: "var(--border-subtle)" }}>
-            <p className="text-xs tracking-widest uppercase mb-4" style={{ color: "var(--gold)" }}>Зурагнууд</p>
-            {existingImages.length > 0 && (
-              <>
-                <p className="text-xs mb-3" style={{ color: "var(--text-muted)" }}>Одоогийн зурагнууд</p>
-                <div className="grid grid-cols-3 md:grid-cols-4 gap-3 mb-5">
-                  {existingImages.map((img, i) => (
-                    <div key={i} className="relative group aspect-video overflow-hidden">
-                      <img src={img} alt="" className="w-full h-full object-cover" />
-                      <button type="button" onClick={() => removeExistingImage(i)}
-                        className="absolute top-1 right-1 w-6 h-6 bg-black/60 text-white text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">x</button>
-                      {i === 0 && <span className="absolute bottom-1 left-1 text-xs px-2 py-0.5" style={{ background: "var(--gold)", color: "var(--ink)" }}>Үндсэн</span>}
+            <Field label="Сарын түрээс (₮)" required>
+              <input
+                type="number"
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+                min="0"
+                required
+                className="w-full bg-transparent text-white text-sm py-3 outline-none transition-colors"
+                style={{
+                  borderBottom: "1px solid rgba(255,255,255,0.15)",
+                }}
+                onFocus={(e) =>
+                  (e.target.style.borderBottomColor = "#C9A84C")
+                }
+                onBlur={(e) =>
+                  (e.target.style.borderBottomColor =
+                    "rgba(255,255,255,0.15)")
+                }
+              />
+              {price && Number(price) > 0 && (
+                <p
+                  className="mt-2 text-xs"
+                  style={{ color: "#C9A84C" }}
+                >
+                  {new Intl.NumberFormat("mn-MN").format(price)}₮ / сар
+                </p>
+              )}
+            </Field>
+
+            <Field label="Өрөөний тоо" required>
+              <input
+                type="number"
+                value={rooms}
+                onChange={(e) => setRooms(e.target.value)}
+                min="0"
+                required
+                className="w-full bg-transparent text-white text-sm py-3 outline-none transition-colors"
+                style={{
+                  borderBottom: "1px solid rgba(255,255,255,0.15)",
+                }}
+                onFocus={(e) =>
+                  (e.target.style.borderBottomColor = "#C9A84C")
+                }
+                onBlur={(e) =>
+                  (e.target.style.borderBottomColor =
+                    "rgba(255,255,255,0.15)")
+                }
+              />
+            </Field>
+
+            <Field label="Талбай (м²)" required>
+              <input
+                type="number"
+                value={size}
+                onChange={(e) => setSize(e.target.value)}
+                min="0"
+                required
+                className="w-full bg-transparent text-white text-sm py-3 outline-none transition-colors"
+                style={{
+                  borderBottom: "1px solid rgba(255,255,255,0.15)",
+                }}
+                onFocus={(e) =>
+                  (e.target.style.borderBottomColor = "#C9A84C")
+                }
+                onBlur={(e) =>
+                  (e.target.style.borderBottomColor =
+                    "rgba(255,255,255,0.15)")
+                }
+              />
+            </Field>
+          </div>
+        </FormSection>
+
+        {/* ── Section 3: Photos ── */}
+        <FormSection
+          number="03"
+          label="Зураг"
+          hint="Эхний зураг нь үндсэн зураг болно. Зургийн дээгүүр хулганаа аваач ир."
+        >
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={handlePhotoSelect}
+            className="hidden"
+          />
+
+          {/* Existing photos */}
+          {existingPhotos.length > 0 && (
+            <div className="mb-6">
+              <div className="text-[10px] tracking-[0.25em] uppercase text-white/40 mb-4">
+                Одоогийн зураг ({existingPhotos.length})
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {existingPhotos.map((url, i) => (
+                  <div
+                    key={url + i}
+                    className="relative aspect-square group"
+                    style={{
+                      border:
+                        i === 0
+                          ? "1px solid #C9A84C"
+                          : "1px solid rgba(255,255,255,0.1)",
+                    }}
+                  >
+                    <img
+                      src={url}
+                      alt=""
+                      className="w-full h-full object-cover"
+                    />
+                    {i === 0 && (
+                      <div
+                        className="absolute top-2 left-2 px-2 py-0.5 text-[9px] tracking-[0.2em] uppercase"
+                        style={{ background: "#C9A84C", color: "#0A0A0A" }}
+                      >
+                        Үндсэн
+                      </div>
+                    )}
+                    <div className="absolute inset-x-2 bottom-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      {i !== 0 && (
+                        <button
+                          type="button"
+                          onClick={() => moveExistingPhotoFirst(i)}
+                          className="flex-1 py-1.5 text-[9px] tracking-[0.15em] uppercase"
+                          style={{
+                            background: "rgba(10,10,10,0.85)",
+                            border: "1px solid rgba(201,168,76,0.5)",
+                            color: "#C9A84C",
+                          }}
+                        >
+                          Үндсэн
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => removeExistingPhoto(i)}
+                        className="flex-1 py-1.5 text-[9px] tracking-[0.15em] uppercase text-red-300"
+                        style={{
+                          background: "rgba(10,10,10,0.85)",
+                          border: "1px solid rgba(239,68,68,0.5)",
+                        }}
+                      >
+                        Устгах
+                      </button>
                     </div>
-                  ))}
-                </div>
-              </>
-            )}
-            <label className="block border-2 border-dashed p-6 text-center cursor-pointer"
-              style={{ borderColor: "var(--gold-light)", background: "var(--cream)" }}>
-              <input type="file" accept="image/*" multiple onChange={handleNewImages} className="hidden" />
-              <p className="text-sm" style={{ color: "var(--text-muted)" }}>+ Шинэ зураг нэмэх</p>
-              <p className="text-xs mt-1" style={{ color: "var(--text-soft)" }}>JPG, PNG, WEBP</p>
-            </label>
-            {newImagePreviews.length > 0 && (
-              <div className="grid grid-cols-3 md:grid-cols-4 gap-3 mt-3">
-                {newImagePreviews.map((src, i) => (
-                  <div key={i} className="relative group aspect-video overflow-hidden">
-                    <img src={src} alt="" className="w-full h-full object-cover" />
-                    <button type="button" onClick={() => removeNewImage(i)}
-                      className="absolute top-1 right-1 w-6 h-6 bg-black/60 text-white text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">x</button>
                   </div>
                 ))}
               </div>
-            )}
-          </div>
-
-          <div className="flex gap-3">
-            <button type="button" onClick={() => navigate("/my-properties")} className="btn-ghost flex-1">Болих</button>
-            <button type="submit" disabled={submitting} className="btn-gold flex-1 justify-center" style={{ padding: "14px 0" }}>
-              {submitting ? "Хадгалж байна..." : "Мэдээлэл шинэчлэх"}
-            </button>
-          </div>
-        </form>
-      </div>
-
-      {showLocationModal && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
-          onClick={e => { if (e.target === e.currentTarget) setShowLocationModal(false); }}>
-          <div className="bg-white w-full max-w-2xl p-6 max-h-[80vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-5">
-              <div>
-                <p className="text-xs tracking-widest uppercase mb-1" style={{ color: "var(--gold)" }}>Байршил</p>
-                <h2 className="font-display text-xl font-light" style={{ color: "var(--ink)" }}>Дүүрэг, хороо сонгох</h2>
-              </div>
-              <button onClick={() => setShowLocationModal(false)} className="text-2xl" style={{ color: "var(--text-soft)" }}>x</button>
             </div>
-            <div className="grid grid-cols-3 gap-4">
-              <div>
-                <p className="text-xs tracking-widest uppercase mb-2" style={{ color: "var(--gold)" }}>Хот</p>
-                <button type="button" className="w-full p-3 text-sm text-left border"
-                  style={{ borderColor: "var(--gold)", background: "var(--cream)", color: "var(--gold)" }}>
-                  Улаанбаатар
-                </button>
+          )}
+
+          {/* New photos */}
+          {photos.length > 0 && (
+            <div className="mb-6">
+              <div className="text-[10px] tracking-[0.25em] uppercase text-white/40 mb-4">
+                Шинээр нэмсэн ({photos.length})
               </div>
-              <div>
-                <p className="text-xs tracking-widest uppercase mb-2" style={{ color: "var(--gold)" }}>Дүүрэг</p>
-                <div className="space-y-1 max-h-64 overflow-y-auto">
-                  {districts.map((d) => (
-                    <button key={d} type="button"
-                      onClick={() => setFormData(prev => ({ ...prev, district: d, khoroo: "" }))}
-                      className="w-full p-2.5 text-sm text-left border transition-all"
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {photos.map((p, i) => (
+                  <div
+                    key={i}
+                    className="relative aspect-square group"
+                    style={{
+                      border: "1px dashed rgba(201,168,76,0.5)",
+                    }}
+                  >
+                    <img
+                      src={p.preview}
+                      alt=""
+                      className="w-full h-full object-cover"
+                    />
+                    <div
+                      className="absolute top-2 left-2 px-2 py-0.5 text-[9px] tracking-[0.2em] uppercase"
                       style={{
-                        borderColor: formData.district === d ? "var(--gold)" : "var(--border-subtle)",
-                        background: formData.district === d ? "var(--cream)" : "white",
-                        color: formData.district === d ? "var(--gold)" : "var(--ink)",
-                      }}>
-                      {d}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <p className="text-xs tracking-widest uppercase mb-2" style={{ color: "var(--gold)" }}>Хороо</p>
-                <div className="space-y-1 max-h-64 overflow-y-auto">
-                  {khoroos.map((k) => (
-                    <button key={k} type="button"
-                      onClick={() => setFormData(prev => ({ ...prev, khoroo: k }))}
-                      className="w-full p-2.5 text-sm text-left border transition-all"
+                        background: "rgba(201,168,76,0.95)",
+                        color: "#0A0A0A",
+                      }}
+                    >
+                      Шинэ
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeNewPhoto(i)}
+                      className="absolute top-2 right-2 w-7 h-7 flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity"
                       style={{
-                        borderColor: formData.khoroo === k ? "var(--gold)" : "var(--border-subtle)",
-                        background: formData.khoroo === k ? "var(--cream)" : "white",
-                        color: formData.khoroo === k ? "var(--gold)" : "var(--ink)",
-                      }}>
-                      {k}
+                        background: "rgba(10,10,10,0.85)",
+                        border: "1px solid rgba(239,68,68,0.5)",
+                      }}
+                      aria-label="Устгах"
+                    >
+                      ✕
                     </button>
-                  ))}
-                </div>
+                  </div>
+                ))}
               </div>
             </div>
-            <button type="button" onClick={() => setShowLocationModal(false)}
-              className="btn-gold w-full justify-center mt-6" style={{ padding: "12px 0" }}>
-              Батлах
-            </button>
-          </div>
-        </div>
-      )}
+          )}
 
-      {showMapModal && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
-          onClick={e => { if (e.target === e.currentTarget) setShowMapModal(false); }}>
-          <div className="bg-white w-full max-w-2xl overflow-hidden">
-            <div className="p-5 border-b flex items-center justify-between" style={{ borderColor: "var(--border-subtle)" }}>
-              <div>
-                <p className="text-xs tracking-widest uppercase mb-1" style={{ color: "var(--gold)" }}>Газрын зураг</p>
-                <h2 className="font-display text-xl font-light" style={{ color: "var(--ink)" }}>Байршил тэмдэглэх</h2>
-                <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>Map дээр байрны байршил дээр дарна уу</p>
-              </div>
-              <button onClick={() => setShowMapModal(false)} className="text-2xl" style={{ color: "var(--text-soft)" }}>x</button>
-            </div>
-            {pinCoords && (
-              <div className="px-5 py-2 text-xs" style={{ background: "var(--cream)", color: "var(--gold)" }}>
-                Сонгосон: {pinCoords[0].toFixed(5)}, {pinCoords[1].toFixed(5)}
-              </div>
-            )}
-            <MapContainer center={pinCoords || mapCenter} zoom={14}
-              style={{ height: 380, width: "100%", zIndex: 0 }} scrollWheelZoom={true}>
-              <TileLayer attribution="OpenStreetMap" url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-              <MapPinSelector onSelect={handlePinSelect} />
-              {pinCoords && <Marker position={pinCoords} />}
-            </MapContainer>
-            <div className="p-4 flex gap-3" style={{ borderTop: "1px solid var(--border-subtle)" }}>
-              {pinCoords && (
-                <button type="button" onClick={() => setPinCoords(null)} className="btn-ghost flex-1">Арилгах</button>
+          {/* Add button */}
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="w-full py-8 flex flex-col items-center justify-center gap-3 transition-all duration-300"
+            style={{
+              border: "1px dashed rgba(201,168,76,0.4)",
+              background: "rgba(201,168,76,0.02)",
+              color: "#C9A84C",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = "#C9A84C";
+              e.currentTarget.style.background = "rgba(201,168,76,0.06)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = "rgba(201,168,76,0.4)";
+              e.currentTarget.style.background = "rgba(201,168,76,0.02)";
+            }}
+          >
+            <span style={{ fontSize: 22 }}>+</span>
+            <span className="text-[10px] tracking-[0.25em] uppercase">
+              Зураг нэмэх
+            </span>
+          </button>
+        </FormSection>
+
+        {/* ── Section 4: Map ── */}
+        <FormSection
+          number="04"
+          label="Байршил"
+          hint="Газрын зурган дээр дарж эсвэл marker-ийг чирж байршлаа өөрчилнө үү"
+        >
+          <div
+            style={{
+              height: 420,
+              border: "1px solid rgba(201,168,76,0.2)",
+            }}
+          >
+            <MapContainer
+              center={position || UB_CENTER}
+              zoom={position ? 15 : 12}
+              style={{ height: "100%", width: "100%" }}
+              scrollWheelZoom
+            >
+              <TileLayer
+                url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+                attribution='&copy; OpenStreetMap &copy; CARTO'
+              />
+              <MapClickHandler
+                onPick={(lat, lng) => setPosition([lat, lng])}
+              />
+              {position && (
+                <Marker
+                  position={position}
+                  icon={goldDiamondIcon}
+                  draggable
+                  eventHandlers={{
+                    dragend(e) {
+                      const { lat, lng } = e.target.getLatLng();
+                      setPosition([lat, lng]);
+                    },
+                  }}
+                />
               )}
-              <button type="button" onClick={() => setShowMapModal(false)}
-                className="btn-gold flex-1 justify-center" style={{ padding: "12px 0" }}>
-                {pinCoords ? "Хадгалах" : "Хаах"}
-              </button>
-            </div>
+            </MapContainer>
           </div>
+
+          {position && (
+            <div
+              className="mt-4 p-4 flex items-center justify-between"
+              style={{
+                background: "rgba(201,168,76,0.06)",
+                borderLeft: "2px solid #C9A84C",
+              }}
+            >
+              <div className="flex items-center gap-4">
+                <span style={{ color: "#C9A84C" }}>◇</span>
+                <div>
+                  <div className="text-[10px] tracking-[0.25em] uppercase text-white/40 mb-1">
+                    Сонгосон байршил
+                  </div>
+                  <div className="text-xs text-white/80 font-mono">
+                    {position[0].toFixed(5)}, {position[1].toFixed(5)}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </FormSection>
+
+        {/* ── Submit ── */}
+        <div
+          className="flex flex-col-reverse sm:flex-row gap-4 pt-10"
+          style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}
+        >
+          <Link
+            to={`/property/${id}`}
+            className="flex-1 sm:flex-initial sm:px-8 py-4 text-center text-[10px] tracking-[0.25em] uppercase text-white/60 hover:text-white transition-colors"
+            style={{ border: "1px solid rgba(255,255,255,0.12)" }}
+          >
+            Болих
+          </Link>
+          <button
+            type="submit"
+            disabled={submitting}
+            className="flex-1 py-4 text-xs font-medium tracking-[0.25em] uppercase transition-all duration-300 group flex items-center justify-center gap-3 disabled:opacity-50"
+            style={{ background: "#C9A84C", color: "#0A0A0A" }}
+            onMouseEnter={(e) =>
+              !submitting && (e.currentTarget.style.background = "#E8D49E")
+            }
+            onMouseLeave={(e) =>
+              !submitting && (e.currentTarget.style.background = "#C9A84C")
+            }
+          >
+            {submitting ? (
+              <>
+                <svg
+                  className="w-4 h-4 animate-spin"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="3"
+                  />
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8v8H4z"
+                  />
+                </svg>
+                Хадгалж байна
+              </>
+            ) : (
+              <>
+                Хадгалах
+                <span className="transition-transform duration-300 group-hover:translate-x-1">
+                  →
+                </span>
+              </>
+            )}
+          </button>
         </div>
-      )}
+      </form>
+    </div>
+  );
+}
+
+// ── Form section wrapper ──
+function FormSection({ number, label, hint, children }) {
+  return (
+    <section
+      className="mb-12 pb-12"
+      style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}
+    >
+      <div className="flex items-baseline gap-6 mb-8">
+        <span
+          className="font-light"
+          style={{
+            fontFamily: "'Cormorant Garamond', serif",
+            fontSize: 32,
+            color: "#C9A84C",
+          }}
+        >
+          {number}
+        </span>
+        <div className="flex-1">
+          <h3
+            className="font-light text-white"
+            style={{
+              fontFamily: "'Cormorant Garamond', serif",
+              fontSize: 28,
+            }}
+          >
+            {label}
+          </h3>
+          {hint && (
+            <p className="text-xs text-white/40 mt-1">{hint}</p>
+          )}
+        </div>
+      </div>
+      <div className="space-y-6">{children}</div>
+    </section>
+  );
+}
+
+// ── Field wrapper ──
+function Field({ label, required, children }) {
+  return (
+    <div>
+      <label className="block text-[10px] tracking-[0.3em] uppercase text-white/40 mb-3">
+        {label}
+        {required && <span style={{ color: "#C9A84C" }}> *</span>}
+      </label>
+      {children}
     </div>
   );
 }

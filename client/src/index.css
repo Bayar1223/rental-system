@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=Inter:wght@200;300;400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=DM+Sans:wght@300;400;500;600;700&family=Inter:wght@200;300;400;500;600&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -15,11 +15,11 @@
   --bg-elevated:   #1A1A1A;
   --bg-card:       #0F0F0F;
 
-  /* Gold */
-  --gold:          #C8A961;
-  --gold-light:    #E5D4A1;
-  --gold-dark:     #8E7741;
-  --gold-glow:     rgba(200, 169, 97, 0.25);
+  /* Gold (17 редизайн файлуудын inline-тай яг таарсан) */
+  --gold:          #C9A84C;
+  --gold-light:    #E8D49E;
+  --gold-dark:     #8B6914;
+  --gold-glow:     rgba(201, 168, 76, 0.25);
 
   /* Text */
   --text-primary:   #FFFFFF;
@@ -29,7 +29,7 @@
 
   /* Borders */
   --border-subtle: rgba(255, 255, 255, 0.08);
-  --border-gold:   rgba(200, 169, 97, 0.25);
+  --border-gold:   rgba(201, 168, 76, 0.25);
   --border-strong: rgba(255, 255, 255, 0.15);
 
   /* ── Backward compatibility (хуучин variable-уудыг шинэ утгад mapping) ── */
@@ -39,7 +39,7 @@
   --cream:         #000000;           /* хуучин: light bg → одоо: pure black */
   --surface:       #0F0F0F;
   --surface-warm:  #141414;
-  --border-light:  rgba(200, 169, 97, 0.2);
+  --border-light:  rgba(201, 168, 76, 0.2);
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -53,7 +53,7 @@ html, body {
 }
 
 body {
-  font-family: 'Inter', sans-serif;
+  font-family: 'DM Sans', 'Inter', sans-serif;
   font-weight: 300;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -66,7 +66,7 @@ body {
 .bg-white                     { background-color: var(--bg-card) !important; }
 .bg-gray-50, .bg-gray-100     { background-color: var(--bg-secondary) !important; }
 .bg-gray-200                  { background-color: var(--bg-tertiary) !important; }
-.bg-amber-50, .bg-yellow-50   { background-color: rgba(200,169,97,0.08) !important; }
+.bg-amber-50, .bg-yellow-50   { background-color: rgba(201,168,76,0.08) !important; }
 .bg-red-50                    { background-color: rgba(239,68,68,0.08) !important; }
 .bg-green-50                  { background-color: rgba(34,197,94,0.08) !important; }
 .bg-blue-50, .bg-indigo-50    { background-color: rgba(99,102,241,0.08) !important; }
@@ -82,7 +82,7 @@ body {
 .border-gray-300                    { border-color: var(--border-strong) !important; }
 
 .shadow, .shadow-sm, .shadow-md, .shadow-lg, .shadow-xl, .shadow-2xl {
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.6), 0 1px 2px rgba(200, 169, 97, 0.05) !important;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.6), 0 1px 2px rgba(201, 168, 76, 0.05) !important;
 }
 
 /* Indigo accent classes → gold */
@@ -115,7 +115,7 @@ input::placeholder, textarea::placeholder { color: var(--text-soft); }
 @keyframes shimmer { 0% { background-position: -200% center; } 100% { background-position: 200% center; } }
 @keyframes floatY { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
 @keyframes scrollDot { 0% { transform: translateY(0); opacity: 0; } 30% { opacity: 1; } 70% { opacity: 1; } 100% { transform: translateY(12px); opacity: 0; } }
-@keyframes pulseGold { 0%, 100% { box-shadow: 0 0 0 0 var(--gold-glow); } 50% { box-shadow: 0 0 0 12px rgba(200,169,97,0); } }
+@keyframes pulseGold { 0%, 100% { box-shadow: 0 0 0 0 var(--gold-glow); } 50% { box-shadow: 0 0 0 12px rgba(201,168,76,0); } }
 @keyframes textFadeSlide {
   0%, 25% { opacity: 1; transform: translateY(0); }
   33%, 92% { opacity: 0; transform: translateY(-20px); }
@@ -141,10 +141,10 @@ input::placeholder, textarea::placeholder { color: var(--text-soft); }
 }
 
 .mc-eyebrow {
-  font-family: 'Inter', sans-serif;
+  font-family: 'DM Sans', 'Inter', sans-serif;
   font-size: 11px;
   font-weight: 400;
-  letter-spacing: 0.35em;
+  letter-spacing: 0.3em;
   text-transform: uppercase;
   color: var(--gold);
 }
@@ -166,7 +166,7 @@ input::placeholder, textarea::placeholder { color: var(--text-soft); }
   gap: 10px;
   background: var(--gold);
   color: #000;
-  font-family: 'Inter', sans-serif;
+  font-family: 'DM Sans', 'Inter', sans-serif;
   font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.2em;
@@ -182,13 +182,13 @@ input::placeholder, textarea::placeholder { color: var(--text-soft); }
   content: '';
   position: absolute;
   inset: 0;
-  background: var(--gold-dark);
+  background: var(--gold-light);
   transform: translateX(-101%);
   transition: transform 0.4s ease;
 }
 .btn-gold > * { position: relative; z-index: 1; }
 .btn-gold:hover::before { transform: translateX(0); }
-.btn-gold:hover { color: #fff; }
+.btn-gold:hover { color: #000; }
 
 .btn-outline-gold {
   display: inline-flex;
@@ -198,7 +198,7 @@ input::placeholder, textarea::placeholder { color: var(--text-soft); }
   background: transparent;
   color: var(--gold);
   border: 1px solid var(--gold);
-  font-family: 'Inter', sans-serif;
+  font-family: 'DM Sans', 'Inter', sans-serif;
   font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.2em;
@@ -208,8 +208,8 @@ input::placeholder, textarea::placeholder { color: var(--text-soft); }
   transition: all 0.35s ease;
 }
 .btn-outline-gold:hover {
-  background: var(--gold);
-  color: #000;
+  background: rgba(201, 168, 76, 0.1);
+  color: var(--gold-light);
 }
 
 .btn-ghost {
@@ -219,6 +219,7 @@ input::placeholder, textarea::placeholder { color: var(--text-soft); }
   background: transparent;
   color: var(--text-muted);
   border: none;
+  font-family: 'DM Sans', 'Inter', sans-serif;
   font-size: 11px;
   font-weight: 400;
   letter-spacing: 0.18em;
@@ -233,7 +234,7 @@ input::placeholder, textarea::placeholder { color: var(--text-soft); }
    CARDS
    ═══════════════════════════════════════════════════════════ */
 .luxury-card {
-  background: var(--bg-card);
+  background: var(--bg-tertiary);
   border: 1px solid var(--border-subtle);
   transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
   position: relative;
@@ -259,39 +260,41 @@ input::placeholder, textarea::placeholder { color: var(--text-soft); }
    ═══════════════════════════════════════════════════════════ */
 .luxury-input {
   width: 100%;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-subtle);
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border-subtle);
   border-radius: 0;
-  padding: 16px 18px;
-  font-family: 'Inter', sans-serif;
+  padding: 12px 0;
+  font-family: 'DM Sans', 'Inter', sans-serif;
   font-size: 14px;
   font-weight: 300;
   color: var(--text-primary);
   outline: none;
   transition: border-color 0.25s;
 }
-.luxury-input:focus { border-color: var(--gold); }
+.luxury-input:focus { border-bottom-color: var(--gold); }
 .luxury-input::placeholder { color: var(--text-soft); }
 
 .luxury-select {
   appearance: none;
   width: 100%;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-subtle);
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border-subtle);
   border-radius: 0;
-  padding: 16px 44px 16px 18px;
-  font-family: 'Inter', sans-serif;
+  padding: 12px 28px 12px 0;
+  font-family: 'DM Sans', 'Inter', sans-serif;
   font-size: 14px;
   font-weight: 300;
   color: var(--text-primary);
   outline: none;
   cursor: pointer;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%23C8A961' viewBox='0 0 16 16'><path d='M8 11L3 6h10z'/></svg>");
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%23C9A84C' viewBox='0 0 16 16'><path d='M8 11L3 6h10z'/></svg>");
   background-repeat: no-repeat;
-  background-position: right 18px center;
+  background-position: right 4px center;
   transition: border-color 0.25s;
 }
-.luxury-select:focus { border-color: var(--gold); }
+.luxury-select:focus { border-bottom-color: var(--gold); }
 
 /* ═══════════════════════════════════════════════════════════
    BADGES
@@ -300,6 +303,7 @@ input::placeholder, textarea::placeholder { color: var(--text-soft); }
   display: inline-block;
   background: var(--gold);
   color: #000;
+  font-family: 'DM Sans', 'Inter', sans-serif;
   font-size: 10px;
   font-weight: 500;
   letter-spacing: 0.2em;
@@ -311,6 +315,7 @@ input::placeholder, textarea::placeholder { color: var(--text-soft); }
   background: rgba(0,0,0,0.85);
   color: var(--gold);
   border: 1px solid var(--border-gold);
+  font-family: 'DM Sans', 'Inter', sans-serif;
   font-size: 10px;
   font-weight: 500;
   letter-spacing: 0.2em;
@@ -321,6 +326,7 @@ input::placeholder, textarea::placeholder { color: var(--text-soft); }
   display: inline-block;
   border: 1px solid var(--border-subtle);
   color: var(--text-muted);
+  font-family: 'DM Sans', 'Inter', sans-serif;
   font-size: 10px;
   font-weight: 400;
   letter-spacing: 0.18em;
@@ -413,14 +419,44 @@ input::placeholder, textarea::placeholder { color: var(--text-soft); }
 
 /* ═══════════════════════════════════════════════════════════
    LEAFLET MAP DARK
+   ───────────────────────────────────────────────────────────
+   ⚠️  .leaflet-tile filter rule-ыг устгасан — Home.jsx,
+   PropertyDetail.jsx, AddProperty.jsx, EditProperty.jsx нь
+   CartoDB Dark Matter тайл (аль хэдийн хар) ашигладаг тул
+   invert filter applied хийвэл буцаагдан гэрэлтэй болно.
    ═══════════════════════════════════════════════════════════ */
 .leaflet-container { background: var(--bg-secondary) !important; }
-.leaflet-tile { filter: invert(1) hue-rotate(180deg) brightness(0.85) contrast(0.92); }
 .leaflet-popup-content-wrapper, .leaflet-popup-tip {
-  background: var(--bg-card) !important;
+  background: var(--bg-tertiary) !important;
   color: var(--text-primary) !important;
   border-radius: 0 !important;
+  border: 1px solid var(--border-gold) !important;
   box-shadow: 0 4px 24px rgba(0,0,0,0.8) !important;
+}
+.leaflet-popup-close-button {
+  color: var(--text-muted) !important;
+  font-size: 18px !important;
+  padding: 6px 8px !important;
+}
+.leaflet-popup-close-button:hover {
+  color: var(--gold) !important;
+}
+.leaflet-control-zoom a {
+  background: var(--bg-tertiary) !important;
+  color: var(--gold) !important;
+  border: 1px solid var(--border-gold) !important;
+}
+.leaflet-control-zoom a:hover {
+  background: var(--gold) !important;
+  color: #000 !important;
+}
+.leaflet-control-attribution {
+  background: rgba(10,10,10,0.8) !important;
+  color: var(--text-soft) !important;
+  font-size: 9px !important;
+}
+.leaflet-control-attribution a {
+  color: var(--gold) !important;
 }
 
 /* ═══════════════════════════════════════════════════════════

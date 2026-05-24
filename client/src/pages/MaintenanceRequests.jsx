@@ -1,273 +1,854 @@
-import { useEffect, useState } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import api from "../api/axiosInstance";
-import Navbar from "../components/Navbar";
+import { useNavigate, Link } from "react-router-dom";
 
-const STATUS_MAP = {
-  pending:  { label: "Хүлээгдэж байна", color: "#D97706", bg: "#FFFBEB" },
-  approved: { label: "Баталгаажсан",     color: "#16A34A", bg: "#F0FDF4" },
-  rejected: { label: "Татгалзсан",       color: "#EF4444", bg: "#FEF2F2" },
-};
+const PLACEHOLDER =
+  "https://images.unsplash.com/photo-1494526585095-c41746248156?auto=format&fit=crop&w=400&q=70";
+
+function formatMNT(n) {
+  return new Intl.NumberFormat("mn-MN").format(n || 0);
+}
+
+function formatDate(d) {
+  if (!d) return "—";
+  return new Date(d).toLocaleDateString("mn-MN", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+}
 
 function MaintenanceRequests() {
-  const currentUser = JSON.parse(localStorage.getItem("user") || "null");
-  const isLandlord  = currentUser?.role === "landlord";
+  const navigate = useNavigate();
+  const user = useMemo(
+    () => JSON.parse(localStorage.getItem("user") || "null"),
+    []
+  );
 
-  const [requests,   setRequests]   = useState([]);
-  const [rentals,    setRentals]    = useState([]);
-  const [loading,    setLoading]    = useState(true);
-  const [showModal,  setShowModal]  = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [error,      setError]      = useState("");
-  const [images,     setImages]     = useState([]);
-  const [imageFiles, setImageFiles] = useState([]);
-
-  const [form, setForm] = useState({ applicationId: "", title: "", description: "", amount: "" });
-
-  const fetchRequests = async () => {
-    try {
-      const endpoint = isLandlord ? "/api/maintenance/landlord" : "/api/maintenance/tenant";
-      const res = await api.get(endpoint);
-      setRequests(res.data);
-    // eslint-disable-next-line no-empty
-    } catch {}
-  };
+  const [items, setItems] = useState([]);
+  const [activeRentals, setActiveRentals] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [createOpen, setCreateOpen] = useState(false);
 
   useEffect(() => {
-    const load = async () => {
-      setLoading(true);
-      await fetchRequests();
-      if (isLandlord) {
-        try {
-          const res = await api.get("/api/applications/active");
-          setRentals(res.data);
-        // eslint-disable-next-line no-empty
-        } catch {}
+    if (!user) {
+      navigate("/login");
+      return;
+    }
+
+    const isLandlord = user.role === "landlord" || user.role === "admin";
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const endpoint = isLandlord
+          ? "/api/maintenance/landlord"
+          : "/api/maintenance/me";
+        const calls = [api.get(endpoint)];
+        if (isLandlord) {
+          calls.push(api.get("/api/applications/landlord"));
+        }
+        const responses = await Promise.all(calls);
+        if (cancelled) return;
+        setItems(responses[0].data || []);
+        if (isLandlord) {
+          const rentals = (responses[1].data || []).filter((a) =>
+            ["active", "payment_pending", "signed"].includes(
+              a.contractStatus
+            )
+          );
+          setActiveRentals(rentals);
+        }
+      } catch (err) {
+        if (cancelled) return;
+        setError(err.response?.data?.message || "Татаж чадсангүй");
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-      setLoading(false);
+    })();
+
+    return () => {
+      cancelled = true;
     };
-    load();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLandlord]);
+  }, [navigate, user]);
 
-  const handleImageChange = (e) => {
-    const files = Array.from(e.target.files).slice(0, 5);
-    setImageFiles(files);
-    setImages(files.map((f) => URL.createObjectURL(f)));
+  const handleCreate = (newItem) => {
+    setItems((prev) => [newItem, ...prev]);
+    setCreateOpen(false);
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault(); setError("");
-    if (!form.applicationId) { setError("Гэрээ сонгоно уу"); return; }
-    if (Number(form.amount) <= 0) { setError("Суутгах дүн оруулна уу"); return; }
-    setSubmitting(true);
-    try {
-      const data = new FormData();
-      data.append("applicationId", form.applicationId);
-      data.append("title", form.title);
-      data.append("description", form.description);
-      data.append("amount", form.amount);
-      imageFiles.forEach((f) => data.append("images", f));
-      await api.post("/api/maintenance", data, { headers: { "Content-Type": "multipart/form-data" } });
-      setShowModal(false);
-      setForm({ applicationId: "", title: "", description: "", amount: "" });
-      setImageFiles([]); setImages([]);
-      await fetchRequests();
-    } catch (err) { setError(err.response?.data?.message || "Алдаа гарлаа"); }
-    finally { setSubmitting(false); }
-  };
+  const stats = useMemo(() => {
+    const totalAmount = items.reduce((s, i) => s + (i.amount || 0), 0);
+    const propertyIds = new Set(
+      items.map((i) => i.property?._id || i.application?.property?._id).filter(Boolean)
+    );
+    return {
+      count: items.length,
+      totalAmount,
+      properties: propertyIds.size,
+    };
+  }, [items]);
 
-  const handleApprove = async (id) => {
-    if (!window.confirm("Суутгалыг баталгаажуулах уу? Барьцаа мөнгөнөөс суутгагдана.")) return;
-    try { await api.put(`/api/maintenance/${id}/approve`); await fetchRequests(); }
-    catch (err) { alert(err.response?.data?.message || "Алдаа гарлаа"); }
-  };
-
-  const handleReject = async (id) => {
-    const reason = window.prompt("Татгалзах шалтгаан:");
-    if (reason === null) return;
-    try { await api.put(`/api/maintenance/${id}/reject`, { reason }); await fetchRequests(); }
-    catch (err) { alert(err.response?.data?.message || "Алдаа гарлаа"); }
-  };
-
-  const inputCls = "luxury-input w-full";
-  const labelCls = "block text-xs tracking-widest uppercase mb-2";
+  const isLandlord = user?.role === "landlord" || user?.role === "admin";
 
   return (
-    <div style={{ minHeight: "100vh", background: "var(--cream)", paddingTop: 64 }}>
-      <Navbar />
-      <div className="max-w-4xl mx-auto px-6 py-10">
-        <div className="flex items-start justify-between mb-8">
-          <div>
-            <p className="text-xs tracking-widest uppercase mb-2" style={{ color: "var(--gold)" }}>
-              {isLandlord ? "Барьцаа суутгал" : "Засварын хүсэлт"}
-            </p>
-            <h1 className="font-display text-4xl font-light" style={{ color: "var(--ink)" }}>
-              {isLandlord ? "Гэмтлийн суутгал" : "Засварын хүсэлтүүд"}
-            </h1>
-            <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>
-              {isLandlord ? "Түрээслэгчээс барьцаа мөнгөнөөс суутгах хүсэлт илгээх" : "Барьцаа мөнгөнөөс суутгалын хүсэлтүүд"}
-            </p>
-          </div>
-          {isLandlord && (
-            <button onClick={() => setShowModal(true)} className="btn-gold text-xs" style={{ padding: "10px 20px" }}>
-              + Суутгал нэмэх
+    <div
+      className="min-h-screen pt-20"
+      style={{ background: "#0A0A0A", fontFamily: "'DM Sans', sans-serif" }}
+    >
+      {/* Header */}
+      <header className="max-w-6xl mx-auto px-6 lg:px-12 py-12">
+        <div className="flex items-center gap-3 mb-5">
+          <div className="h-px w-8" style={{ background: "#C9A84C" }} />
+          <span
+            className="text-[10px] tracking-[0.3em] uppercase"
+            style={{ color: "#C9A84C" }}
+          >
+            Maintenance & Deductions
+          </span>
+        </div>
+        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
+          <h1
+            className="font-light text-white leading-[1] tracking-tight"
+            style={{
+              fontFamily: "'Cormorant Garamond', serif",
+              fontSize: "clamp(40px, 5vw, 64px)",
+            }}
+          >
+            Засвар,<br />
+            <em style={{ color: "#C9A84C", fontStyle: "italic" }}>
+              барьцаа суутгал
+            </em>
+          </h1>
+
+          {isLandlord && activeRentals.length > 0 && (
+            <button
+              onClick={() => setCreateOpen(true)}
+              className="inline-flex items-center gap-3 px-6 py-4 text-xs font-medium tracking-[0.25em] uppercase transition-all duration-300 group"
+              style={{ background: "#C9A84C", color: "#0A0A0A" }}
+              onMouseEnter={(e) =>
+                (e.currentTarget.style.background = "#E8D49E")
+              }
+              onMouseLeave={(e) =>
+                (e.currentTarget.style.background = "#C9A84C")
+              }
+            >
+              + Шинэ суутгал бүртгэх
+              <span className="transition-transform duration-300 group-hover:translate-x-1">
+                →
+              </span>
             </button>
           )}
         </div>
+      </header>
 
-        {loading ? (
-          <div className="text-center py-20">
-            <div className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin mx-auto"
-              style={{ borderColor: "var(--gold)", borderTopColor: "transparent" }} />
-          </div>
-        ) : requests.length === 0 ? (
-          <div className="text-center py-20 bg-white border" style={{ borderColor: "var(--border-subtle)" }}>
-            <p className="font-display text-2xl font-light mb-2" style={{ color: "var(--ink)" }}>Суутгалын хүсэлт байхгүй байна</p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {requests.map((req) => {
-              const status = STATUS_MAP[req.status] || STATUS_MAP.pending;
-              return (
-                <div key={req._id} className="bg-white border overflow-hidden" style={{ borderColor: "var(--border-subtle)" }}>
-                  <div className="flex">
-                    <div className="w-1 flex-shrink-0" style={{ background: status.color }} />
-                    <div className="p-5 flex-1">
-                      <div className="flex items-start justify-between gap-3 mb-3">
-                        <div>
-                          <h3 className="font-medium text-sm mb-1" style={{ color: "var(--ink)" }}>{req.title}</h3>
-                          <p className="text-xs" style={{ color: "var(--text-muted)" }}>{req.property?.title}</p>
-                          {isLandlord ? (
-                            <p className="text-xs mt-0.5" style={{ color: "var(--text-soft)" }}>
-                              {req.tenant?.firstName} {req.tenant?.lastName} · {req.tenant?.phone}
-                            </p>
-                          ) : (
-                            <p className="text-xs mt-0.5" style={{ color: "var(--text-soft)" }}>
-                              {req.landlord?.firstName} {req.landlord?.lastName}
-                            </p>
-                          )}
-                        </div>
-                        <div className="flex flex-col items-end gap-1.5">
-                          <span className="text-xs px-3 py-1 font-medium" style={{ background: status.bg, color: status.color }}>
-                            {status.label}
-                          </span>
-                          <span className="font-display text-lg font-light" style={{ color: "#EF4444" }}>
-                            -{req.amount?.toLocaleString()}₮
-                          </span>
-                        </div>
-                      </div>
-
-                      <p className="text-sm leading-6 p-3 mb-3" style={{ background: "var(--cream)", color: "var(--text-muted)" }}>
-                        {req.description}
-                      </p>
-
-                      {req.images?.length > 0 && (
-                        <div className="flex gap-2 mb-3 overflow-x-auto">
-                          {req.images.map((img, i) => (
-                            <img key={i} src={img} alt="" className="w-20 h-16 object-cover flex-shrink-0" />
-                          ))}
-                        </div>
-                      )}
-
-                      {req.status === "approved" && req.deductedFromDeposit && (
-                        <div className="mb-3 p-3 border-l-2 text-xs" style={{ borderColor: "#16A34A", background: "#F0FDF4", color: "#16A34A" }}>
-                          Барьцаа мөнгөнөөс суутгагдсан
-                        </div>
-                      )}
-
-                      <div className="flex items-center justify-between">
-                        <p className="text-xs" style={{ color: "var(--text-soft)" }}>
-                          {new Date(req.createdAt).toLocaleDateString("mn-MN")}
-                        </p>
-                        {isLandlord && req.status === "pending" && (
-                          <div className="flex gap-2">
-                            <button onClick={() => handleApprove(req._id)}
-                              className="btn-gold text-xs" style={{ padding: "6px 14px" }}>Баталгаажуулах</button>
-                            <button onClick={() => handleReject(req._id)}
-                              className="text-xs px-4 py-1.5 border transition-colors"
-                              style={{ borderColor: "#FCA5A5", color: "#EF4444" }}>Татгалзах</button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
+      {/* Stats */}
+      {!loading && items.length > 0 && (
+        <section className="max-w-6xl mx-auto px-6 lg:px-12 mb-10">
+          <div
+            className="grid grid-cols-3 gap-3"
+            style={{ border: "1px solid rgba(201,168,76,0.15)" }}
+          >
+            <div
+              className="p-6"
+              style={{ borderRight: "1px solid rgba(201,168,76,0.08)" }}
+            >
+              <div className="text-[10px] tracking-[0.25em] uppercase text-white/40 mb-2">
+                Нийт бичлэг
+              </div>
+              <div
+                className="font-light leading-none"
+                style={{
+                  fontFamily: "'Cormorant Garamond', serif",
+                  fontSize: 40,
+                  color: "#C9A84C",
+                }}
+              >
+                {stats.count}
+              </div>
+            </div>
+            <div
+              className="p-6"
+              style={{ borderRight: "1px solid rgba(201,168,76,0.08)" }}
+            >
+              <div className="text-[10px] tracking-[0.25em] uppercase text-white/40 mb-2">
+                Нийт суутгал
+              </div>
+              <div
+                className="font-light leading-none"
+                style={{
+                  fontFamily: "'Cormorant Garamond', serif",
+                  fontSize: 26,
+                  color: "#EF4444",
+                }}
+              >
+                {formatMNT(stats.totalAmount)}₮
+              </div>
+            </div>
+            {isLandlord && (
+              <div className="p-6">
+                <div className="text-[10px] tracking-[0.25em] uppercase text-white/40 mb-2">
+                  Хамрагдсан байр
                 </div>
-              );
-            })}
+                <div
+                  className="font-light leading-none"
+                  style={{
+                    fontFamily: "'Cormorant Garamond', serif",
+                    fontSize: 40,
+                    color: "#C9A84C",
+                  }}
+                >
+                  {stats.properties}
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+
+      {error && (
+        <section className="max-w-6xl mx-auto px-6 lg:px-12 mb-6">
+          <div
+            className="p-4 flex items-start gap-3"
+            style={{
+              background: "rgba(239,68,68,0.08)",
+              borderLeft: "2px solid #EF4444",
+            }}
+          >
+            <span style={{ color: "#EF4444" }}>✕</span>
+            <p className="text-sm text-red-300">{error}</p>
+          </div>
+        </section>
+      )}
+
+      {/* Content */}
+      <main className="max-w-6xl mx-auto px-6 lg:px-12 pb-20">
+        {loading ? (
+          <LoadingList />
+        ) : items.length === 0 ? (
+          <EmptyState
+            isLandlord={isLandlord}
+            hasRentals={activeRentals.length > 0}
+            onCreate={() => setCreateOpen(true)}
+          />
+        ) : (
+          <div className="space-y-5">
+            {items.map((item) => (
+              <MaintenanceItem
+                key={item._id}
+                item={item}
+                isLandlord={isLandlord}
+              />
+            ))}
+          </div>
+        )}
+      </main>
+
+      {/* Create modal */}
+      {createOpen && isLandlord && (
+        <CreateModal
+          rentals={activeRentals}
+          onClose={() => setCreateOpen(false)}
+          onCreated={handleCreate}
+        />
+      )}
+    </div>
+  );
+}
+
+function MaintenanceItem({ item, isLandlord }) {
+  const property = item.property || item.application?.property || {};
+  const tenant = item.tenant || item.application?.tenant || {};
+  const landlord = item.landlord || item.application?.landlord || {};
+  const cover = property.photos?.[0] || PLACEHOLDER;
+
+  return (
+    <article
+      className="grid grid-cols-1 md:grid-cols-12 gap-5 p-5 transition-all duration-300"
+      style={{
+        background: "#141414",
+        border: "1px solid rgba(201,168,76,0.1)",
+      }}
+      onMouseEnter={(e) =>
+        (e.currentTarget.style.borderColor = "rgba(201,168,76,0.3)")
+      }
+      onMouseLeave={(e) =>
+        (e.currentTarget.style.borderColor = "rgba(201,168,76,0.1)")
+      }
+    >
+      <Link
+        to={property._id ? `/property/${property._id}` : "#"}
+        className="md:col-span-2 block relative overflow-hidden"
+        style={{
+          aspectRatio: "4/3",
+          border: "1px solid rgba(201,168,76,0.15)",
+        }}
+      >
+        <img
+          src={cover}
+          alt=""
+          className="w-full h-full object-cover"
+          style={{ filter: "brightness(0.88)" }}
+        />
+      </Link>
+
+      <div className="md:col-span-7">
+        <div className="text-[10px] tracking-[0.25em] uppercase mb-2">
+          <span style={{ color: "#C9A84C" }}>
+            {property.district || "—"}
+          </span>
+          <span className="text-white/30 mx-2">·</span>
+          <span className="text-white/40">{formatDate(item.createdAt)}</span>
+        </div>
+        <h3
+          className="font-light text-white leading-tight mb-3"
+          style={{
+            fontFamily: "'Cormorant Garamond', serif",
+            fontSize: 22,
+          }}
+        >
+          {property.title || "Байр"}
+        </h3>
+
+        {isLandlord && tenant.name && (
+          <div className="text-xs text-white/55 mb-3">
+            <span className="text-[10px] tracking-[0.25em] uppercase text-white/40 mr-2">
+              Түрээслэгч:
+            </span>
+            {tenant.name}
+          </div>
+        )}
+        {!isLandlord && landlord.name && (
+          <div className="text-xs text-white/55 mb-3">
+            <span className="text-[10px] tracking-[0.25em] uppercase text-white/40 mr-2">
+              Эзэн:
+            </span>
+            {landlord.name}
+          </div>
+        )}
+
+        <div
+          className="p-3 mb-3"
+          style={{
+            background: "rgba(255,255,255,0.02)",
+            borderLeft: "1px solid rgba(201,168,76,0.3)",
+          }}
+        >
+          <div className="text-[9px] tracking-[0.25em] uppercase text-white/40 mb-1">
+            Шалтгаан
+          </div>
+          <p className="text-sm text-white/75 leading-relaxed whitespace-pre-line">
+            {item.reason || "—"}
+          </p>
+        </div>
+
+        {item.photos && item.photos.length > 0 && (
+          <div className="flex gap-2">
+            {item.photos.slice(0, 5).map((url, i) => (
+              <a
+                key={i}
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block w-14 h-14 overflow-hidden"
+                style={{ border: "1px solid rgba(201,168,76,0.15)" }}
+              >
+                <img
+                  src={url}
+                  alt=""
+                  className="w-full h-full object-cover hover:scale-110 transition-transform duration-500"
+                />
+              </a>
+            ))}
+            {item.photos.length > 5 && (
+              <div
+                className="w-14 h-14 flex items-center justify-center text-xs"
+                style={{
+                  border: "1px solid rgba(201,168,76,0.15)",
+                  color: "#C9A84C",
+                }}
+              >
+                +{item.photos.length - 5}
+              </div>
+            )}
           </div>
         )}
       </div>
 
-      {/* Modal */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black/60 flex items-end md:items-center justify-center z-50 p-0 md:p-4"
-          onClick={e => { if (e.target === e.currentTarget) { setShowModal(false); setError(""); } }}>
-          <div className="bg-white w-full md:max-w-lg p-8">
-            <div className="flex justify-between items-center mb-6">
-              <div>
-                <p className="text-xs tracking-widest uppercase mb-1" style={{ color: "var(--gold)" }}>Шинэ</p>
-                <h2 className="font-display text-2xl font-light" style={{ color: "var(--ink)" }}>Гэмтлийн суутгал нэмэх</h2>
-              </div>
-              <button onClick={() => { setShowModal(false); setError(""); }} className="text-2xl" style={{ color: "var(--text-soft)" }}>x</button>
-            </div>
-
-            {error && (
-              <div className="mb-4 p-3 border-l-2 text-sm" style={{ borderColor: "#EF4444", background: "#FEF2F2", color: "#EF4444" }}>{error}</div>
-            )}
-
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className={labelCls} style={{ color: "var(--text-muted)" }}>Гэрээ сонгох *</label>
-                <select value={form.applicationId} onChange={(e) => setForm({ ...form, applicationId: e.target.value })}
-                  className="luxury-select w-full" required>
-                  <option value="">Гэрээ сонгох...</option>
-                  {rentals.map((r) => (
-                    <option key={r._id} value={r._id}>
-                      {r.property?.title} — {r.tenant?.firstName} {r.tenant?.lastName}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className={labelCls} style={{ color: "var(--text-muted)" }}>Гэмтлийн нэр *</label>
-                <input type="text" className={inputCls} placeholder="Жишээ: Угаалтуурын шугам эвдэрсэн"
-                  value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required />
-              </div>
-              <div>
-                <label className={labelCls} style={{ color: "var(--text-muted)" }}>Дэлгэрэнгүй тайлбар *</label>
-                <textarea rows={3} className="luxury-input w-full resize-none"
-                  placeholder="Гэмтлийн байдал, шалтгааныг дэлгэрэнгүй бичнэ үү..."
-                  value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} required />
-              </div>
-              <div>
-                <label className={labelCls} style={{ color: "var(--text-muted)" }}>Суутгах дүн ₮ *</label>
-                <input type="number" inputMode="numeric" className={inputCls} placeholder="100,000"
-                  value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} required min="1" />
-              </div>
-              <div>
-                <label className={labelCls} style={{ color: "var(--text-muted)" }}>Гэмтлийн зураг (заавал биш, max 5)</label>
-                <label className="block border-2 border-dashed p-4 text-center cursor-pointer"
-                  style={{ borderColor: "var(--gold-light)", background: "var(--cream)" }}>
-                  <input type="file" accept="image/*" multiple onChange={handleImageChange} className="hidden" />
-                  <p className="text-sm" style={{ color: "var(--text-muted)" }}>Зураг сонгох</p>
-                </label>
-                {images.length > 0 && (
-                  <div className="flex gap-2 mt-2">
-                    {images.map((img, i) => (
-                      <img key={i} src={img} alt="" className="w-16 h-14 object-cover" />
-                    ))}
-                  </div>
-                )}
-              </div>
-              <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => { setShowModal(false); setError(""); }} className="btn-ghost flex-1">Болих</button>
-                <button type="submit" disabled={submitting} className="btn-gold flex-1 justify-center" style={{ padding: "14px 0" }}>
-                  {submitting ? "Илгээж байна..." : "Суутгал илгээх"}
-                </button>
-              </div>
-            </form>
+      <div className="md:col-span-3 flex flex-col items-end justify-between">
+        <div className="text-right">
+          <div className="text-[10px] tracking-[0.3em] uppercase text-white/40 mb-2">
+            Суутгасан дүн
+          </div>
+          <div
+            className="font-light"
+            style={{
+              fontFamily: "'Cormorant Garamond', serif",
+              fontSize: 28,
+              color: "#EF4444",
+            }}
+          >
+            −{formatMNT(item.amount)}₮
           </div>
         </div>
+        {item.remainingDeposit != null && (
+          <div className="text-right text-xs">
+            <div className="text-[10px] tracking-[0.25em] uppercase text-white/40">
+              Үлдэгдэл барьцаа
+            </div>
+            <div style={{ color: "#C9A84C" }}>
+              {formatMNT(item.remainingDeposit)}₮
+            </div>
+          </div>
+        )}
+      </div>
+    </article>
+  );
+}
+
+function CreateModal({ rentals, onClose, onCreated }) {
+  const [rentalId, setRentalId] = useState("");
+  const [amount, setAmount] = useState("");
+  const [reason, setReason] = useState("");
+  const [photos, setPhotos] = useState([]);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+  const fileInputRef = useRef(null);
+
+  const selected = rentals.find((r) => r._id === rentalId);
+  const remainingDeposit = selected?.remainingDeposit;
+  const monthlyRent = selected?.property?.price || 0;
+  const depositTotal =
+    selected?.depositPaid || selected?.depositAmount || monthlyRent;
+
+  const handlePhotoSelect = (e) => {
+    const files = Array.from(e.target.files || []).filter((f) =>
+      f.type.startsWith("image/")
+    );
+    const newOnes = files.map((file) => ({
+      file,
+      preview: URL.createObjectURL(file),
+    }));
+    setPhotos((prev) => [...prev, ...newOnes]);
+    e.target.value = "";
+  };
+
+  const removePhoto = (idx) => {
+    setPhotos((prev) => {
+      const removed = prev[idx];
+      if (removed?.preview) URL.revokeObjectURL(removed.preview);
+      return prev.filter((_, i) => i !== idx);
+    });
+  };
+
+  useEffect(() => {
+    return () => {
+      photos.forEach((p) => p.preview && URL.revokeObjectURL(p.preview));
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+    if (!rentalId || !amount || !reason.trim()) {
+      setError("Бүх шаардлагатай талбарыг бөглөнө үү");
+      return;
+    }
+    const amt = Number(amount);
+    if (amt <= 0) {
+      setError("Дүн эерэг тоо байх ёстой");
+      return;
+    }
+    if (remainingDeposit != null && amt > remainingDeposit) {
+      setError(
+        `Дүн үлдэгдэл барьцаанаас (${formatMNT(remainingDeposit)}₮) хэтэрсэн байна`
+      );
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const fd = new FormData();
+      fd.append("applicationId", rentalId);
+      fd.append("amount", amt);
+      fd.append("reason", reason.trim());
+      photos.forEach((p) => fd.append("photos", p.file));
+
+      const res = await api.post("/api/maintenance", fd, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      onCreated(res.data);
+    } catch (err) {
+      setError(err.response?.data?.message || "Илгээж чадсангүй");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-6 animate-fadeIn overflow-y-auto"
+      style={{ background: "rgba(5,5,5,0.9)", backdropFilter: "blur(8px)" }}
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-xl relative animate-fadeUp my-8"
+        style={{
+          background: "#141414",
+          border: "1px solid rgba(201,168,76,0.3)",
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 w-9 h-9 flex items-center justify-center text-white/60 hover:text-white transition-colors"
+        >
+          ✕
+        </button>
+
+        <form onSubmit={handleSubmit} className="p-10">
+          <div className="flex items-center gap-3 mb-5">
+            <div className="h-px w-8" style={{ background: "#C9A84C" }} />
+            <span
+              className="text-[10px] tracking-[0.3em] uppercase"
+              style={{ color: "#C9A84C" }}
+            >
+              New Deduction
+            </span>
+          </div>
+          <h2
+            className="font-light text-white mb-6 leading-tight"
+            style={{
+              fontFamily: "'Cormorant Garamond', serif",
+              fontSize: 32,
+            }}
+          >
+            Суутгал<br />
+            <em style={{ color: "#C9A84C", fontStyle: "italic" }}>
+              бүртгэх
+            </em>
+          </h2>
+
+          {error && (
+            <div
+              className="mb-6 p-3 text-xs text-red-300"
+              style={{
+                background: "rgba(239,68,68,0.08)",
+                borderLeft: "2px solid #EF4444",
+              }}
+            >
+              {error}
+            </div>
+          )}
+
+          <div className="mb-6">
+            <label className="block text-[10px] tracking-[0.3em] uppercase text-white/40 mb-3">
+              Идэвхтэй гэрээ <span style={{ color: "#C9A84C" }}>*</span>
+            </label>
+            <select
+              value={rentalId}
+              onChange={(e) => setRentalId(e.target.value)}
+              required
+              className="w-full bg-transparent text-white text-sm py-3 outline-none"
+              style={{
+                borderBottom: "1px solid rgba(255,255,255,0.15)",
+                colorScheme: "dark",
+              }}
+            >
+              <option value="" style={{ background: "#141414" }}>
+                Сонгоно уу
+              </option>
+              {rentals.map((r) => (
+                <option
+                  key={r._id}
+                  value={r._id}
+                  style={{ background: "#141414" }}
+                >
+                  {r.property?.title || "Байр"} — {r.tenant?.name || "Түрээслэгч"}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {selected && (
+            <div
+              className="mb-6 p-4 grid grid-cols-2 gap-4"
+              style={{
+                background: "rgba(201,168,76,0.06)",
+                borderLeft: "2px solid #C9A84C",
+              }}
+            >
+              <div>
+                <div className="text-[9px] tracking-[0.25em] uppercase text-white/40 mb-1">
+                  Нийт барьцаа
+                </div>
+                <div
+                  className="font-light"
+                  style={{
+                    fontFamily: "'Cormorant Garamond', serif",
+                    fontSize: 20,
+                    color: "#C9A84C",
+                  }}
+                >
+                  {formatMNT(depositTotal)}₮
+                </div>
+              </div>
+              {remainingDeposit != null && (
+                <div>
+                  <div className="text-[9px] tracking-[0.25em] uppercase text-white/40 mb-1">
+                    Үлдэгдэл
+                  </div>
+                  <div
+                    className="font-light"
+                    style={{
+                      fontFamily: "'Cormorant Garamond', serif",
+                      fontSize: 20,
+                      color:
+                        remainingDeposit > 0 ? "#10B981" : "#EF4444",
+                    }}
+                  >
+                    {formatMNT(remainingDeposit)}₮
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="mb-6">
+            <label className="block text-[10px] tracking-[0.3em] uppercase text-white/40 mb-3">
+              Суутгах дүн (₮) <span style={{ color: "#C9A84C" }}>*</span>
+            </label>
+            <input
+              type="number"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder="150000"
+              min="0"
+              required
+              className="w-full bg-transparent text-white text-sm py-3 outline-none transition-colors"
+              style={{ borderBottom: "1px solid rgba(255,255,255,0.15)" }}
+              onFocus={(e) =>
+                (e.target.style.borderBottomColor = "#C9A84C")
+              }
+              onBlur={(e) =>
+                (e.target.style.borderBottomColor =
+                  "rgba(255,255,255,0.15)")
+              }
+            />
+            {amount && Number(amount) > 0 && (
+              <p
+                className="mt-2 text-xs"
+                style={{ color: "#C9A84C" }}
+              >
+                {formatMNT(amount)}₮
+              </p>
+            )}
+          </div>
+
+          <div className="mb-6">
+            <label className="block text-[10px] tracking-[0.3em] uppercase text-white/40 mb-3">
+              Шалтгаан <span style={{ color: "#C9A84C" }}>*</span>
+            </label>
+            <textarea
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="Жнэ: Цонхны хагаралтай шил, шалны паркетны эвдрэл..."
+              rows={4}
+              required
+              className="w-full bg-transparent text-white text-sm py-3 px-4 outline-none resize-none transition-colors"
+              style={{ border: "1px solid rgba(255,255,255,0.15)" }}
+              onFocus={(e) => (e.target.style.borderColor = "#C9A84C")}
+              onBlur={(e) =>
+                (e.target.style.borderColor = "rgba(255,255,255,0.15)")
+              }
+            />
+          </div>
+
+          <div className="mb-6">
+            <label className="block text-[10px] tracking-[0.3em] uppercase text-white/40 mb-3">
+              Зураг (заавал биш)
+            </label>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={handlePhotoSelect}
+              className="hidden"
+            />
+            {photos.length > 0 && (
+              <div className="grid grid-cols-4 gap-2 mb-3">
+                {photos.map((p, i) => (
+                  <div
+                    key={i}
+                    className="relative aspect-square group"
+                    style={{ border: "1px solid rgba(201,168,76,0.2)" }}
+                  >
+                    <img
+                      src={p.preview}
+                      alt=""
+                      className="w-full h-full object-cover"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removePhoto(i)}
+                      className="absolute top-1 right-1 w-6 h-6 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                      style={{
+                        background: "rgba(10,10,10,0.85)",
+                        border: "1px solid rgba(239,68,68,0.5)",
+                        color: "#EF4444",
+                      }}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="w-full py-4 text-[10px] tracking-[0.25em] uppercase transition-all duration-300"
+              style={{
+                border: "1px dashed rgba(201,168,76,0.4)",
+                color: "#C9A84C",
+                background: "rgba(201,168,76,0.02)",
+              }}
+              onMouseEnter={(e) =>
+                (e.currentTarget.style.background = "rgba(201,168,76,0.06)")
+              }
+              onMouseLeave={(e) =>
+                (e.currentTarget.style.background = "rgba(201,168,76,0.02)")
+              }
+            >
+              + Зураг нэмэх
+            </button>
+          </div>
+
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 py-3 text-[10px] tracking-[0.25em] uppercase text-white/60 hover:text-white transition-colors"
+              style={{ border: "1px solid rgba(255,255,255,0.12)" }}
+            >
+              Болих
+            </button>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="flex-1 py-3 text-[10px] tracking-[0.25em] uppercase transition-all duration-300 disabled:opacity-50"
+              style={{ background: "#C9A84C", color: "#0A0A0A" }}
+              onMouseEnter={(e) =>
+                !submitting &&
+                (e.currentTarget.style.background = "#E8D49E")
+              }
+              onMouseLeave={(e) =>
+                !submitting &&
+                (e.currentTarget.style.background = "#C9A84C")
+              }
+            >
+              {submitting ? "Илгээж байна..." : "Бүртгэх →"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function LoadingList() {
+  return (
+    <div className="space-y-5">
+      {[...Array(2)].map((_, i) => (
+        <div
+          key={i}
+          className="grid grid-cols-1 md:grid-cols-12 gap-5 p-5 animate-pulse"
+          style={{
+            background: "#141414",
+            border: "1px solid rgba(201,168,76,0.06)",
+          }}
+        >
+          <div
+            className="md:col-span-2 aspect-[4/3]"
+            style={{ background: "rgba(255,255,255,0.03)" }}
+          />
+          <div className="md:col-span-7 space-y-3">
+            <div
+              className="h-3 w-24"
+              style={{ background: "rgba(255,255,255,0.05)" }}
+            />
+            <div
+              className="h-5 w-3/4"
+              style={{ background: "rgba(255,255,255,0.08)" }}
+            />
+            <div
+              className="h-12 w-full"
+              style={{ background: "rgba(255,255,255,0.04)" }}
+            />
+          </div>
+          <div className="md:col-span-3 space-y-2">
+            <div
+              className="h-7 w-32 ml-auto"
+              style={{ background: "rgba(239,68,68,0.15)" }}
+            />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function EmptyState({ isLandlord, hasRentals, onCreate }) {
+  return (
+    <div
+      className="flex flex-col items-center justify-center text-center py-24 px-6"
+      style={{
+        border: "1px solid rgba(201,168,76,0.15)",
+        background: "rgba(201,168,76,0.02)",
+      }}
+    >
+      <div
+        className="w-16 h-16 mb-8 flex items-center justify-center"
+        style={{ border: "1px solid #C9A84C" }}
+      >
+        <div
+          style={{
+            width: 24,
+            height: 24,
+            background: "#C9A84C",
+            transform: "rotate(45deg)",
+          }}
+        />
+      </div>
+      <h3
+        className="font-light text-white mb-4"
+        style={{
+          fontFamily: "'Cormorant Garamond', serif",
+          fontSize: 32,
+        }}
+      >
+        Суутгал <em style={{ color: "#C9A84C", fontStyle: "italic" }}>алга</em>
+      </h3>
+      <p className="text-sm text-white/50 max-w-md mb-8 leading-relaxed">
+        {isLandlord
+          ? hasRentals
+            ? "Танд идэвхтэй түрээслэгчид байна. Шаардлагатай үед суутгал бүртгэх боломжтой."
+            : "Идэвхтэй гэрээ байхгүй тул суутгал хийх боломжгүй."
+          : "Танай барьцаанаас одоогоор юу ч суутгагдаагүй байна."}
+      </p>
+      {isLandlord && hasRentals && (
+        <button
+          onClick={onCreate}
+          className="inline-block px-8 py-3 text-[10px] tracking-[0.3em] uppercase transition-all duration-300"
+          style={{ background: "#C9A84C", color: "#0A0A0A" }}
+          onMouseEnter={(e) => (e.currentTarget.style.background = "#E8D49E")}
+          onMouseLeave={(e) => (e.currentTarget.style.background = "#C9A84C")}
+        >
+          + Шинэ суутгал →
+        </button>
       )}
     </div>
   );

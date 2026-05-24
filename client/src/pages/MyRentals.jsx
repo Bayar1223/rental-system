@@ -1,252 +1,614 @@
-import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useState, useEffect, useMemo } from "react";
 import api from "../api/axiosInstance";
-import Navbar from "../components/Navbar";
+import { Link, useNavigate } from "react-router-dom";
 
-function ProgressBar({ paid, total }) {
-  const pct = total > 0 ? Math.round((paid / total) * 100) : 0;
+const PLACEHOLDER =
+  "https://images.unsplash.com/photo-1494526585095-c41746248156?auto=format&fit=crop&w=600&q=70";
+
+const CONTRACT_STATUS = {
+  pending_signatures: {
+    label: "Гарын үсэг хүлээж буй",
+    color: "#F59E0B",
+  },
+  signed: { label: "Гарын үсэг зурсан", color: "#C9A84C" },
+  payment_pending: {
+    label: "Эхний төлбөр хүлээж буй",
+    color: "#F59E0B",
+  },
+  active: { label: "Идэвхтэй", color: "#10B981" },
+};
+
+const FILTER_TABS = [
+  { v: "all", label: "Бүгд" },
+  { v: "active", label: "Идэвхтэй" },
+  { v: "pending_signatures", label: "Гарын үсэг" },
+  { v: "payment_pending", label: "Төлбөр хүлээж буй" },
+];
+
+// Гэрээний статусын дараалал
+const ACTIVE_CONTRACT_STATUSES = [
+  "pending_signatures",
+  "signed",
+  "payment_pending",
+  "active",
+];
+
+function MyRentals() {
+  const navigate = useNavigate();
+  const [rentals, setRentals] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [filter, setFilter] = useState("all");
+
+  useEffect(() => {
+    const user = JSON.parse(localStorage.getItem("user") || "null");
+    if (!user) {
+      navigate("/login");
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await api.get("/api/applications/me");
+        if (cancelled) return;
+        // Зөвхөн идэвхтэй гэрээтэй өргөдлүүд
+        const onlyRentals = (res.data || []).filter((a) =>
+          ACTIVE_CONTRACT_STATUSES.includes(a.contractStatus)
+        );
+        setRentals(onlyRentals);
+      } catch (err) {
+        if (cancelled) return;
+        setError(err.response?.data?.message || "Татаж чадсангүй");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [navigate]);
+
+  const filtered = useMemo(() => {
+    if (filter === "all") return rentals;
+    return rentals.filter((r) => r.contractStatus === filter);
+  }, [rentals, filter]);
+
+  const counts = useMemo(() => {
+    const c = { all: rentals.length };
+    for (const s of ACTIVE_CONTRACT_STATUSES) {
+      c[s] = rentals.filter((r) => r.contractStatus === s).length;
+    }
+    return c;
+  }, [rentals]);
+
+  // Нийт сар бүрийн зардал
+  const totalMonthly = useMemo(() => {
+    return rentals
+      .filter((r) => r.contractStatus === "active")
+      .reduce((sum, r) => sum + (r.property?.price || 0), 0);
+  }, [rentals]);
+
   return (
-    <div>
-      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-        <span style={{ fontFamily: "'Montserrat'", fontSize: 9, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--text-muted)" }}>
-          Төлбөрийн явц
-        </span>
-        <span style={{ fontFamily: "'Montserrat'", fontSize: 9, color: "var(--gold)" }}>
-          {paid}/{total} · {pct}%
-        </span>
-      </div>
-      <div style={{ height: 1, background: "var(--border-dim)", position: "relative", overflow: "hidden" }}>
-        <div style={{
-          position: "absolute", left: 0, top: 0, bottom: 0,
-          width: `${pct}%`,
-          background: "linear-gradient(to right, var(--gold), rgba(201,160,80,0.6))",
-          transition: "width 0.6s ease",
-        }} />
-      </div>
+    <div
+      className="min-h-screen pt-20"
+      style={{ background: "#0A0A0A", fontFamily: "'DM Sans', sans-serif" }}
+    >
+      {/* Header */}
+      <header className="max-w-6xl mx-auto px-6 lg:px-12 py-12">
+        <div className="flex items-center gap-3 mb-5">
+          <div className="h-px w-8" style={{ background: "#C9A84C" }} />
+          <span
+            className="text-[10px] tracking-[0.3em] uppercase"
+            style={{ color: "#C9A84C" }}
+          >
+            Active Rentals
+          </span>
+        </div>
+        <h1
+          className="font-light text-white leading-[1] tracking-tight"
+          style={{
+            fontFamily: "'Cormorant Garamond', serif",
+            fontSize: "clamp(40px, 5vw, 64px)",
+          }}
+        >
+          Миний<br />
+          <em style={{ color: "#C9A84C", fontStyle: "italic" }}>
+            түрээсүүд
+          </em>
+        </h1>
+      </header>
+
+      {/* Stats */}
+      {!loading && rentals.length > 0 && (
+        <section className="max-w-6xl mx-auto px-6 lg:px-12 mb-10">
+          <div
+            className="grid grid-cols-2 md:grid-cols-3 gap-3"
+            style={{ border: "1px solid rgba(201,168,76,0.15)" }}
+          >
+            <div
+              className="p-6"
+              style={{
+                borderRight: "1px solid rgba(201,168,76,0.08)",
+              }}
+            >
+              <div className="text-[10px] tracking-[0.25em] uppercase text-white/40 mb-2">
+                Нийт түрээс
+              </div>
+              <div
+                className="font-light leading-none"
+                style={{
+                  fontFamily: "'Cormorant Garamond', serif",
+                  fontSize: 40,
+                  color: "#C9A84C",
+                }}
+              >
+                {rentals.length}
+              </div>
+            </div>
+            <div
+              className="p-6"
+              style={{
+                borderRight: "1px solid rgba(201,168,76,0.08)",
+              }}
+            >
+              <div className="text-[10px] tracking-[0.25em] uppercase text-white/40 mb-2">
+                Идэвхтэй
+              </div>
+              <div
+                className="font-light leading-none"
+                style={{
+                  fontFamily: "'Cormorant Garamond', serif",
+                  fontSize: 40,
+                  color: "#10B981",
+                }}
+              >
+                {counts.active || 0}
+              </div>
+            </div>
+            <div className="p-6 col-span-2 md:col-span-1">
+              <div className="text-[10px] tracking-[0.25em] uppercase text-white/40 mb-2">
+                Сарын нийт зардал
+              </div>
+              <div
+                className="font-light leading-none"
+                style={{
+                  fontFamily: "'Cormorant Garamond', serif",
+                  fontSize: 32,
+                  color: "#C9A84C",
+                }}
+              >
+                {new Intl.NumberFormat("mn-MN").format(totalMonthly)}₮
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Filter tabs */}
+      {!loading && rentals.length > 0 && (
+        <section className="max-w-6xl mx-auto px-6 lg:px-12 mb-8">
+          <div
+            className="flex flex-wrap gap-1 overflow-x-auto"
+            style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}
+          >
+            {FILTER_TABS.map((tab) => (
+              <button
+                key={tab.v}
+                onClick={() => setFilter(tab.v)}
+                className="px-5 py-4 text-[10px] tracking-[0.25em] uppercase transition-all duration-300 flex items-center gap-2 whitespace-nowrap relative"
+                style={{
+                  color:
+                    filter === tab.v ? "#C9A84C" : "rgba(255,255,255,0.5)",
+                }}
+              >
+                {tab.label}
+                <span
+                  className="inline-flex items-center justify-center min-w-5 px-1.5 text-[10px]"
+                  style={{
+                    background:
+                      filter === tab.v
+                        ? "#C9A84C"
+                        : "rgba(255,255,255,0.05)",
+                    color: filter === tab.v ? "#0A0A0A" : "rgba(255,255,255,0.5)",
+                  }}
+                >
+                  {counts[tab.v] || 0}
+                </span>
+                {filter === tab.v && (
+                  <div
+                    className="absolute bottom-0 left-0 right-0"
+                    style={{ height: 1, background: "#C9A84C" }}
+                  />
+                )}
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Content */}
+      <main className="max-w-6xl mx-auto px-6 lg:px-12 pb-20">
+        {error && (
+          <div
+            className="mb-6 p-4 flex items-start gap-3"
+            style={{
+              background: "rgba(239,68,68,0.08)",
+              borderLeft: "2px solid #EF4444",
+            }}
+          >
+            <span style={{ color: "#EF4444" }}>✕</span>
+            <p className="text-sm text-red-300">{error}</p>
+          </div>
+        )}
+
+        {loading ? (
+          <LoadingList />
+        ) : filtered.length === 0 ? (
+          <EmptyState hasRentals={rentals.length > 0} />
+        ) : (
+          <div className="space-y-5">
+            {filtered.map((rental) => (
+              <RentalCard key={rental._id} rental={rental} />
+            ))}
+          </div>
+        )}
+      </main>
     </div>
   );
 }
 
-export default function MyRentals() {
-  const navigate = useNavigate();
-  const [rentals, setRentals] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [cancelModal, setCancelModal] = useState(null);
-  const [cancelReason, setCancelReason] = useState("");
-  const [cancelling, setCancelling] = useState(false);
+// ── Rental Card ──
+function RentalCard({ rental }) {
+  const property = rental.property || {};
+  const landlord = rental.landlord || property.owner || {};
+  const cover = property.photos?.[0] || PLACEHOLDER;
+  const contractInfo =
+    CONTRACT_STATUS[rental.contractStatus] || CONTRACT_STATUS.pending_signatures;
+  const formattedPrice = new Intl.NumberFormat("mn-MN").format(
+    property.price || 0
+  );
+  const date = rental.updatedAt
+    ? new Date(rental.updatedAt).toLocaleDateString("mn-MN", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      })
+    : "";
 
-  useEffect(() => {
-    api.get("/api/rentals/my")
-      .then(r => setRentals(r.data))
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, []);
-
-  const handleCancelSubmit = async () => {
-    if (!cancelReason.trim()) { alert("Шалтгаан оруулна уу"); return; }
-    setCancelling(true);
-    try {
-      await api.post(`/api/rentals/${cancelModal._id}/cancel`, { reason: cancelReason });
-      setRentals(prev => prev.map(r => r._id === cancelModal._id ? { ...r, status: "cancelled" } : r));
-      setCancelModal(null);
-      setCancelReason("");
-    } catch { alert("Алдаа гарлаа"); }
-    finally { setCancelling(false); }
-  };
-
-  const statusColors = {
-    active:    { color: "#22C55E", label: "Идэвхтэй" },
-    completed: { color: "var(--text-muted)", label: "Дууссан" },
-    cancelled: { color: "#EF4444", label: "Цуцлагдсан" },
-  };
+  const isActive = rental.contractStatus === "active";
+  const needsPayment = rental.contractStatus === "payment_pending";
+  const needsSigning = rental.contractStatus === "pending_signatures";
 
   return (
-    <div style={{ minHeight: "100vh", background: "var(--black)", paddingTop: 70 }}>
-      <Navbar />
+    <article
+      className="grid grid-cols-1 md:grid-cols-12 gap-6 p-5 transition-all duration-300"
+      style={{
+        background: "#141414",
+        border: `1px solid ${
+          isActive
+            ? "rgba(16,185,129,0.2)"
+            : needsPayment || needsSigning
+              ? "rgba(245,158,11,0.2)"
+              : "rgba(201,168,76,0.15)"
+        }`,
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.borderColor = isActive
+          ? "rgba(16,185,129,0.5)"
+          : needsPayment || needsSigning
+            ? "rgba(245,158,11,0.5)"
+            : "rgba(201,168,76,0.4)";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.borderColor = isActive
+          ? "rgba(16,185,129,0.2)"
+          : needsPayment || needsSigning
+            ? "rgba(245,158,11,0.2)"
+            : "rgba(201,168,76,0.15)";
+      }}
+    >
+      {/* Image */}
+      <Link
+        to={property._id ? `/property/${property._id}` : "#"}
+        className="md:col-span-3 block relative overflow-hidden group"
+        style={{
+          aspectRatio: "4/3",
+          border: "1px solid rgba(201,168,76,0.15)",
+        }}
+      >
+        <img
+          src={cover}
+          alt={property.title}
+          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+          style={{ filter: "brightness(0.88)" }}
+          onError={(e) => (e.currentTarget.src = PLACEHOLDER)}
+        />
+      </Link>
 
-      <div style={{ maxWidth: 860, margin: "0 auto", padding: "48px 48px" }}>
-        {/* Header */}
-        <div style={{ marginBottom: 40 }}>
-          <div className="flex items-center gap-4 mb-4">
-            <div style={{ width: 32, height: 1, background: "var(--gold)" }} />
-            <span style={{ fontFamily: "'Montserrat'", fontSize: 9, fontWeight: 500, letterSpacing: "0.25em", textTransform: "uppercase", color: "var(--gold)" }}>
-              Миний
-            </span>
-          </div>
-          <h1 className="font-display" style={{ fontSize: 48, fontWeight: 300, color: "var(--white)" }}>Түрээс</h1>
+      {/* Body */}
+      <div className="md:col-span-6">
+        <div className="flex items-center gap-3 mb-2 text-[10px] tracking-[0.25em] uppercase">
+          <span style={{ color: "#C9A84C" }}>
+            {property.district || "Улаанбаатар"}
+          </span>
+          <span className="text-white/30">·</span>
+          <span className="text-white/40">{date}</span>
         </div>
 
-        {loading ? (
-          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            {[1, 2].map(i => (
-              <div key={i} style={{ height: 200, background: "var(--dark)", border: "1px solid var(--border-dim)", animation: "pulse 2s ease infinite" }} />
-            ))}
-          </div>
-        ) : rentals.length === 0 ? (
-          <div style={{ textAlign: "center", padding: "96px 0" }}>
-            <div className="font-display" style={{ fontSize: 64, fontWeight: 300, color: "rgba(201,160,80,0.08)", marginBottom: 16 }}>◈</div>
-            <p className="font-display" style={{ fontSize: 32, fontWeight: 300, color: "var(--text-soft)", marginBottom: 12 }}>
-              Идэвхтэй түрээс байхгүй
-            </p>
-            <Link to="/home" className="btn-gold" style={{ marginTop: 8 }}>
-              Байр хайх →
-            </Link>
-          </div>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            {rentals.map(rental => {
-              const sc = statusColors[rental.status] || statusColors.active;
-              const img = rental.property?.images?.[0] || "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688";
-              const paidCount = rental.payments?.filter(p => p.status === "paid").length || 0;
-              const totalCount = rental.payments?.length || rental.leaseMonths || 0;
-              const nextPayment = rental.payments?.find(p => p.status === "pending" || p.status === "overdue");
+        <h3
+          className="text-white font-light leading-tight mb-2"
+          style={{
+            fontFamily: "'Cormorant Garamond', serif",
+            fontSize: 26,
+          }}
+        >
+          {property.title || "Байр"}
+        </h3>
 
-              return (
-                <div
-                  key={rental._id}
-                  style={{
-                    background: "var(--dark)",
-                    border: "1px solid var(--border-dim)",
-                    overflow: "hidden",
-                    transition: "border-color 0.2s",
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.borderColor = "rgba(201,160,80,0.2)"}
-                  onMouseLeave={e => e.currentTarget.style.borderColor = "var(--border-dim)"}
+        <p className="text-xs text-white/50 mb-3">
+          {property.address || "—"}
+        </p>
+
+        <div
+          className="font-light mb-5"
+          style={{
+            fontFamily: "'Cormorant Garamond', serif",
+            color: "#C9A84C",
+            fontSize: 22,
+          }}
+        >
+          {formattedPrice}₮{" "}
+          <span className="text-[10px] tracking-[0.2em] uppercase text-white/40">
+            / сар
+          </span>
+        </div>
+
+        {/* Landlord */}
+        {landlord.name && (
+          <div
+            className="pt-4 flex items-center gap-3"
+            style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}
+          >
+            <div
+              className="w-9 h-9 flex items-center justify-center flex-shrink-0"
+              style={{
+                background: "rgba(201,168,76,0.12)",
+                color: "#C9A84C",
+                fontFamily: "'Cormorant Garamond', serif",
+                fontSize: 16,
+              }}
+            >
+              {landlord.name.charAt(0).toUpperCase()}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-[9px] tracking-[0.3em] uppercase text-white/40 mb-0.5">
+                Байрны эзэн
+              </div>
+              <div className="text-xs text-white/80">{landlord.name}</div>
+            </div>
+            <div className="flex gap-2">
+              {landlord.email && (
+                <a
+                  href={`mailto:${landlord.email}`}
+                  className="w-8 h-8 flex items-center justify-center text-white/50 hover:text-[#C9A84C] transition-colors"
+                  style={{ border: "1px solid rgba(255,255,255,0.1)" }}
+                  title={landlord.email}
                 >
-                  <div style={{ display: "flex" }}>
-                    {/* Property image */}
-                    <div style={{ width: 180, flexShrink: 0, position: "relative", overflow: "hidden" }}>
-                      <img
-                        src={img}
-                        alt={rental.property?.title}
-                        style={{ width: "100%", height: "100%", objectFit: "cover", filter: "brightness(0.75)" }}
-                      />
-                      <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to right, transparent, rgba(8,8,8,0.3))" }} />
-                    </div>
-
-                    {/* Details */}
-                    <div style={{ flex: 1, padding: "24px 28px" }}>
-                      <div className="flex items-start justify-between gap-4 mb-4">
-                        <div style={{ minWidth: 0 }}>
-                          <Link to={`/properties/${rental.property?._id}`} style={{ textDecoration: "none" }}>
-                            <h3 className="font-display line-clamp-1" style={{ fontSize: 22, fontWeight: 400, color: "var(--white)", marginBottom: 4 }}>
-                              {rental.property?.title}
-                            </h3>
-                          </Link>
-                          <p style={{ fontFamily: "'Montserrat'", fontSize: 9, letterSpacing: "0.15em", textTransform: "uppercase", color: "var(--text-muted)" }}>
-                            {rental.property?.location?.district} · {rental.leaseMonths} сар
-                          </p>
-                        </div>
-                        <span style={{
-                          fontFamily: "'Montserrat'", fontSize: 8, fontWeight: 500, letterSpacing: "0.15em", textTransform: "uppercase",
-                          padding: "4px 12px", border: `1px solid ${sc.color}30`, color: sc.color, flexShrink: 0
-                        }}>
-                          {sc.label}
-                        </span>
-                      </div>
-
-                      {/* Stats row */}
-                      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 0, marginBottom: 16, borderTop: "1px solid var(--border-dim)", borderBottom: "1px solid var(--border-dim)", padding: "12px 0" }}>
-                        {[
-                          { label: "Сарын түрээс", value: `${rental.property?.monthlyRent?.toLocaleString()}₮` },
-                          { label: "Нийт дүн", value: `${rental.totalRent?.toLocaleString()}₮` },
-                          { label: "Дараагийн төлбөр", value: nextPayment ? `${nextPayment.totalAmount?.toLocaleString()}₮` : "—" },
-                        ].map(({ label, value }) => (
-                          <div key={label} style={{ paddingRight: 16 }}>
-                            <p style={{ fontFamily: "'Montserrat'", fontSize: 8, letterSpacing: "0.15em", textTransform: "uppercase", color: "var(--text-soft)", marginBottom: 4 }}>{label}</p>
-                            <p className="font-display" style={{ fontSize: 18, fontWeight: 300, color: "var(--white)" }}>{value}</p>
-                          </div>
-                        ))}
-                      </div>
-
-                      {/* Progress */}
-                      <div style={{ marginBottom: 16 }}>
-                        <ProgressBar paid={paidCount} total={totalCount} />
-                      </div>
-
-                      {/* Actions */}
-                      <div style={{ display: "flex", gap: 8 }}>
-                        {rental.status === "active" && nextPayment && (
-                          <Link
-                            to={`/payment/${nextPayment._id}`}
-                            className="btn-gold"
-                            style={{ fontSize: 9, padding: "8px 16px" }}
-                          >
-                            Төлбөр хийх →
-                          </Link>
-                        )}
-                        <Link
-                          to={`/contract/${rental.application}`}
-                          className="btn-outline"
-                          style={{ fontSize: 9, padding: "8px 14px", textDecoration: "none" }}
-                        >
-                          Гэрээ
-                        </Link>
-                        {rental.status === "active" && (
-                          <button
-                            onClick={() => setCancelModal(rental)}
-                            className="btn-ghost"
-                            style={{ fontSize: 9, padding: "8px 14px", color: "#EF4444" }}
-                          >
-                            Цуцлах
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+                  ◇
+                </a>
+              )}
+              {landlord.phone && (
+                <a
+                  href={`tel:${landlord.phone}`}
+                  className="w-8 h-8 flex items-center justify-center text-white/50 hover:text-[#C9A84C] transition-colors"
+                  style={{ border: "1px solid rgba(255,255,255,0.1)" }}
+                  title={landlord.phone}
+                >
+                  ◇
+                </a>
+              )}
+            </div>
           </div>
         )}
       </div>
 
-      {/* Cancel Modal */}
-      {cancelModal && (
-        <div
-          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 24 }}
-          onClick={(e) => { if (e.target === e.currentTarget) { setCancelModal(null); setCancelReason(""); } }}
-        >
-          <div style={{ width: "100%", maxWidth: 440, background: "var(--dark)", border: "1px solid var(--border)", borderTop: "1px solid #EF4444" }}>
-            <div style={{ padding: "28px 32px" }}>
-              <div className="flex items-center gap-3 mb-4">
-                <div style={{ width: 20, height: 1, background: "#EF4444" }} />
-                <span style={{ fontFamily: "'Montserrat'", fontSize: 9, letterSpacing: "0.22em", textTransform: "uppercase", color: "#EF4444" }}>
-                  Анхааруулга
-                </span>
-              </div>
-              <h2 className="font-display" style={{ fontSize: 28, fontWeight: 300, color: "var(--white)", marginBottom: 12 }}>
-                Түрээс цуцлах
-              </h2>
-              <p style={{ fontFamily: "'Montserrat'", fontSize: 11, fontWeight: 300, color: "var(--text-muted)", lineHeight: 1.7, marginBottom: 20 }}>
-                <span style={{ color: "var(--white)" }}>{cancelModal.property?.title}</span> байрны түрээсийг цуцлах гэж байна. Шалтгааныг тайлбарлана уу.
-              </p>
-              <textarea
-                value={cancelReason}
-                onChange={e => setCancelReason(e.target.value)}
-                placeholder="Цуцлах шалтгаан..."
-                rows={4}
-                style={{
-                  width: "100%", fontFamily: "'Montserrat'", fontSize: 12, fontWeight: 300,
-                  background: "var(--dark-2)", border: "1px solid var(--border-dim)", borderBottom: "1px solid var(--border)",
-                  color: "var(--white)", padding: "12px 16px", resize: "vertical", outline: "none",
-                  transition: "border-color 0.2s",
-                }}
-                onFocus={e => e.target.style.borderBottomColor = "var(--gold)"}
-                onBlur={e => e.target.style.borderBottomColor = "var(--border)"}
-              />
-              <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
-                <button onClick={() => { setCancelModal(null); setCancelReason(""); }} className="btn-ghost" style={{ flex: 1, padding: "12px 0" }}>
-                  Буцах
-                </button>
-                <button onClick={handleCancelSubmit} disabled={cancelling} className="btn-danger" style={{ flex: 1, padding: "12px 0", justifyContent: "center" }}>
-                  {cancelling ? "Цуцалж байна..." : "Цуцлах"}
-                </button>
-              </div>
-            </div>
-          </div>
+      {/* Status + Actions */}
+      <div className="md:col-span-3 flex flex-col gap-3 justify-between">
+        <StatusPill label={contractInfo.label} color={contractInfo.color} />
+
+        <div className="flex flex-col gap-2">
+          {needsSigning && (
+            <Link
+              to={`/contract/${rental._id}`}
+              className="w-full py-3 text-center text-[10px] tracking-[0.25em] uppercase transition-all duration-300"
+              style={{ background: "#F59E0B", color: "#0A0A0A" }}
+              onMouseEnter={(e) =>
+                (e.currentTarget.style.background = "#FBBF24")
+              }
+              onMouseLeave={(e) =>
+                (e.currentTarget.style.background = "#F59E0B")
+              }
+            >
+              Гарын үсэг →
+            </Link>
+          )}
+          {needsPayment && (
+            <Link
+              to={`/payment/${rental._id}`}
+              className="w-full py-3 text-center text-[10px] tracking-[0.25em] uppercase transition-all duration-300"
+              style={{ background: "#C9A84C", color: "#0A0A0A" }}
+              onMouseEnter={(e) =>
+                (e.currentTarget.style.background = "#E8D49E")
+              }
+              onMouseLeave={(e) =>
+                (e.currentTarget.style.background = "#C9A84C")
+              }
+            >
+              Төлбөр төлөх →
+            </Link>
+          )}
+          {isActive && (
+            <Link
+              to={`/payment/${rental._id}`}
+              className="w-full py-3 text-center text-[10px] tracking-[0.25em] uppercase transition-all duration-300"
+              style={{ background: "#C9A84C", color: "#0A0A0A" }}
+              onMouseEnter={(e) =>
+                (e.currentTarget.style.background = "#E8D49E")
+              }
+              onMouseLeave={(e) =>
+                (e.currentTarget.style.background = "#C9A84C")
+              }
+            >
+              Төлбөр →
+            </Link>
+          )}
+          <Link
+            to={`/contract/${rental._id}`}
+            className="w-full py-3 text-center text-[10px] tracking-[0.25em] uppercase transition-colors"
+            style={{
+              border: "1px solid #C9A84C",
+              color: "#C9A84C",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "rgba(201,168,76,0.1)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "transparent";
+            }}
+          >
+            Гэрээ үзэх
+          </Link>
         </div>
-      )}
+      </div>
+    </article>
+  );
+}
+
+function StatusPill({ label, color }) {
+  return (
+    <div
+      className="inline-flex items-center gap-2 px-3 py-1.5 text-[10px] tracking-[0.2em] uppercase self-start"
+      style={{
+        background: `${color}15`,
+        color,
+        border: `1px solid ${color}50`,
+      }}
+    >
+      <span
+        className="inline-block w-1.5 h-1.5 rounded-full"
+        style={{ background: color }}
+      />
+      {label}
     </div>
   );
 }
+
+function LoadingList() {
+  return (
+    <div className="space-y-5">
+      {[...Array(2)].map((_, i) => (
+        <div
+          key={i}
+          className="grid grid-cols-1 md:grid-cols-12 gap-6 p-5 animate-pulse"
+          style={{
+            background: "#141414",
+            border: "1px solid rgba(201,168,76,0.08)",
+          }}
+        >
+          <div
+            className="md:col-span-3 aspect-[4/3]"
+            style={{ background: "rgba(255,255,255,0.03)" }}
+          />
+          <div className="md:col-span-6 space-y-3">
+            <div
+              className="h-3 w-24"
+              style={{ background: "rgba(255,255,255,0.05)" }}
+            />
+            <div
+              className="h-5 w-3/4"
+              style={{ background: "rgba(255,255,255,0.08)" }}
+            />
+            <div
+              className="h-4 w-32"
+              style={{ background: "rgba(201,168,76,0.1)" }}
+            />
+          </div>
+          <div className="md:col-span-3 space-y-2">
+            <div
+              className="h-9 w-full"
+              style={{ background: "rgba(201,168,76,0.1)" }}
+            />
+            <div
+              className="h-9 w-full"
+              style={{ background: "rgba(255,255,255,0.05)" }}
+            />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function EmptyState({ hasRentals }) {
+  if (!hasRentals) {
+    return (
+      <div
+        className="flex flex-col items-center justify-center text-center py-24 px-6"
+        style={{
+          border: "1px solid rgba(201,168,76,0.15)",
+          background: "rgba(201,168,76,0.02)",
+        }}
+      >
+        <div
+          className="w-16 h-16 mb-8 flex items-center justify-center"
+          style={{ border: "1px solid #C9A84C" }}
+        >
+          <div
+            style={{
+              width: 24,
+              height: 24,
+              background: "#C9A84C",
+              transform: "rotate(45deg)",
+            }}
+          />
+        </div>
+        <h3
+          className="font-light text-white mb-4"
+          style={{
+            fontFamily: "'Cormorant Garamond', serif",
+            fontSize: 32,
+          }}
+        >
+          Идэвхтэй <em style={{ color: "#C9A84C", fontStyle: "italic" }}>түрээс алга</em>
+        </h3>
+        <p className="text-sm text-white/50 max-w-md mb-8 leading-relaxed">
+          Та хараахан байр түрээслээгүй байна. Цуглуулгаас сонирхсон
+          байраа сонгож өргөдөл гаргаарай.
+        </p>
+        <Link
+          to="/home"
+          className="inline-block px-8 py-3 text-[10px] tracking-[0.3em] uppercase transition-all duration-300"
+          style={{ background: "#C9A84C", color: "#0A0A0A" }}
+          onMouseEnter={(e) => (e.currentTarget.style.background = "#E8D49E")}
+          onMouseLeave={(e) => (e.currentTarget.style.background = "#C9A84C")}
+        >
+          Байр хайх →
+        </Link>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="flex flex-col items-center justify-center text-center py-16 px-6"
+      style={{ border: "1px solid rgba(201,168,76,0.1)" }}
+    >
+      <p className="text-sm text-white/50">
+        Сонгосон төлөвт түрээс байхгүй
+      </p>
+    </div>
+  );
+}
+
+export default MyRentals;

@@ -1,462 +1,1289 @@
-import { useEffect, useState, useMemo } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
-import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
-import "leaflet/dist/leaflet.css";
-import L from "leaflet";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import api from "../api/axiosInstance";
-import Navbar from "../components/Navbar";
+import { MapContainer, TileLayer, Marker } from "react-leaflet";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
 
-delete L.Icon.Default.prototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
-  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
-  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+const PLACEHOLDER =
+  "https://images.unsplash.com/photo-1494526585095-c41746248156?auto=format&fit=crop&w=1200&q=80";
+
+const goldDiamondIcon = L.divIcon({
+  className: "rentalsy-marker",
+  html: `<div style="position:relative;width:30px;height:30px;display:flex;align-items:center;justify-content:center;">
+    <div style="position:absolute;inset:4px;background:#C9A84C;transform:rotate(45deg);box-shadow:0 4px 12px rgba(201,168,76,0.6),0 0 0 2px #0A0A0A;"></div>
+    <div style="position:absolute;width:6px;height:6px;background:#0A0A0A;transform:rotate(45deg);"></div>
+  </div>`,
+  iconSize: [30, 30],
+  iconAnchor: [15, 15],
 });
-
-const ACTIVE_RENTAL_STATUSES = ["signed", "payment_pending", "active"];
 
 function PropertyDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-
-  const [property, setProperty] = useState(null);
-  const [myRental, setMyRental] = useState(null);
-  const [selectedImageIndex, setSelectedImageIndex] = useState(null);
-  const [showApplyModal, setShowApplyModal] = useState(false);
-  const [applySuccess, setApplySuccess] = useState(false);
-  const [applying, setApplying] = useState(false);
-  const [applyForm, setApplyForm] = useState({ startDate: "", leaseMonths: "6", message: "" });
-
-  const [reviews, setReviews] = useState([]);
-  const [avgRating, setAvgRating] = useState(0);
-  const [myReview, setMyReview] = useState(null);
-  const [showReviewForm, setShowReviewForm] = useState(false);
-  const [reviewRating, setReviewRating] = useState(5);
-  const [reviewComment, setReviewComment] = useState("");
-  const [submittingReview, setSubmittingReview] = useState(false);
-  const [canReview, setCanReview] = useState(false);
-
-  const currentUser = JSON.parse(localStorage.getItem("user"));
-  const token = localStorage.getItem("token");
-  const currentUserId = currentUser?._id || currentUser?.id;
-  const currentUserRole = currentUser?.role;
-
-  const districtCoords = {
-    "Баянзүрх": [47.9184, 106.9612], "Баянгол": [47.9077, 106.8432],
-    "Сүхбаатар": [47.9195, 106.9077], "Чингэлтэй": [47.9268, 106.8782],
-    "Хан-Уул": [47.8748, 106.8815], "Сонгинохайрхан": [47.9268, 106.7782],
-    "Налайх": [47.7577, 107.2682], "Багануур": [47.7121, 108.2821], "Багахангай": [47.8241, 106.9121],
-  };
-
-  useEffect(() => {
-    api.get(`/api/properties/${id}`).then(r => setProperty(r.data)).catch(console.log);
-  }, [id]);
-
-  useEffect(() => {
-    if (!id) return;
-    api.get(`/api/reviews/property/${id}`).then(r => {
-      setReviews(r.data.reviews);
-      setAvgRating(r.data.avgRating);
-      if (currentUserId) {
-        const mine = r.data.reviews.find(r => r.tenant?._id === currentUserId || r.tenant?._id?.toString() === currentUserId);
-        setMyReview(mine || null);
-        if (mine) { setReviewRating(mine.rating); setReviewComment(mine.comment); }
-      }
-    }).catch(() => {});
-  }, [id, currentUserId]);
-
-  useEffect(() => {
-    if (!token || currentUserRole !== "tenant") return;
-    api.get("/api/applications/my").then(r => {
-      setCanReview(r.data.some(a => a.property?._id === id && ["signed","payment_pending","active","cancelled"].includes(a.contractStatus)));
-    }).catch(() => {});
-  }, [id, token, currentUserRole]);
-
-  useEffect(() => {
-    if (!token || !currentUserRole || currentUserRole !== "tenant") return;
-    api.get("/api/applications/my").then(r => {
-      const active = r.data.find(a => a.property?._id === id && ACTIVE_RENTAL_STATUSES.includes(a.contractStatus));
-      setMyRental(active || null);
-    }).catch(() => {});
-  }, [id, token, currentUserRole]);
-
-  const mapCoords = useMemo(() => {
-    if (!property) return null;
-    if (property.latitude && property.longitude) return [property.latitude, property.longitude];
-    return districtCoords[property.location?.district] || [47.9077, 106.8832];
-  }, [property]); // eslint-disable-line
-
-  if (!property) return (
-    <div className="min-h-screen flex items-center justify-center" style={{ background: "var(--cream)" }}>
-      <Navbar />
-      <div className="text-center">
-        <div className="w-8 h-8 border-2 border-[var(--gold)] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-        <p className="text-[var(--text-muted)] text-sm tracking-widest uppercase">Ачааллаж байна</p>
-      </div>
-    </div>
+  const user = useMemo(
+    () => JSON.parse(localStorage.getItem("user") || "null"),
+    []
   );
 
-  const images = property.images?.length > 0 ? property.images : ["https://images.unsplash.com/photo-1502672260266-1c1ef2d93688"];
-  const ownerId = typeof property.owner === "object" ? property.owner?._id : property.owner;
-  const isOwner = currentUserId && ownerId && String(currentUserId) === String(ownerId);
-  const isRented = property.status === "rented";
-  const estimatedTotal = property.monthlyRent * Number(applyForm.leaseMonths || 0);
+  const [property, setProperty] = useState(null);
+  const [reviews, setReviews] = useState([]);
+  const [myApplication, setMyApplication] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
+
+  // Lightbox state
+  const [lightboxIdx, setLightboxIdx] = useState(null);
+
+  // Application modal
+  const [applyOpen, setApplyOpen] = useState(false);
+  const [applyMessage, setApplyMessage] = useState("");
+  const [applying, setApplying] = useState(false);
+  const [applyError, setApplyError] = useState("");
+
+  // Review form
+  const [reviewRating, setReviewRating] = useState(0);
+  const [reviewComment, setReviewComment] = useState("");
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const [reviewError, setReviewError] = useState("");
+  const [reviewSuccess, setReviewSuccess] = useState("");
+
+  // ── Fetch property + reviews ──
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      setLoading(true);
+      try {
+        const [propRes, revRes] = await Promise.all([
+          api.get(`/api/properties/${id}`),
+          api.get(`/api/reviews?propertyId=${id}`).catch(() => ({ data: [] })),
+        ]);
+        if (!mounted) return;
+        setProperty(propRes.data);
+        setReviews(revRes.data || []);
+      } catch {
+        if (mounted) setNotFound(true);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [id]);
+
+  // ── Check existing application ──
+  useEffect(() => {
+    if (!user || user.role !== "tenant") return;
+    let mounted = true;
+    (async () => {
+      try {
+        const res = await api.get(`/api/applications/me/property/${id}`);
+        if (mounted) setMyApplication(res.data || null);
+      } catch {
+        if (mounted) setMyApplication(null);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [id, user]);
+
+  // ── Lightbox keyboard nav ──
+  useEffect(() => {
+    if (lightboxIdx === null) return;
+    const handler = (e) => {
+      if (e.key === "Escape") setLightboxIdx(null);
+      if (e.key === "ArrowRight")
+        setLightboxIdx((i) =>
+          Math.min((i ?? 0) + 1, (property?.photos?.length || 1) - 1)
+        );
+      if (e.key === "ArrowLeft")
+        setLightboxIdx((i) => Math.max((i ?? 0) - 1, 0));
+    };
+    window.addEventListener("keydown", handler);
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", handler);
+      document.body.style.overflow = "";
+    };
+  }, [lightboxIdx, property?.photos?.length]);
 
   const handleApply = async (e) => {
-    e.preventDefault();
-    if (!token) { navigate("/login"); return; }
+    e?.preventDefault();
+    if (!user) {
+      navigate("/login");
+      return;
+    }
     setApplying(true);
+    setApplyError("");
     try {
-      await api.post("/api/applications", { propertyId: property._id, startDate: applyForm.startDate, leaseMonths: Number(applyForm.leaseMonths), message: applyForm.message });
-      setApplySuccess(true);
-      setShowApplyModal(false);
-    } catch (err) { alert(err.response?.data?.message || "Алдаа гарлаа"); }
-    finally { setApplying(false); }
+      const res = await api.post("/api/applications", {
+        propertyId: id,
+        message: applyMessage,
+      });
+      setMyApplication(res.data);
+      setApplyOpen(false);
+      setApplyMessage("");
+    } catch (err) {
+      setApplyError(
+        err.response?.data?.message || "Өргөдөл илгээж чадсангүй"
+      );
+    } finally {
+      setApplying(false);
+    }
   };
 
-  const handleSubmitReview = async (e) => {
+  const handleReviewSubmit = async (e) => {
     e.preventDefault();
-    setSubmittingReview(true);
+    setReviewError("");
+    setReviewSuccess("");
+    if (reviewRating < 1) {
+      setReviewError("Үнэлгээ өгнө үү");
+      return;
+    }
+    if (!reviewComment.trim()) {
+      setReviewError("Сэтгэгдэл бичнэ үү");
+      return;
+    }
+    setReviewSubmitting(true);
     try {
-      await api.post(`/api/reviews/property/${id}`, { rating: reviewRating, comment: reviewComment });
-      const r = await api.get(`/api/reviews/property/${id}`);
-      setReviews(r.data.reviews); setAvgRating(r.data.avgRating);
-      setMyReview(r.data.reviews.find(rv => rv.tenant?._id === currentUserId));
-      setShowReviewForm(false);
-    } catch (err) { alert(err.response?.data?.message || "Алдаа гарлаа"); }
-    finally { setSubmittingReview(false); }
+      const res = await api.post("/api/reviews", {
+        propertyId: id,
+        rating: reviewRating,
+        comment: reviewComment,
+      });
+      setReviews((r) => [res.data, ...r]);
+      setReviewRating(0);
+      setReviewComment("");
+      setReviewSuccess("Сэтгэгдэл амжилттай нэмэгдлээ");
+    } catch (err) {
+      setReviewError(
+        err.response?.data?.message || "Сэтгэгдэл нэмэх боломжгүй"
+      );
+    } finally {
+      setReviewSubmitting(false);
+    }
   };
 
-  const handleDeleteReview = async (reviewId) => {
-    if (!window.confirm("Үнэлгээгээ устгах уу?")) return;
+  const handleDelete = async () => {
+    if (!confirm("Та энэ байрыг устгахдаа итгэлтэй байна уу?")) return;
     try {
-      await api.delete(`/api/reviews/${reviewId}`);
-      setReviews(prev => prev.filter(r => r._id !== reviewId));
-      setMyReview(null); setReviewRating(5); setReviewComment("");
-    } catch { alert("Алдаа гарлаа"); }
+      await api.delete(`/api/properties/${id}`);
+      navigate("/my-properties");
+    } catch (err) {
+      alert(err.response?.data?.message || "Устгаж чадсангүй");
+    }
   };
 
-  const renderSidebarAction = () => {
-    if (currentUserRole === "admin") return (
-      <div className="border border-[var(--border-subtle)] p-4 text-sm text-[var(--text-muted)] text-center">
-        ⚙️ Admin горимд хүсэлт илгээх боломжгүй
-      </div>
+  // ── Loading / Not Found ──
+  if (loading) return <LoadingState />;
+  if (notFound || !property) return <NotFoundState />;
+
+  const photos = property.photos?.length ? property.photos : [PLACEHOLDER];
+  const ownerId = property.owner?._id || property.owner;
+  const isOwner = user && ownerId === user._id;
+  const isAdmin = user?.role === "admin";
+  const isTenant = user?.role === "tenant";
+  const isAvailable = property.status === "available";
+  const formattedPrice = new Intl.NumberFormat("mn-MN").format(property.price || 0);
+
+  const avgRating = reviews.length
+    ? reviews.reduce((s, r) => s + (r.rating || 0), 0) / reviews.length
+    : 0;
+  const alreadyReviewed =
+    user && reviews.some((r) => (r.tenant?._id || r.tenant) === user._id);
+  const reviewEligible =
+    user &&
+    isTenant &&
+    !isOwner &&
+    myApplication &&
+    ["signed", "payment_pending", "active", "cancelled"].includes(
+      myApplication.contractStatus
     );
-    if (isOwner) return (
-      <div className="border border-[var(--gold)] bg-amber-50 p-4 text-sm text-center">
-        <p className="text-[var(--gold)] font-medium">Энэ таны байр</p>
-        <Link to={`/edit-property/${property._id}`} className="btn-outline-gold mt-3 text-xs w-full justify-center" style={{display:"flex"}}>Засах</Link>
-      </div>
-    );
-    if (myRental) return (
-      <div className="border border-[var(--gold)] bg-amber-50 p-5 text-center space-y-3">
-        <p className="text-[var(--gold)] font-medium text-sm">✓ Та энэ байрыг түрээсэлж байна</p>
-        <Link to="/my-rentals" className="btn-gold w-full justify-center text-xs" style={{display:"flex",padding:"10px 0"}}>Миний түрээс</Link>
-        <Link to={`/contract/${myRental._id}`} className="btn-outline-gold w-full justify-center text-xs" style={{display:"flex",padding:"10px 0"}}>Гэрээ харах</Link>
-      </div>
-    );
-    if (isRented) return (
-      <div className="border border-[var(--border-subtle)] p-4 text-sm text-[var(--text-soft)] text-center">
-        🔒 Энэ байр одоогоор түрээслэгдсэн байна
-      </div>
-    );
-    return (
-      <button onClick={() => { if (!token) { navigate("/login"); return; } setShowApplyModal(true); }}
-        disabled={applySuccess}
-        className="btn-gold w-full justify-center" style={{ padding: "16px 0", display:"flex" }}>
-        {applySuccess ? "✓ Хүсэлт илгээгдсэн" : "Түрээслэх хүсэлт илгээх"}
-      </button>
-    );
-  };
 
   return (
-    <div style={{ minHeight: "100vh", background: "var(--cream)", paddingTop: 64 }}>
-      <Navbar />
+    <div
+      className="min-h-screen pt-20"
+      style={{ background: "#0A0A0A", fontFamily: "'DM Sans', sans-serif" }}
+    >
+      {/* Leaflet style override */}
+      <style>{`
+        .leaflet-container { background: #0A0A0A; font-family: 'DM Sans', sans-serif; }
+        .leaflet-control-zoom a {
+          background: #141414 !important;
+          color: #C9A84C !important;
+          border: 1px solid rgba(201,168,76,0.3) !important;
+        }
+        .leaflet-control-attribution {
+          background: rgba(10,10,10,0.7) !important;
+          color: rgba(255,255,255,0.4) !important;
+          font-size: 9px !important;
+        }
+        .leaflet-control-attribution a { color: #C9A84C !important; }
+        .rentalsy-marker { background: transparent !important; border: none !important; }
+      `}</style>
 
-      <div className="max-w-5xl mx-auto px-6 py-8">
-        {/* Back button */}
-        <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-[var(--text-muted)] hover:text-[var(--ink)] transition-colors text-sm mb-6">
-          <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-          </svg>
-          Буцах
+      {/* ── Back link ── */}
+      <div className="max-w-7xl mx-auto px-6 lg:px-12 py-6">
+        <button
+          onClick={() => navigate(-1)}
+          className="text-[10px] tracking-[0.3em] uppercase text-white/40 hover:text-white transition-colors"
+        >
+          ← Буцах
         </button>
+      </div>
 
-        {/* Main image */}
-        <div className="relative overflow-hidden mb-3" style={{ aspectRatio: "16/7" }}>
-          <img src={images[0]} alt={property.title} onClick={() => setSelectedImageIndex(0)}
-            className="w-full h-full object-cover cursor-pointer transition-transform duration-700 hover:scale-105" />
-          {isRented && !myRental && (
-            <div className="absolute top-4 left-4"><span className="badge-ink">🔒 Түрээслэгдсэн</span></div>
-          )}
-          {myRental && (
-            <div className="absolute top-4 left-4"><span className="badge-gold">✓ Таны түрээс</span></div>
-          )}
-        </div>
+      {/* ── Gallery ── */}
+      <section className="max-w-7xl mx-auto px-6 lg:px-12 mb-12">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 h-auto lg:h-[560px]">
+          {/* Main image */}
+          <button
+            onClick={() => setLightboxIdx(0)}
+            className="lg:col-span-8 relative overflow-hidden group cursor-zoom-in"
+            style={{ border: "1px solid rgba(201,168,76,0.15)" }}
+          >
+            <img
+              src={photos[0]}
+              alt={property.title}
+              className="w-full h-full object-cover transition-transform duration-[1.2s] group-hover:scale-105"
+              style={{
+                aspectRatio: "16/10",
+                filter: "brightness(0.9)",
+              }}
+              onError={(e) => (e.currentTarget.src = PLACEHOLDER)}
+            />
+            <div
+              className="absolute inset-0 pointer-events-none"
+              style={{
+                background:
+                  "linear-gradient(180deg, transparent 60%, rgba(10,10,10,0.5) 100%)",
+              }}
+            />
+            <div
+              className="absolute top-5 left-5 px-3 py-1.5 text-[10px] tracking-[0.25em] uppercase"
+              style={{
+                background: isAvailable
+                  ? "rgba(201,168,76,0.95)"
+                  : "rgba(10,10,10,0.75)",
+                color: isAvailable ? "#0A0A0A" : "rgba(255,255,255,0.7)",
+                border: isAvailable
+                  ? "none"
+                  : "1px solid rgba(255,255,255,0.2)",
+              }}
+            >
+              {isAvailable ? "Боломжтой" : "Түрээслэгдсэн"}
+            </div>
+            <div
+              className="absolute bottom-5 right-5 px-3 py-1.5 text-[10px] tracking-[0.25em] uppercase opacity-0 group-hover:opacity-100 transition-opacity"
+              style={{ background: "#C9A84C", color: "#0A0A0A" }}
+            >
+              ◇ Бүх зураг үзэх
+            </div>
+          </button>
 
-        {/* Thumbnail strip */}
-        {images.length > 1 && (
-          <div className="flex gap-2 mb-8 overflow-x-auto pb-1">
-            {images.map((img, i) => (
-              <img key={i} src={img} alt="" onClick={() => setSelectedImageIndex(i)}
-                className={`w-20 h-14 object-cover flex-shrink-0 cursor-pointer transition-all duration-200 ${selectedImageIndex === i ? "ring-2 ring-[var(--gold)]" : "opacity-70 hover:opacity-100"}`} />
-            ))}
+          {/* Thumbnails */}
+          <div className="lg:col-span-4 grid grid-cols-2 lg:grid-cols-1 gap-3">
+            {[1, 2, 3, 4].map((i) => {
+              const photo = photos[i];
+              const isLast = i === 4;
+              const remaining = photos.length - 5;
+              if (!photo) {
+                return (
+                  <div
+                    key={i}
+                    className="aspect-[4/3] lg:aspect-auto lg:h-full"
+                    style={{
+                      background: "#0F0F0F",
+                      border: "1px solid rgba(201,168,76,0.06)",
+                    }}
+                  />
+                );
+              }
+              return (
+                <button
+                  key={i}
+                  onClick={() => setLightboxIdx(i)}
+                  className="relative overflow-hidden group cursor-zoom-in aspect-[4/3] lg:aspect-auto lg:h-full"
+                  style={{ border: "1px solid rgba(201,168,76,0.15)" }}
+                >
+                  <img
+                    src={photo}
+                    alt=""
+                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                    style={{ filter: "brightness(0.85)" }}
+                    onError={(e) => (e.currentTarget.src = PLACEHOLDER)}
+                  />
+                  {isLast && remaining > 0 && (
+                    <div
+                      className="absolute inset-0 flex items-center justify-center"
+                      style={{ background: "rgba(10,10,10,0.7)" }}
+                    >
+                      <div
+                        className="text-center"
+                        style={{ fontFamily: "'Cormorant Garamond', serif" }}
+                      >
+                        <div
+                          className="text-4xl font-light"
+                          style={{ color: "#C9A84C" }}
+                        >
+                          +{remaining}
+                        </div>
+                        <div className="text-[9px] tracking-[0.3em] uppercase text-white/60 mt-1">
+                          Зураг
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </button>
+              );
+            })}
           </div>
-        )}
+        </div>
+      </section>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left content */}
-          <div className="lg:col-span-2 space-y-6">
-
-            {/* Title & price */}
-            <div className="bg-white border border-[var(--border-subtle)] p-8">
-              <h1 className="font-display text-3xl font-light text-[var(--ink)] mb-2">{property.title}</h1>
-              <p className="text-[var(--text-muted)] text-sm mb-4 flex items-center gap-1">
-                <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" d="M12 21c0 0-7-6-7-11a7 7 0 0114 0c0 5-7 11-7 11z"/><circle cx="12" cy="10" r="2"/>
-                </svg>
-                {property.location?.city}, {property.location?.district}, {property.location?.address}
-              </p>
-              <div className="h-px mb-4" style={{ background: "linear-gradient(90deg, var(--gold-light), transparent)" }} />
-              <div className="flex items-baseline gap-2">
-                <span className="font-display text-4xl font-light text-[var(--ink)]">{property.monthlyRent?.toLocaleString()}</span>
-                <span className="text-[var(--text-muted)] text-sm">₮/сар</span>
-              </div>
-              {applySuccess && (
-                <div className="mt-4 p-4 border-l-2 border-[var(--gold)] bg-amber-50">
-                  <p className="text-xs text-[var(--gold)]">✓ Таны хүсэлт амжилттай илгээгдлээ!</p>
-                </div>
-              )}
+      {/* ── Main content ── */}
+      <section className="max-w-7xl mx-auto px-6 lg:px-12 pb-20">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
+          {/* LEFT */}
+          <div className="lg:col-span-7">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="h-px w-8" style={{ background: "#C9A84C" }} />
+              <span
+                className="text-[10px] tracking-[0.3em] uppercase"
+                style={{ color: "#C9A84C" }}
+              >
+                {property.district || "Улаанбаатар"}
+              </span>
             </div>
 
-            {/* Property details */}
-            <div className="bg-white border border-[var(--border-subtle)] p-8">
-              <p className="text-xs tracking-widest uppercase text-[var(--gold)] mb-6">Байрны мэдээлэл</p>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <h1
+              className="font-light text-white leading-[1.05] mb-6"
+              style={{
+                fontFamily: "'Cormorant Garamond', serif",
+                fontSize: "clamp(36px, 4vw, 56px)",
+              }}
+            >
+              {property.title}
+            </h1>
+
+            <div className="text-sm text-white/50 mb-2 flex items-center gap-2">
+              <span style={{ color: "#C9A84C" }}>◇</span>
+              {property.address || "—"}
+            </div>
+
+            {reviews.length > 0 && (
+              <div className="flex items-center gap-3 mb-8">
+                <RatingDiamonds value={avgRating} />
+                <span className="text-xs text-white/50 tracking-wider">
+                  {avgRating.toFixed(1)} · {reviews.length} сэтгэгдэл
+                </span>
+              </div>
+            )}
+
+            {/* Owner / Admin actions */}
+            {(isOwner || isAdmin) && (
+              <div
+                className="flex gap-3 mb-8 pb-8"
+                style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}
+              >
+                {isOwner && (
+                  <Link
+                    to={`/edit-property/${id}`}
+                    className="px-5 py-2.5 text-[10px] tracking-[0.25em] uppercase transition-all duration-300"
+                    style={{
+                      border: "1px solid #C9A84C",
+                      color: "#C9A84C",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = "#C9A84C";
+                      e.currentTarget.style.color = "#0A0A0A";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = "transparent";
+                      e.currentTarget.style.color = "#C9A84C";
+                    }}
+                  >
+                    Засварлах
+                  </Link>
+                )}
+                {(isOwner || isAdmin) && (
+                  <button
+                    onClick={handleDelete}
+                    className="px-5 py-2.5 text-[10px] tracking-[0.25em] uppercase text-red-400 hover:text-red-300 transition-colors"
+                    style={{ border: "1px solid rgba(239,68,68,0.4)" }}
+                  >
+                    Устгах
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Description */}
+            <div className="mb-12">
+              <h3
+                className="text-[10px] tracking-[0.3em] uppercase mb-5"
+                style={{ color: "#C9A84C" }}
+              >
+                Тайлбар
+              </h3>
+              <p
+                className="text-white/70 leading-relaxed whitespace-pre-line"
+                style={{ fontSize: 15, lineHeight: 1.8 }}
+              >
+                {property.description || "Тайлбар оруулаагүй байна."}
+              </p>
+            </div>
+
+            {/* Specs */}
+            <div className="mb-12">
+              <h3
+                className="text-[10px] tracking-[0.3em] uppercase mb-5"
+                style={{ color: "#C9A84C" }}
+              >
+                Тодорхойлолт
+              </h3>
+              <div
+                className="grid grid-cols-2 md:grid-cols-4 gap-4"
+                style={{ border: "1px solid rgba(201,168,76,0.15)" }}
+              >
                 {[
-                  { label: "Өрөө", value: property.rooms },
-                  { label: "Талбай", value: `${property.area} м²` },
-                  { label: "Давхар", value: `${property.floorNumber || "-"}/${property.totalFloors || "-"}` },
-                  { label: "Ашиглалтад орсон он", value: property.builtYear },
-                  { label: "Тавилга", value: property.isFurnished ? "Тавилгатай" : "Тавилгагүй" },
-                  { label: "Тагт", value: property.balconyCount },
-                  { label: "Цонх", value: `${property.windowCount || "-"} • ${property.windowType || "-"}` },
-                  { label: "Шал", value: property.floorMaterial },
-                  { label: "Хаалга", value: property.doorType },
-                  { label: "Гараж", value: property.garageInfo },
-                  { label: "Гадна зогсоол", value: property.hasOutdoorParking ? "Байгаа" : "Байхгүй" },
-                  { label: "Төлбөрийн нөхцөл", value: property.paymentConditionText },
-                ].map(({ label, value }) => (
-                  <div key={label} className="border border-[var(--border-subtle)] p-4">
-                    <p className="text-xs tracking-wide text-[var(--text-soft)] mb-1">{label}</p>
-                    <p className="text-sm font-medium text-[var(--ink)]">{value || "—"}</p>
+                  { label: "Өрөө", value: property.rooms ?? "—" },
+                  { label: "Талбай", value: property.size ? `${property.size}м²` : "—" },
+                  { label: "Дүүрэг", value: property.district || "—" },
+                  {
+                    label: "Төлөв",
+                    value: isAvailable ? "Боломжтой" : "Түрээслэгдсэн",
+                  },
+                ].map((s, i) => (
+                  <div
+                    key={s.label}
+                    className="p-5"
+                    style={{
+                      borderRight:
+                        i < 3
+                          ? "1px solid rgba(201,168,76,0.08)"
+                          : "none",
+                    }}
+                  >
+                    <div className="text-[10px] tracking-[0.25em] uppercase text-white/40 mb-2">
+                      {s.label}
+                    </div>
+                    <div
+                      className="font-light"
+                      style={{
+                        fontFamily: "'Cormorant Garamond', serif",
+                        fontSize: 24,
+                        color: "#fff",
+                      }}
+                    >
+                      {s.value}
+                    </div>
                   </div>
                 ))}
               </div>
             </div>
 
-            {/* Description */}
-            {property.details && (
-              <div className="bg-white border border-[var(--border-subtle)] p-8">
-                <p className="text-xs tracking-widest uppercase text-[var(--gold)] mb-4">Дэлгэрэнгүй</p>
-                <p className="text-sm text-[var(--text-muted)] leading-7 whitespace-pre-line">{property.details}</p>
+            {/* Map */}
+            {property.latitude && property.longitude && (
+              <div className="mb-12">
+                <h3
+                  className="text-[10px] tracking-[0.3em] uppercase mb-5"
+                  style={{ color: "#C9A84C" }}
+                >
+                  Байршил
+                </h3>
+                <div
+                  style={{
+                    height: 360,
+                    border: "1px solid rgba(201,168,76,0.2)",
+                  }}
+                >
+                  <MapContainer
+                    center={[property.latitude, property.longitude]}
+                    zoom={14}
+                    style={{ height: "100%", width: "100%" }}
+                    scrollWheelZoom={false}
+                  >
+                    <TileLayer
+                      url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+                      attribution='&copy; OpenStreetMap &copy; CARTO'
+                    />
+                    <Marker
+                      position={[property.latitude, property.longitude]}
+                      icon={goldDiamondIcon}
+                    />
+                  </MapContainer>
+                </div>
               </div>
             )}
+          </div>
 
-            {/* Map */}
-            <div className="bg-white border border-[var(--border-subtle)] overflow-hidden">
-              <div className="p-6 border-b border-[var(--border-subtle)]">
-                <p className="text-xs tracking-widest uppercase text-[var(--gold)] mb-1">Байршил</p>
-                <p className="text-sm text-[var(--text-muted)]">📍 {property.location?.city}, {property.location?.district}{property.location?.address ? `, ${property.location.address}` : ""}</p>
-              </div>
-              {mapCoords && (
-                <MapContainer center={mapCoords} zoom={15} style={{ height: 280, width: "100%", zIndex: 0 }} scrollWheelZoom={false}>
-                  <TileLayer attribution='© OpenStreetMap' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                  <Marker position={mapCoords}>
-                    <Popup><strong>{property.title}</strong><br />{property.monthlyRent?.toLocaleString()}₮/сар</Popup>
-                  </Marker>
-                </MapContainer>
-              )}
-            </div>
-
-            {/* Reviews */}
-            <div className="bg-white border border-[var(--border-subtle)] p-8">
-              <div className="flex items-center justify-between mb-6">
-                <div>
-                  <p className="text-xs tracking-widest uppercase text-[var(--gold)] mb-2">Үнэлгээ</p>
-                  {reviews.length > 0 && (
-                    <div className="flex items-center gap-2">
-                      <div className="flex">{[1,2,3,4,5].map(s => <span key={s} style={{ color: s <= Math.round(avgRating) ? "var(--gold)" : "var(--border-subtle)", fontSize: 16 }}>★</span>)}</div>
-                      <span className="font-display text-xl text-[var(--ink)]">{avgRating}</span>
-                      <span className="text-xs text-[var(--text-soft)]">({reviews.length})</span>
-                    </div>
-                  )}
+          {/* RIGHT — Sticky CTA */}
+          <div className="lg:col-span-5">
+            <div className="lg:sticky lg:top-28">
+              <div
+                className="p-8"
+                style={{
+                  background: "#141414",
+                  border: "1px solid rgba(201,168,76,0.2)",
+                }}
+              >
+                <div className="text-[10px] tracking-[0.3em] uppercase text-white/40 mb-3">
+                  Сарын түрээс
                 </div>
-                {canReview && !showReviewForm && (
-                  <button onClick={() => setShowReviewForm(true)} className="btn-outline-gold text-xs" style={{ padding: "8px 16px" }}>
-                    {myReview ? "✏️ Засах" : "⭐ Үнэлгээ өгөх"}
-                  </button>
+                <div className="flex items-baseline gap-2 mb-1">
+                  <div
+                    className="font-light leading-none"
+                    style={{
+                      fontFamily: "'Cormorant Garamond', serif",
+                      color: "#C9A84C",
+                      fontSize: 56,
+                    }}
+                  >
+                    {formattedPrice}₮
+                  </div>
+                </div>
+                <div className="text-[10px] tracking-[0.25em] uppercase text-white/30 mb-8">
+                  / сар
+                </div>
+
+                <div
+                  className="space-y-3 mb-8 pb-8"
+                  style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}
+                >
+                  {[
+                    { label: "Дүүрэг", value: property.district || "—" },
+                    { label: "Өрөө", value: property.rooms ?? "—" },
+                    { label: "Талбай", value: property.size ? `${property.size}м²` : "—" },
+                  ].map((row) => (
+                    <div
+                      key={row.label}
+                      className="flex items-center justify-between"
+                    >
+                      <span className="text-[10px] tracking-[0.25em] uppercase text-white/40">
+                        {row.label}
+                      </span>
+                      <span className="text-sm text-white/80">{row.value}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* CTA */}
+                <ApplyCTA
+                  user={user}
+                  isOwner={isOwner}
+                  isTenant={isTenant}
+                  isAvailable={isAvailable}
+                  myApplication={myApplication}
+                  onApply={() => {
+                    setApplyError("");
+                    setApplyOpen(true);
+                  }}
+                />
+
+                {property.owner?.name && (
+                  <div
+                    className="mt-8 pt-6 flex items-center gap-4"
+                    style={{
+                      borderTop: "1px solid rgba(255,255,255,0.08)",
+                    }}
+                  >
+                    <div
+                      className="w-10 h-10 flex items-center justify-center"
+                      style={{
+                        background: "rgba(201,168,76,0.12)",
+                        color: "#C9A84C",
+                        fontFamily: "'Cormorant Garamond', serif",
+                        fontSize: 18,
+                      }}
+                    >
+                      {property.owner.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                      <div className="text-[10px] tracking-[0.25em] uppercase text-white/40">
+                        Эзэмшигч
+                      </div>
+                      <div className="text-sm text-white/80">
+                        {property.owner.name}
+                      </div>
+                    </div>
+                  </div>
                 )}
               </div>
-
-              {showReviewForm && (
-                <form onSubmit={handleSubmitReview} className="border border-[var(--border-subtle)] p-5 mb-6">
-                  <div className="flex gap-1 mb-4">
-                    {[1,2,3,4,5].map(s => (
-                      <button key={s} type="button" onClick={() => setReviewRating(s)}
-                        style={{ fontSize: 28, color: s <= reviewRating ? "var(--gold)" : "var(--border-subtle)", transition: "color 0.2s" }}>★</button>
-                    ))}
-                  </div>
-                  <textarea rows={3} placeholder="Сэтгэгдэл бичих..." value={reviewComment} onChange={e => setReviewComment(e.target.value)}
-                    className="luxury-input resize-none mb-4" />
-                  <div className="flex gap-3">
-                    <button type="button" onClick={() => setShowReviewForm(false)} className="btn-ghost text-sm">Болих</button>
-                    <button type="submit" disabled={submittingReview} className="btn-gold text-xs" style={{ padding: "10px 24px" }}>
-                      {submittingReview ? "Хадгалж байна..." : "Хадгалах"}
-                    </button>
-                  </div>
-                </form>
-              )}
-
-              {reviews.length === 0 ? (
-                <div className="text-center py-8">
-                  <p className="text-[var(--text-soft)] text-sm">Үнэлгээ байхгүй байна</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {reviews.map(review => {
-                    const isMyReview = review.tenant?._id === currentUserId || review.tenant?._id?.toString() === currentUserId;
-                    return (
-                      <div key={review._id} className={`border p-5 ${isMyReview ? "border-[var(--gold)]" : "border-[var(--border-subtle)]"}`}>
-                        <div className="flex items-start justify-between mb-2">
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 bg-[var(--gold)] flex items-center justify-center text-[var(--ink)] text-xs font-medium">
-                              {review.tenant?.firstName?.[0]?.toUpperCase()}
-                            </div>
-                            <div>
-                              <p className="text-sm font-medium text-[var(--ink)]">{review.tenant?.firstName} {review.tenant?.lastName} {isMyReview && <span className="text-xs text-[var(--gold)]">(Та)</span>}</p>
-                              <div className="flex">{[1,2,3,4,5].map(s => <span key={s} style={{ color: s <= review.rating ? "var(--gold)" : "var(--border-subtle)", fontSize: 12 }}>★</span>)}</div>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <span className="text-xs text-[var(--text-soft)]">{new Date(review.createdAt).toLocaleDateString("mn-MN")}</span>
-                            {isMyReview && <button onClick={() => handleDeleteReview(review._id)} className="text-xs text-red-400 hover:text-red-600">Устгах</button>}
-                          </div>
-                        </div>
-                        {review.comment && <p className="text-sm text-[var(--text-muted)] leading-relaxed">{review.comment}</p>}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Right sidebar */}
-          <div className="space-y-4">
-            {/* Contact */}
-            <div className="bg-white border border-[var(--border-subtle)] p-6">
-              <p className="text-xs tracking-widest uppercase text-[var(--gold)] mb-4">Холбоо барих</p>
-              <div className="space-y-3 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-[var(--text-soft)]">Нэр</span>
-                  <span className="font-medium text-[var(--ink)]">{property.contactName || property.owner?.firstName}</span>
-                </div>
-                <div className="h-px" style={{ background: "var(--border-subtle)" }} />
-                <div className="flex justify-between">
-                  <span className="text-[var(--text-soft)]">Утас</span>
-                  <a href={`tel:${property.contactPhone}`} className="font-medium" style={{ color: "var(--gold)" }}>
-                    {property.contactPhone || property.owner?.phone}
-                  </a>
-                </div>
-                <div className="h-px" style={{ background: "var(--border-subtle)" }} />
-                <div className="flex justify-between">
-                  <span className="text-[var(--text-soft)]">Имэйл</span>
-                  <span className="font-medium text-[var(--ink)] text-xs">{property.contactEmail || property.owner?.email}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Action */}
-            {renderSidebarAction()}
-
-            {/* Payment info */}
-            <div className="bg-white border border-[var(--border-subtle)] p-6">
-              <p className="text-xs tracking-widest uppercase text-[var(--gold)] mb-4">Төлбөрийн нөхцөл</p>
-              <div className="space-y-3 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-[var(--text-soft)]">Барьцаа мөнгө</span>
-                  <span className="font-medium text-[var(--ink)]">{property.depositAmount ? `${property.depositAmount.toLocaleString()}₮` : "—"}</span>
-                </div>
-                <div className="h-px" style={{ background: "var(--border-subtle)" }} />
-                <div className="flex justify-between">
-                  <span className="text-[var(--text-soft)]">Хамгийн бага хугацаа</span>
-                  <span className="font-medium text-[var(--ink)]">{property.minLeaseMonths || 6} сар</span>
-                </div>
-              </div>
             </div>
           </div>
         </div>
+
+        {/* ── Reviews ── */}
+        <div
+          className="mt-20 pt-12"
+          style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}
+        >
+          <div className="flex items-end justify-between mb-10">
+            <div>
+              <div className="flex items-center gap-3 mb-3">
+                <div className="h-px w-8" style={{ background: "#C9A84C" }} />
+                <span
+                  className="text-[10px] tracking-[0.3em] uppercase"
+                  style={{ color: "#C9A84C" }}
+                >
+                  Сэтгэгдэл
+                </span>
+              </div>
+              <h2
+                className="font-light text-white"
+                style={{
+                  fontFamily: "'Cormorant Garamond', serif",
+                  fontSize: 44,
+                }}
+              >
+                Туршлага<br />
+                <em style={{ color: "#C9A84C", fontStyle: "italic" }}>
+                  түрээслэгчдээс
+                </em>
+              </h2>
+            </div>
+            {reviews.length > 0 && (
+              <div className="text-right">
+                <div
+                  className="font-light"
+                  style={{
+                    fontFamily: "'Cormorant Garamond', serif",
+                    fontSize: 48,
+                    color: "#C9A84C",
+                  }}
+                >
+                  {avgRating.toFixed(1)}
+                </div>
+                <RatingDiamonds value={avgRating} />
+                <div className="text-[10px] tracking-[0.25em] uppercase text-white/40 mt-2">
+                  {reviews.length} сэтгэгдэл
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Review form */}
+          {reviewEligible && !alreadyReviewed && (
+            <form
+              onSubmit={handleReviewSubmit}
+              className="p-8 mb-10"
+              style={{
+                background: "#141414",
+                border: "1px solid rgba(201,168,76,0.2)",
+              }}
+            >
+              <h3
+                className="text-[10px] tracking-[0.3em] uppercase mb-6"
+                style={{ color: "#C9A84C" }}
+              >
+                Сэтгэгдэл бичих
+              </h3>
+
+              {reviewError && (
+                <div
+                  className="mb-5 p-3 text-xs text-red-300"
+                  style={{
+                    background: "rgba(239,68,68,0.08)",
+                    borderLeft: "2px solid #EF4444",
+                  }}
+                >
+                  {reviewError}
+                </div>
+              )}
+              {reviewSuccess && (
+                <div
+                  className="mb-5 p-3 text-xs text-emerald-300"
+                  style={{
+                    background: "rgba(16,185,129,0.08)",
+                    borderLeft: "2px solid #10B981",
+                  }}
+                >
+                  {reviewSuccess}
+                </div>
+              )}
+
+              <div className="mb-6">
+                <label className="block text-[10px] tracking-[0.25em] uppercase text-white/40 mb-3">
+                  Үнэлгээ
+                </label>
+                <RatingInput
+                  value={reviewRating}
+                  onChange={setReviewRating}
+                />
+              </div>
+
+              <div className="mb-6">
+                <label className="block text-[10px] tracking-[0.25em] uppercase text-white/40 mb-3">
+                  Сэтгэгдэл
+                </label>
+                <textarea
+                  value={reviewComment}
+                  onChange={(e) => setReviewComment(e.target.value)}
+                  placeholder="Энэ байрны талаар та юу хэлэх вэ?"
+                  rows={4}
+                  className="w-full bg-transparent text-white text-sm py-3 px-4 outline-none resize-none transition-colors"
+                  style={{
+                    border: "1px solid rgba(255,255,255,0.15)",
+                  }}
+                  onFocus={(e) => (e.target.style.borderColor = "#C9A84C")}
+                  onBlur={(e) =>
+                    (e.target.style.borderColor = "rgba(255,255,255,0.15)")
+                  }
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={reviewSubmitting}
+                className="px-8 py-3 text-[10px] tracking-[0.25em] uppercase transition-all duration-300 disabled:opacity-50"
+                style={{ background: "#C9A84C", color: "#0A0A0A" }}
+                onMouseEnter={(e) =>
+                  !reviewSubmitting &&
+                  (e.currentTarget.style.background = "#E8D49E")
+                }
+                onMouseLeave={(e) =>
+                  !reviewSubmitting &&
+                  (e.currentTarget.style.background = "#C9A84C")
+                }
+              >
+                {reviewSubmitting ? "Илгээж байна..." : "Илгээх →"}
+              </button>
+            </form>
+          )}
+
+          {/* Review list */}
+          {reviews.length === 0 ? (
+            <div
+              className="py-16 text-center"
+              style={{ border: "1px solid rgba(201,168,76,0.1)" }}
+            >
+              <div
+                className="w-12 h-12 mx-auto mb-5 flex items-center justify-center"
+                style={{ border: "1px solid rgba(201,168,76,0.4)" }}
+              >
+                <div
+                  style={{
+                    width: 16,
+                    height: 16,
+                    background: "rgba(201,168,76,0.4)",
+                    transform: "rotate(45deg)",
+                  }}
+                />
+              </div>
+              <p
+                className="font-light text-white/60"
+                style={{
+                  fontFamily: "'Cormorant Garamond', serif",
+                  fontSize: 22,
+                }}
+              >
+                Одоогоор сэтгэгдэл байхгүй
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {reviews.map((r) => (
+                <ReviewItem key={r._id} review={r} />
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* ── Lightbox ── */}
+      {lightboxIdx !== null && (
+        <Lightbox
+          photos={photos}
+          index={lightboxIdx}
+          onChange={setLightboxIdx}
+          onClose={() => setLightboxIdx(null)}
+        />
+      )}
+
+      {/* ── Apply modal ── */}
+      {applyOpen && (
+        <ApplyModal
+          onClose={() => setApplyOpen(false)}
+          message={applyMessage}
+          setMessage={setApplyMessage}
+          submitting={applying}
+          error={applyError}
+          onSubmit={handleApply}
+          propertyTitle={property.title}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── Apply CTA logic ──
+function ApplyCTA({ user, isOwner, isTenant, isAvailable, myApplication, onApply }) {
+  if (!user) {
+    return (
+      <Link
+        to="/login"
+        className="block w-full py-4 text-center text-xs font-medium tracking-[0.25em] uppercase transition-all duration-300"
+        style={{ background: "#C9A84C", color: "#0A0A0A" }}
+        onMouseEnter={(e) => (e.currentTarget.style.background = "#E8D49E")}
+        onMouseLeave={(e) => (e.currentTarget.style.background = "#C9A84C")}
+      >
+        Нэвтрэн өргөдөл гаргах →
+      </Link>
+    );
+  }
+
+  if (isOwner) {
+    return (
+      <div
+        className="p-4 text-center text-xs text-white/50"
+        style={{ background: "rgba(201,168,76,0.05)", border: "1px dashed rgba(201,168,76,0.3)" }}
+      >
+        Энэ нь таны байр
+      </div>
+    );
+  }
+
+  if (!isTenant) {
+    return (
+      <div
+        className="p-4 text-center text-xs text-white/50"
+        style={{ background: "rgba(201,168,76,0.05)", border: "1px dashed rgba(201,168,76,0.3)" }}
+      >
+        Зөвхөн түрээслэгч өргөдөл гаргах боломжтой
+      </div>
+    );
+  }
+
+  if (myApplication) {
+    const statusMap = {
+      pending: { label: "Хүлээгдэж буй", color: "#F59E0B" },
+      approved: { label: "Зөвшөөрсөн", color: "#10B981" },
+      rejected: { label: "Татгалзсан", color: "#EF4444" },
+      cancelled: { label: "Цуцалсан", color: "#888" },
+    };
+    const s = statusMap[myApplication.status] || statusMap.pending;
+    return (
+      <div className="space-y-3">
+        <div
+          className="p-4 text-center"
+          style={{
+            background: "rgba(201,168,76,0.06)",
+            borderLeft: `2px solid ${s.color}`,
+          }}
+        >
+          <div className="text-[10px] tracking-[0.25em] uppercase text-white/40 mb-1">
+            Таны өргөдөл
+          </div>
+          <div
+            className="text-sm tracking-wider"
+            style={{ color: s.color }}
+          >
+            {s.label}
+          </div>
+        </div>
+        <Link
+          to="/my-applications"
+          className="block w-full py-3 text-center text-[10px] tracking-[0.25em] uppercase transition-colors"
+          style={{
+            border: "1px solid #C9A84C",
+            color: "#C9A84C",
+          }}
+        >
+          Дэлгэрэнгүй үзэх →
+        </Link>
+      </div>
+    );
+  }
+
+  if (!isAvailable) {
+    return (
+      <div
+        className="p-4 text-center text-xs text-white/50"
+        style={{
+          background: "rgba(255,255,255,0.03)",
+          border: "1px solid rgba(255,255,255,0.08)",
+        }}
+      >
+        Байр түрээслэгдсэн
+      </div>
+    );
+  }
+
+  return (
+    <button
+      onClick={onApply}
+      className="w-full py-4 text-xs font-medium tracking-[0.25em] uppercase transition-all duration-300 group flex items-center justify-center gap-3"
+      style={{ background: "#C9A84C", color: "#0A0A0A" }}
+      onMouseEnter={(e) => (e.currentTarget.style.background = "#E8D49E")}
+      onMouseLeave={(e) => (e.currentTarget.style.background = "#C9A84C")}
+    >
+      Өргөдөл гаргах
+      <span className="transition-transform duration-300 group-hover:translate-x-1">
+        →
+      </span>
+    </button>
+  );
+}
+
+// ── Rating diamonds (display) ──
+function RatingDiamonds({ value }) {
+  return (
+    <div className="flex gap-1">
+      {[1, 2, 3, 4, 5].map((i) => (
+        <div
+          key={i}
+          style={{
+            width: 10,
+            height: 10,
+            background: i <= Math.round(value) ? "#C9A84C" : "transparent",
+            border: "1px solid #C9A84C",
+            transform: "rotate(45deg)",
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+// ── Rating input (clickable) ──
+function RatingInput({ value, onChange }) {
+  const [hover, setHover] = useState(0);
+  return (
+    <div className="flex gap-2">
+      {[1, 2, 3, 4, 5].map((i) => (
+        <button
+          key={i}
+          type="button"
+          onClick={() => onChange(i)}
+          onMouseEnter={() => setHover(i)}
+          onMouseLeave={() => setHover(0)}
+          className="transition-transform hover:scale-110"
+        >
+          <div
+            style={{
+              width: 22,
+              height: 22,
+              background:
+                i <= (hover || value) ? "#C9A84C" : "transparent",
+              border: "1px solid #C9A84C",
+              transform: "rotate(45deg)",
+            }}
+          />
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// ── Review item ──
+function ReviewItem({ review }) {
+  const tenantName = review.tenant?.name || "Хэрэглэгч";
+  const date = review.createdAt
+    ? new Date(review.createdAt).toLocaleDateString("mn-MN", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      })
+    : "";
+
+  return (
+    <div
+      className="p-6"
+      style={{
+        background: "#141414",
+        border: "1px solid rgba(201,168,76,0.1)",
+      }}
+    >
+      <div className="flex items-start justify-between mb-4">
+        <div className="flex items-center gap-4">
+          <div
+            className="w-10 h-10 flex items-center justify-center"
+            style={{
+              background: "rgba(201,168,76,0.12)",
+              color: "#C9A84C",
+              fontFamily: "'Cormorant Garamond', serif",
+              fontSize: 18,
+            }}
+          >
+            {tenantName.charAt(0).toUpperCase()}
+          </div>
+          <div>
+            <div className="text-sm text-white/80">{tenantName}</div>
+            <div className="text-[10px] tracking-[0.2em] uppercase text-white/40 mt-1">
+              {date}
+            </div>
+          </div>
+        </div>
+        <RatingDiamonds value={review.rating || 0} />
+      </div>
+      <p
+        className="text-white/65 leading-relaxed text-sm whitespace-pre-line"
+        style={{ lineHeight: 1.7 }}
+      >
+        {review.comment}
+      </p>
+    </div>
+  );
+}
+
+// ── Lightbox ──
+function Lightbox({ photos, index, onChange, onClose }) {
+  const goPrev = useCallback(
+    (e) => {
+      e?.stopPropagation();
+      onChange(Math.max(index - 1, 0));
+    },
+    [index, onChange]
+  );
+  const goNext = useCallback(
+    (e) => {
+      e?.stopPropagation();
+      onChange(Math.min(index + 1, photos.length - 1));
+    },
+    [index, onChange, photos.length]
+  );
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-6 animate-fadeIn"
+      style={{ background: "rgba(5,5,5,0.95)", backdropFilter: "blur(8px)" }}
+      onClick={onClose}
+    >
+      {/* Close */}
+      <button
+        onClick={onClose}
+        className="absolute top-6 right-6 w-12 h-12 flex items-center justify-center text-white/60 hover:text-white transition-colors text-2xl"
+        style={{ border: "1px solid rgba(255,255,255,0.15)" }}
+        aria-label="Close"
+      >
+        ✕
+      </button>
+
+      {/* Counter */}
+      <div
+        className="absolute top-8 left-1/2 -translate-x-1/2 text-[10px] tracking-[0.3em] uppercase text-white/50"
+      >
+        <span style={{ color: "#C9A84C" }}>{index + 1}</span> / {photos.length}
       </div>
 
-      {/* Apply modal */}
-      {showApplyModal && (
-        <div className="fixed inset-0 bg-black/60 flex items-end md:items-center justify-center z-50 p-0 md:p-4"
-          onClick={e => { if (e.target === e.currentTarget) setShowApplyModal(false); }}>
-          <div className="bg-white w-full md:max-w-md p-8">
-            <div className="flex justify-between items-center mb-6">
-              <div>
-                <p className="text-xs tracking-widest uppercase text-[var(--gold)] mb-1">Хүсэлт</p>
-                <h2 className="font-display text-2xl font-light text-[var(--ink)]">Түрээслэх хүсэлт</h2>
-              </div>
-              <button onClick={() => setShowApplyModal(false)} className="text-[var(--text-soft)] hover:text-[var(--ink)] text-2xl">×</button>
-            </div>
-            <form onSubmit={handleApply} className="space-y-4">
-              <div>
-                <label className="block text-xs tracking-widest uppercase text-[var(--text-muted)] mb-2">Эхлэх огноо</label>
-                <input type="date" required min={new Date().toISOString().split("T")[0]} className="luxury-input"
-                  value={applyForm.startDate} onChange={e => setApplyForm(p => ({ ...p, startDate: e.target.value }))} />
-              </div>
-              <div>
-                <label className="block text-xs tracking-widest uppercase text-[var(--text-muted)] mb-2">Хугацаа</label>
-                <select className="luxury-select" value={applyForm.leaseMonths} onChange={e => setApplyForm(p => ({ ...p, leaseMonths: e.target.value }))}>
-                  {[3,6,9,12,18,24].map(m => <option key={m} value={m}>{m} сар</option>)}
-                </select>
-              </div>
-              {applyForm.leaseMonths && (
-                <div className="border-l-2 border-[var(--gold)] pl-4 py-2">
-                  <span className="text-xs text-[var(--text-muted)]">Нийт дүн: </span>
-                  <span className="font-display text-lg text-[var(--ink)]">{estimatedTotal.toLocaleString()}₮</span>
-                </div>
-              )}
-              <div>
-                <label className="block text-xs tracking-widest uppercase text-[var(--text-muted)] mb-2">Мессеж</label>
-                <textarea rows={3} placeholder="Өөрийгөө танилцуулах..." className="luxury-input resize-none"
-                  value={applyForm.message} onChange={e => setApplyForm(p => ({ ...p, message: e.target.value }))} />
-              </div>
-              <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => setShowApplyModal(false)} className="btn-ghost flex-1">Болих</button>
-                <button type="submit" disabled={applying} className="btn-gold flex-1 justify-center" style={{ padding: "14px 0" }}>
-                  {applying ? "Илгээж байна..." : "Илгээх"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+      {/* Prev */}
+      {index > 0 && (
+        <button
+          onClick={goPrev}
+          className="absolute left-6 w-14 h-14 flex items-center justify-center text-white/60 hover:text-white transition-colors text-2xl"
+          style={{ border: "1px solid rgba(255,255,255,0.15)" }}
+          aria-label="Previous"
+        >
+          ←
+        </button>
       )}
 
-      {/* Lightbox */}
-      {selectedImageIndex !== null && (
-        <div className="fixed inset-0 bg-black/95 z-50 flex items-center justify-center">
-          <button onClick={() => setSelectedImageIndex(null)} className="absolute top-4 right-4 text-white text-4xl">×</button>
-          <button onClick={() => setSelectedImageIndex(selectedImageIndex === 0 ? images.length - 1 : selectedImageIndex - 1)}
-            className="absolute left-4 text-white text-5xl">‹</button>
-          <img src={images[selectedImageIndex]} alt="" className="max-w-[90%] max-h-[90%] object-contain" />
-          <button onClick={() => setSelectedImageIndex(selectedImageIndex === images.length - 1 ? 0 : selectedImageIndex + 1)}
-            className="absolute right-4 text-white text-5xl">›</button>
-          <div className="absolute bottom-4 text-white/60 text-sm">{selectedImageIndex + 1} / {images.length}</div>
-        </div>
+      {/* Image */}
+      <img
+        src={photos[index]}
+        alt=""
+        className="max-w-[90vw] max-h-[85vh] object-contain"
+        style={{ boxShadow: "0 12px 60px rgba(201,168,76,0.15)" }}
+        onClick={(e) => e.stopPropagation()}
+      />
+
+      {/* Next */}
+      {index < photos.length - 1 && (
+        <button
+          onClick={goNext}
+          className="absolute right-6 w-14 h-14 flex items-center justify-center text-white/60 hover:text-white transition-colors text-2xl"
+          style={{ border: "1px solid rgba(255,255,255,0.15)" }}
+          aria-label="Next"
+        >
+          →
+        </button>
       )}
+    </div>
+  );
+}
+
+// ── Apply modal ──
+function ApplyModal({ onClose, message, setMessage, submitting, error, onSubmit, propertyTitle }) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-6 animate-fadeIn"
+      style={{ background: "rgba(5,5,5,0.9)", backdropFilter: "blur(8px)" }}
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-lg relative animate-fadeUp"
+        style={{
+          background: "#141414",
+          border: "1px solid rgba(201,168,76,0.3)",
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 w-9 h-9 flex items-center justify-center text-white/60 hover:text-white transition-colors"
+          aria-label="Close"
+        >
+          ✕
+        </button>
+
+        <div className="p-10">
+          <div className="flex items-center gap-3 mb-5">
+            <div className="h-px w-8" style={{ background: "#C9A84C" }} />
+            <span
+              className="text-[10px] tracking-[0.3em] uppercase"
+              style={{ color: "#C9A84C" }}
+            >
+              Application
+            </span>
+          </div>
+          <h2
+            className="font-light text-white mb-3 leading-tight"
+            style={{
+              fontFamily: "'Cormorant Garamond', serif",
+              fontSize: 36,
+            }}
+          >
+            Өргөдөл<br />
+            <em style={{ color: "#C9A84C", fontStyle: "italic" }}>гаргах</em>
+          </h2>
+          <p className="text-sm text-white/50 mb-8">
+            "{propertyTitle}" байранд түрээслэх хүсэлт илгээх
+          </p>
+
+          {error && (
+            <div
+              className="mb-6 p-3 text-xs text-red-300"
+              style={{
+                background: "rgba(239,68,68,0.08)",
+                borderLeft: "2px solid #EF4444",
+              }}
+            >
+              {error}
+            </div>
+          )}
+
+          <form onSubmit={onSubmit}>
+            <div className="mb-6">
+              <label className="block text-[10px] tracking-[0.25em] uppercase text-white/40 mb-3">
+                Захидал (заавал биш)
+              </label>
+              <textarea
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                placeholder="Өөрийгөө танилцуулж, түрээслэх шалтгаанаа бичээрэй..."
+                rows={5}
+                className="w-full bg-transparent text-white text-sm py-3 px-4 outline-none resize-none transition-colors"
+                style={{ border: "1px solid rgba(255,255,255,0.15)" }}
+                onFocus={(e) => (e.target.style.borderColor = "#C9A84C")}
+                onBlur={(e) =>
+                  (e.target.style.borderColor = "rgba(255,255,255,0.15)")
+                }
+              />
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex-1 py-3 text-[10px] tracking-[0.25em] uppercase text-white/60 hover:text-white transition-colors"
+                style={{ border: "1px solid rgba(255,255,255,0.12)" }}
+              >
+                Болих
+              </button>
+              <button
+                type="submit"
+                disabled={submitting}
+                className="flex-1 py-3 text-[10px] tracking-[0.25em] uppercase transition-all duration-300 disabled:opacity-50"
+                style={{ background: "#C9A84C", color: "#0A0A0A" }}
+                onMouseEnter={(e) =>
+                  !submitting &&
+                  (e.currentTarget.style.background = "#E8D49E")
+                }
+                onMouseLeave={(e) =>
+                  !submitting &&
+                  (e.currentTarget.style.background = "#C9A84C")
+                }
+              >
+                {submitting ? "Илгээж байна..." : "Илгээх →"}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Loading ──
+function LoadingState() {
+  return (
+    <div
+      className="min-h-screen pt-20 flex items-center justify-center"
+      style={{ background: "#0A0A0A" }}
+    >
+      <div className="text-center">
+        <div
+          className="w-12 h-12 mx-auto mb-6 animate-spin"
+          style={{
+            border: "2px solid rgba(201,168,76,0.2)",
+            borderTopColor: "#C9A84C",
+            borderRadius: "50%",
+          }}
+        />
+        <p className="text-[10px] tracking-[0.3em] uppercase text-white/40">
+          Уншиж байна
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ── Not found ──
+function NotFoundState() {
+  return (
+    <div
+      className="min-h-screen pt-20 flex items-center justify-center px-6"
+      style={{ background: "#0A0A0A" }}
+    >
+      <div className="text-center max-w-md">
+        <div
+          className="w-16 h-16 mx-auto mb-8 flex items-center justify-center"
+          style={{ border: "1px solid #C9A84C" }}
+        >
+          <div
+            style={{
+              width: 24,
+              height: 24,
+              background: "#C9A84C",
+              transform: "rotate(45deg)",
+            }}
+          />
+        </div>
+        <h2
+          className="font-light text-white mb-4"
+          style={{
+            fontFamily: "'Cormorant Garamond', serif",
+            fontSize: 40,
+          }}
+        >
+          Байр<br />
+          <em style={{ color: "#C9A84C", fontStyle: "italic" }}>олдсонгүй</em>
+        </h2>
+        <p className="text-sm text-white/50 mb-8">
+          Энэ хаягт хамаарах байр байхгүй эсвэл устгагдсан байна.
+        </p>
+        <Link
+          to="/home"
+          className="inline-block px-8 py-3 text-[10px] tracking-[0.3em] uppercase transition-all duration-300"
+          style={{ background: "#C9A84C", color: "#0A0A0A" }}
+          onMouseEnter={(e) => (e.currentTarget.style.background = "#E8D49E")}
+          onMouseLeave={(e) => (e.currentTarget.style.background = "#C9A84C")}
+        >
+          Эхлэл рүү буцах →
+        </Link>
+      </div>
     </div>
   );
 }

@@ -1,90 +1,224 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
 import api from "../api/axiosInstance";
+import { useNavigate, Link } from "react-router-dom";
 
 function ForgotPassword() {
-  const [email, setEmail]     = useState("");
+  const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
-  const [error, setError]     = useState("");
+  const [error, setError] = useState("");
+  const [sent, setSent] = useState(false);
+  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
-    e.preventDefault(); setLoading(true); setError("");
+    e.preventDefault();
+    setLoading(true);
+    setError("");
     try {
-      await api.post("/api/auth/forgot-password", { email });
-      setSuccess(true);
-    } catch (err) { setError(err.response?.data?.message || "Алдаа гарлаа. Дахин оролдоно уу."); }
-    finally { setLoading(false); }
+      await api.post("/api/password-reset/request", { email });
+      setSent(true);
+      setTimeout(() => {
+        navigate("/reset-password", { state: { email } });
+      }, 1200);
+    } catch (err) {
+      setError(
+        err.response?.data?.message ||
+          "Хүсэлт илгээж чадсангүй. Имэйлээ шалгана уу."
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "var(--black)", padding: "48px 24px" }}>
+    <div
+      className="min-h-screen flex items-center justify-center p-6 relative"
+      style={{ background: "#0A0A0A", fontFamily: "'DM Sans', sans-serif" }}
+    >
+      <div
+        className="absolute inset-0 opacity-[0.04] pointer-events-none"
+        style={{
+          backgroundImage:
+            "radial-gradient(circle, #C9A84C 1px, transparent 1px)",
+          backgroundSize: "30px 30px",
+        }}
+      />
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          backgroundImage:
+            "linear-gradient(rgba(201,168,76,0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(201,168,76,0.025) 1px, transparent 1px)",
+          backgroundSize: "100px 100px",
+        }}
+      />
 
-      <div style={{ position: "fixed", top: 24, left: 24 }}>
-        <Link to="/login" className="btn-ghost" style={{ padding: "8px 12px", textDecoration: "none" }}>← Буцах</Link>
-      </div>
-
-      <Link to="/" style={{ textDecoration: "none", marginBottom: 48 }}>
-        <span className="font-display" style={{ fontSize: 24, fontWeight: 300, color: "var(--white)" }}>
-          Rental<span style={{ color: "var(--gold)" }}>Sy</span>
-        </span>
-      </Link>
-
-      <div style={{ width: "100%", maxWidth: 400, background: "var(--dark)", border: "1px solid var(--border-dim)", borderTop: "1px solid var(--gold)", padding: 48 }} className="animate-fadeUp">
-        {success ? (
-          <div style={{ textAlign: "center" }}>
-            <div style={{ width: 56, height: 56, border: "1px solid var(--gold)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 24px" }}>
-              <svg width="22" height="22" fill="none" stroke="var(--gold)" strokeWidth="1.5" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-              </svg>
-            </div>
-            <div className="flex items-center justify-center gap-3 mb-4">
-              <div style={{ width: 20, height: 1, background: "var(--gold)" }} />
-              <span style={{ fontFamily: "'Montserrat'", fontSize: 9, letterSpacing: "0.25em", textTransform: "uppercase", color: "var(--gold)" }}>Амжилттай</span>
-              <div style={{ width: 20, height: 1, background: "var(--gold)" }} />
-            </div>
-            <h2 className="font-display" style={{ fontSize: 32, fontWeight: 300, color: "var(--white)", marginBottom: 14 }}>Имэйл илгээгдлээ</h2>
-            <p style={{ fontFamily: "'Montserrat'", fontSize: 12, fontWeight: 300, lineHeight: 1.8, color: "var(--text-muted)", marginBottom: 8 }}>
-              Нууц үг сэргээх холбоос <span style={{ color: "var(--white)" }}>{email}</span> рүү илгээгдлээ.
-            </p>
-            <p style={{ fontFamily: "'Montserrat'", fontSize: 10, color: "var(--text-soft)", marginBottom: 28 }}>⏰ Холбоос 1 цагийн дотор хүчинтэй</p>
-            <Link to="/login" className="btn-gold justify-center w-full" style={{ padding: "14px 0" }}>
-              Нэвтрэх хуудас руу буцах
-            </Link>
+      <div className="w-full max-w-md relative animate-fadeUp">
+        {/* Logo */}
+        <Link
+          to="/"
+          className="flex items-center justify-center gap-3 mb-14 group"
+        >
+          <div className="relative w-8 h-8">
+            <div className="absolute inset-0 border border-[#C9A84C] rotate-45 transition-transform duration-500 group-hover:rotate-[55deg]" />
+            <div className="absolute inset-1.5 bg-[#C9A84C] rotate-45" />
           </div>
-        ) : (
-          <>
-            <div className="flex items-center gap-3 mb-4">
-              <div style={{ width: 20, height: 1, background: "var(--gold)" }} />
-              <span style={{ fontFamily: "'Montserrat'", fontSize: 9, letterSpacing: "0.25em", textTransform: "uppercase", color: "var(--gold)" }}>Нууц үг сэргээх</span>
-            </div>
-            <h1 className="font-display" style={{ fontSize: 36, fontWeight: 300, color: "var(--white)", marginBottom: 10 }}>Нууц үг мартсан уу?</h1>
-            <p style={{ fontFamily: "'Montserrat'", fontSize: 12, fontWeight: 300, color: "var(--text-muted)", marginBottom: 28, lineHeight: 1.7 }}>
-              Бүртгэлтэй имэйл хаягаа оруулахад сэргээх холбоос илгээнэ
-            </p>
+          <span
+            className="text-xl font-light tracking-[0.2em] text-white"
+            style={{ fontFamily: "'Cormorant Garamond', serif" }}
+          >
+            RENTAL<span style={{ color: "#C9A84C" }}>SY</span>
+          </span>
+        </Link>
 
-            {error && (
-              <div style={{ marginBottom: 20, padding: "10px 14px", borderLeft: "2px solid #EF4444", background: "rgba(239,68,68,0.06)" }}>
-                <p style={{ fontFamily: "'Montserrat'", fontSize: 11, color: "#EF4444" }}>{error}</p>
-              </div>
-            )}
+        {/* Header */}
+        <div className="text-center mb-12">
+          <div className="flex items-center justify-center gap-3 mb-6">
+            <div className="h-px w-8" style={{ background: "#C9A84C" }} />
+            <span
+              className="text-[10px] tracking-[0.3em] uppercase"
+              style={{ color: "#C9A84C" }}
+            >
+              Password Recovery
+            </span>
+            <div className="h-px w-8" style={{ background: "#C9A84C" }} />
+          </div>
+          <h2
+            className="font-light text-white leading-tight mb-6"
+            style={{
+              fontFamily: "'Cormorant Garamond', serif",
+              fontSize: 48,
+            }}
+          >
+            Нууц үгээ<br />
+            <em style={{ color: "#C9A84C", fontStyle: "italic" }}>
+              мартсан уу
+            </em>
+            ?
+          </h2>
+          <p className="text-sm text-white/50 leading-relaxed max-w-xs mx-auto">
+            Бүртгэлтэй имэйл хаягаа оруулна уу. Бид сэргээх кодыг таны
+            имэйл рүү илгээх болно.
+          </p>
+        </div>
 
-            <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-              <div>
-                <label className="input-label">Имэйл хаяг</label>
-                <input type="email" placeholder="example@gmail.com" value={email} onChange={(e) => setEmail(e.target.value)} className="luxury-input" required />
-              </div>
-              <button type="submit" disabled={loading} className="btn-gold justify-center" style={{ padding: "14px 0", opacity: loading ? 0.7 : 1 }}>
-                {loading ? "Илгээж байна..." : "Сэргээх холбоос илгээх"}
-              </button>
-            </form>
-
-            <p style={{ textAlign: "center", fontFamily: "'Montserrat'", fontSize: 12, fontWeight: 300, color: "var(--text-muted)", marginTop: 24 }}>
-              Нууц үгээ санасан уу?{" "}
-              <Link to="/login" style={{ color: "var(--gold)", textDecoration: "none", fontWeight: 400 }}>Нэвтрэх</Link>
-            </p>
-          </>
+        {error && (
+          <div
+            className="mb-6 p-4 flex items-start gap-3"
+            style={{
+              background: "rgba(239,68,68,0.08)",
+              borderLeft: "2px solid #EF4444",
+            }}
+          >
+            <span style={{ color: "#EF4444" }}>✕</span>
+            <p className="text-xs text-red-300">{error}</p>
+          </div>
         )}
+        {sent && (
+          <div
+            className="mb-6 p-4 flex items-start gap-3"
+            style={{
+              background: "rgba(16,185,129,0.08)",
+              borderLeft: "2px solid #10B981",
+            }}
+          >
+            <span style={{ color: "#10B981" }}>✓</span>
+            <p className="text-xs text-emerald-300">
+              Сэргээх код таны имэйл рүү илгээгдлээ
+            </p>
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-8">
+          <div>
+            <label className="block text-[10px] tracking-[0.3em] uppercase text-white/40 mb-3">
+              Имэйл хаяг
+            </label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="example@gmail.com"
+              required
+              disabled={sent}
+              className="w-full bg-transparent text-white text-sm py-3 outline-none transition-colors disabled:opacity-50"
+              style={{
+                borderBottom: "1px solid rgba(255,255,255,0.15)",
+              }}
+              onFocus={(e) =>
+                (e.target.style.borderBottomColor = "#C9A84C")
+              }
+              onBlur={(e) =>
+                (e.target.style.borderBottomColor =
+                  "rgba(255,255,255,0.15)")
+              }
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading || sent}
+            className="w-full flex items-center justify-center gap-3 py-4 text-xs font-medium tracking-[0.25em] uppercase transition-all duration-300 group disabled:opacity-50"
+            style={{
+              background: "#C9A84C",
+              color: "#0A0A0A",
+            }}
+            onMouseEnter={(e) =>
+              !loading &&
+              !sent &&
+              (e.currentTarget.style.background = "#E8D49E")
+            }
+            onMouseLeave={(e) =>
+              !loading &&
+              !sent &&
+              (e.currentTarget.style.background = "#C9A84C")
+            }
+          >
+            {loading ? (
+              <>
+                <svg
+                  className="w-4 h-4 animate-spin"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="3"
+                  />
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8v8H4z"
+                  />
+                </svg>
+                Илгээж байна
+              </>
+            ) : sent ? (
+              <>Илгээгдлээ</>
+            ) : (
+              <>
+                Сэргээх код илгээх
+                <span className="transition-transform duration-300 group-hover:translate-x-1">
+                  →
+                </span>
+              </>
+            )}
+          </button>
+        </form>
+
+        <div
+          className="mt-12 pt-8 text-center"
+          style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}
+        >
+          <Link
+            to="/login"
+            className="text-[10px] tracking-[0.25em] uppercase text-white/40 hover:text-white transition-colors"
+          >
+            ← Нэвтрэх хуудас руу
+          </Link>
+        </div>
       </div>
     </div>
   );

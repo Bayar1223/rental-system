@@ -1,97 +1,415 @@
-import { useState, useEffect } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { useState, useMemo, useEffect, useRef } from "react";
 import api from "../api/axiosInstance";
+import { useNavigate, useLocation, Link } from "react-router-dom";
 
 function ResetPassword() {
-  const [searchParams]    = useSearchParams();
-  const navigate          = useNavigate();
-  const token             = searchParams.get("token");
-  const [newPassword, setNewPassword]         = useState("");
+  const navigate = useNavigate();
+  const location = useLocation();
+  const initialEmail = location.state?.email || "";
+
+  const [email, setEmail] = useState(initialEmail);
+  const [otp, setOtp] = useState(["", "", "", "", "", ""]);
+  const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [loading, setLoading]   = useState(false);
-  const [success, setSuccess]   = useState(false);
-  const [error, setError]       = useState("");
-  const [showPw, setShowPw]     = useState(false);
+  const [showPw, setShowPw] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [done, setDone] = useState(false);
+  const inputRefs = useRef([]);
 
-  useEffect(() => { if (!token) navigate("/forgot-password"); }, [token, navigate]);
+  useEffect(() => {
+    if (!initialEmail) inputRefs.current[0]?.focus();
+  }, [initialEmail]);
 
-  const pwStrength = newPassword.length === 0 ? 0 : newPassword.length < 6 ? 1 : newPassword.length < 10 ? 2 : newPassword.length < 14 ? 3 : 4;
-  const pwColors = ["", "#EF4444", "#F97316", "var(--gold)", "#22C55E"];
+  // ── Password strength ──
+  const strength = useMemo(() => {
+    let s = 0;
+    if (newPassword.length >= 8) s++;
+    if (/[A-Z]/.test(newPassword)) s++;
+    if (/[0-9]/.test(newPassword)) s++;
+    if (/[^A-Za-z0-9]/.test(newPassword)) s++;
+    return s;
+  }, [newPassword]);
+
+  const strengthLabel = ["Сул", "Сул", "Дунд", "Сайн", "Хүчтэй"][strength];
+  const strengthColor = [
+    "#3a3a3a",
+    "#EF4444",
+    "#F59E0B",
+    "#C9A84C",
+    "#10B981",
+  ][strength];
+
+  const handleOtpChange = (idx, val) => {
+    if (!/^\d?$/.test(val)) return;
+    const next = [...otp];
+    next[idx] = val;
+    setOtp(next);
+    if (val && idx < 5) inputRefs.current[idx + 1]?.focus();
+  };
+
+  const handleOtpKeyDown = (idx, e) => {
+    if (e.key === "Backspace" && !otp[idx] && idx > 0) {
+      inputRefs.current[idx - 1]?.focus();
+    }
+  };
+
+  const handleOtpPaste = (e) => {
+    e.preventDefault();
+    const data = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
+    if (!data) return;
+    const next = ["", "", "", "", "", ""];
+    data.split("").forEach((d, i) => (next[i] = d));
+    setOtp(next);
+    inputRefs.current[Math.min(data.length, 5)]?.focus();
+  };
 
   const handleSubmit = async (e) => {
-    e.preventDefault(); setError("");
-    if (newPassword !== confirmPassword) { setError("Нууц үг таарахгүй байна"); return; }
-    if (newPassword.length < 6) { setError("Нууц үг хамгийн багадаа 6 тэмдэгт байх ёстой"); return; }
+    e.preventDefault();
+    setError("");
+
+    if (otp.join("").length !== 6) {
+      setError("6 оронтой код оруулна уу");
+      return;
+    }
+    if (newPassword.length < 8) {
+      setError("Нууц үг хамгийн багадаа 8 тэмдэгттэй байх ёстой");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setError("Нууц үг таарахгүй байна");
+      return;
+    }
+
     setLoading(true);
     try {
-      await api.post("/api/auth/reset-password", { token, newPassword });
-      setSuccess(true);
-      setTimeout(() => navigate("/login"), 3000);
-    } catch (err) { setError(err.response?.data?.message || "Алдаа гарлаа. Token хүчингүй байж болзошгүй."); }
-    finally { setLoading(false); }
+      await api.post("/api/password-reset/reset", {
+        email,
+        otp: otp.join(""),
+        newPassword,
+      });
+      setDone(true);
+      setTimeout(() => navigate("/login"), 1400);
+    } catch (err) {
+      setError(
+        err.response?.data?.message ||
+          "Сэргээх амжилтгүй боллоо. Кодоо шалгана уу."
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "var(--black)", padding: "48px 24px" }}>
-      <Link to="/" style={{ textDecoration: "none", marginBottom: 48 }}>
-        <span className="font-display" style={{ fontSize: 24, fontWeight: 300, color: "var(--white)" }}>
-          Rental<span style={{ color: "var(--gold)" }}>Sy</span>
-        </span>
-      </Link>
+    <div
+      className="min-h-screen flex items-center justify-center p-6 relative"
+      style={{ background: "#0A0A0A", fontFamily: "'DM Sans', sans-serif" }}
+    >
+      <div
+        className="absolute inset-0 opacity-[0.04] pointer-events-none"
+        style={{
+          backgroundImage:
+            "radial-gradient(circle, #C9A84C 1px, transparent 1px)",
+          backgroundSize: "30px 30px",
+        }}
+      />
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          backgroundImage:
+            "linear-gradient(rgba(201,168,76,0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(201,168,76,0.025) 1px, transparent 1px)",
+          backgroundSize: "100px 100px",
+        }}
+      />
 
-      <div style={{ width: "100%", maxWidth: 400, background: "var(--dark)", border: "1px solid var(--border-dim)", borderTop: "1px solid var(--gold)", padding: 48 }} className="animate-fadeUp">
-        {success ? (
-          <div style={{ textAlign: "center" }}>
-            <div style={{ width: 56, height: 56, border: "1px solid #22C55E", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 24px" }}>
-              <svg width="22" height="22" fill="none" stroke="#22C55E" strokeWidth="1.5" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-              </svg>
-            </div>
-            <h2 className="font-display" style={{ fontSize: 32, fontWeight: 300, color: "var(--white)", marginBottom: 12 }}>Амжилттай!</h2>
-            <p style={{ fontFamily: "'Montserrat'", fontSize: 12, fontWeight: 300, color: "var(--text-muted)", marginBottom: 24, lineHeight: 1.7 }}>
-              Нууц үг амжилттай шинэчлэгдлээ. 3 секундын дараа нэвтрэх хуудас руу шилжинэ.
-            </p>
-            <Link to="/login" className="btn-gold justify-center w-full" style={{ padding: "14px 0" }}>Нэвтрэх →</Link>
+      <div className="w-full max-w-md relative animate-fadeUp py-8">
+        {/* Logo */}
+        <Link
+          to="/"
+          className="flex items-center justify-center gap-3 mb-12 group"
+        >
+          <div className="relative w-8 h-8">
+            <div className="absolute inset-0 border border-[#C9A84C] rotate-45 transition-transform duration-500 group-hover:rotate-[55deg]" />
+            <div className="absolute inset-1.5 bg-[#C9A84C] rotate-45" />
           </div>
-        ) : (
-          <>
-            <div className="flex items-center gap-3 mb-4">
-              <div style={{ width: 20, height: 1, background: "var(--gold)" }} />
-              <span style={{ fontFamily: "'Montserrat'", fontSize: 9, letterSpacing: "0.25em", textTransform: "uppercase", color: "var(--gold)" }}>Нууц үг шинэчлэх</span>
-            </div>
-            <h1 className="font-display" style={{ fontSize: 36, fontWeight: 300, color: "var(--white)", marginBottom: 24 }}>Шинэ нууц үг</h1>
+          <span
+            className="text-xl font-light tracking-[0.2em] text-white"
+            style={{ fontFamily: "'Cormorant Garamond', serif" }}
+          >
+            RENTAL<span style={{ color: "#C9A84C" }}>SY</span>
+          </span>
+        </Link>
 
-            {error && (
-              <div style={{ marginBottom: 20, padding: "10px 14px", borderLeft: "2px solid #EF4444", background: "rgba(239,68,68,0.06)" }}>
-                <p style={{ fontFamily: "'Montserrat'", fontSize: 11, color: "#EF4444" }}>{error}</p>
+        {/* Header */}
+        <div className="text-center mb-10">
+          <div className="flex items-center justify-center gap-3 mb-6">
+            <div className="h-px w-8" style={{ background: "#C9A84C" }} />
+            <span
+              className="text-[10px] tracking-[0.3em] uppercase"
+              style={{ color: "#C9A84C" }}
+            >
+              Reset Password
+            </span>
+            <div className="h-px w-8" style={{ background: "#C9A84C" }} />
+          </div>
+          <h2
+            className="font-light text-white leading-tight mb-6"
+            style={{
+              fontFamily: "'Cormorant Garamond', serif",
+              fontSize: 44,
+            }}
+          >
+            Шинэ<br />
+            <em style={{ color: "#C9A84C", fontStyle: "italic" }}>
+              нууц үг
+            </em>
+          </h2>
+          <p className="text-sm text-white/50 leading-relaxed max-w-xs mx-auto">
+            Имэйл рүү ирсэн 6 оронтой кодыг оруулж, шинэ нууц үгээ
+            тохируулна уу.
+          </p>
+        </div>
+
+        {error && (
+          <div
+            className="mb-6 p-4 flex items-start gap-3"
+            style={{
+              background: "rgba(239,68,68,0.08)",
+              borderLeft: "2px solid #EF4444",
+            }}
+          >
+            <span style={{ color: "#EF4444" }}>✕</span>
+            <p className="text-xs text-red-300">{error}</p>
+          </div>
+        )}
+        {done && (
+          <div
+            className="mb-6 p-4 flex items-start gap-3"
+            style={{
+              background: "rgba(16,185,129,0.08)",
+              borderLeft: "2px solid #10B981",
+            }}
+          >
+            <span style={{ color: "#10B981" }}>✓</span>
+            <p className="text-xs text-emerald-300">
+              Нууц үг амжилттай шинэчлэгдлээ. Нэвтрэх хуудас руу
+              шилжүүлж байна...
+            </p>
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-7">
+          {/* Email (editable if missing) */}
+          {!initialEmail && (
+            <div>
+              <label className="block text-[10px] tracking-[0.3em] uppercase text-white/40 mb-3">
+                Имэйл хаяг
+              </label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className="w-full bg-transparent text-white text-sm py-3 outline-none transition-colors"
+                style={{
+                  borderBottom: "1px solid rgba(255,255,255,0.15)",
+                }}
+                onFocus={(e) =>
+                  (e.target.style.borderBottomColor = "#C9A84C")
+                }
+                onBlur={(e) =>
+                  (e.target.style.borderBottomColor =
+                    "rgba(255,255,255,0.15)")
+                }
+              />
+            </div>
+          )}
+
+          {/* OTP */}
+          <div>
+            <label className="block text-[10px] tracking-[0.3em] uppercase text-white/40 mb-4 text-center">
+              Сэргээх код
+            </label>
+            <div
+              className="flex gap-2 justify-between"
+              onPaste={handleOtpPaste}
+            >
+              {otp.map((digit, idx) => (
+                <input
+                  key={idx}
+                  ref={(el) => (inputRefs.current[idx] = el)}
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={1}
+                  value={digit}
+                  onChange={(e) => handleOtpChange(idx, e.target.value)}
+                  onKeyDown={(e) => handleOtpKeyDown(idx, e)}
+                  className="w-11 h-13 text-center text-xl text-white bg-transparent outline-none transition-all duration-300"
+                  style={{
+                    border: digit
+                      ? "1px solid #C9A84C"
+                      : "1px solid rgba(255,255,255,0.15)",
+                    fontFamily: "'Cormorant Garamond', serif",
+                    background: digit ? "rgba(201,168,76,0.06)" : "transparent",
+                    height: 52,
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* New password */}
+          <div>
+            <label className="block text-[10px] tracking-[0.3em] uppercase text-white/40 mb-3">
+              Шинэ нууц үг
+            </label>
+            <div className="relative">
+              <input
+                type={showPw ? "text" : "password"}
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="••••••••"
+                required
+                className="w-full bg-transparent text-white text-sm py-3 outline-none pr-16 transition-colors"
+                style={{
+                  borderBottom: "1px solid rgba(255,255,255,0.15)",
+                }}
+                onFocus={(e) =>
+                  (e.target.style.borderBottomColor = "#C9A84C")
+                }
+                onBlur={(e) =>
+                  (e.target.style.borderBottomColor =
+                    "rgba(255,255,255,0.15)")
+                }
+              />
+              <button
+                type="button"
+                onClick={() => setShowPw((p) => !p)}
+                className="absolute right-0 top-1/2 -translate-y-1/2 text-[10px] tracking-widest uppercase text-white/40 hover:text-white transition-colors"
+              >
+                {showPw ? "Нуух" : "Харах"}
+              </button>
+            </div>
+
+            {newPassword && (
+              <div className="mt-3">
+                <div className="flex gap-1 mb-2">
+                  {[1, 2, 3, 4].map((i) => (
+                    <div
+                      key={i}
+                      className="flex-1 h-[2px] transition-colors duration-300"
+                      style={{
+                        background:
+                          i <= strength
+                            ? strengthColor
+                            : "rgba(255,255,255,0.08)",
+                      }}
+                    />
+                  ))}
+                </div>
+                <div className="flex items-center justify-between text-[10px] tracking-widest uppercase">
+                  <span className="text-white/40">Хүч</span>
+                  <span style={{ color: strengthColor }}>
+                    {strengthLabel}
+                  </span>
+                </div>
               </div>
             )}
+          </div>
 
-            <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-              <div>
-                <label className="input-label">Шинэ нууц үг</label>
-                <div style={{ position: "relative" }}>
-                  <input type={showPw ? "text" : "password"} placeholder="••••••••" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="luxury-input" style={{ paddingRight: 56 }} required />
-                  <button type="button" onClick={() => setShowPw(!showPw)} style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", fontFamily: "'Montserrat'", fontSize: 9, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--text-soft)", background: "none", border: "none", cursor: "pointer" }}>
-                    {showPw ? "Нуух" : "Харах"}
-                  </button>
-                </div>
-                {newPassword && (
-                  <div style={{ marginTop: 8, display: "flex", gap: 4 }}>
-                    {[1,2,3,4].map(i => <div key={i} style={{ flex: 1, height: 1, background: i <= pwStrength ? pwColors[pwStrength] : "var(--border-dim)", transition: "all 0.3s" }} />)}
-                  </div>
-                )}
-              </div>
-              <div>
-                <label className="input-label">Нууц үг давтах</label>
-                <input type={showPw ? "text" : "password"} placeholder="••••••••" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="luxury-input" required />
-              </div>
-              <button type="submit" disabled={loading} className="btn-gold justify-center" style={{ padding: "14px 0", opacity: loading ? 0.7 : 1 }}>
-                {loading ? "Шинэчилж байна..." : "Нууц үг шинэчлэх"}
-              </button>
-            </form>
-          </>
-        )}
+          {/* Confirm */}
+          <div>
+            <label className="block text-[10px] tracking-[0.3em] uppercase text-white/40 mb-3">
+              Нууц үг давтах
+            </label>
+            <input
+              type={showPw ? "text" : "password"}
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder="••••••••"
+              required
+              className="w-full bg-transparent text-white text-sm py-3 outline-none transition-colors"
+              style={{
+                borderBottom: "1px solid rgba(255,255,255,0.15)",
+              }}
+              onFocus={(e) =>
+                (e.target.style.borderBottomColor = "#C9A84C")
+              }
+              onBlur={(e) =>
+                (e.target.style.borderBottomColor =
+                  "rgba(255,255,255,0.15)")
+              }
+            />
+          </div>
+
+          <div className="pt-4">
+            <button
+              type="submit"
+              disabled={loading || done}
+              className="w-full flex items-center justify-center gap-3 py-4 text-xs font-medium tracking-[0.25em] uppercase transition-all duration-300 group disabled:opacity-50"
+              style={{
+                background: "#C9A84C",
+                color: "#0A0A0A",
+              }}
+              onMouseEnter={(e) =>
+                !loading &&
+                !done &&
+                (e.currentTarget.style.background = "#E8D49E")
+              }
+              onMouseLeave={(e) =>
+                !loading &&
+                !done &&
+                (e.currentTarget.style.background = "#C9A84C")
+              }
+            >
+              {loading ? (
+                <>
+                  <svg
+                    className="w-4 h-4 animate-spin"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="3"
+                    />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8v8H4z"
+                    />
+                  </svg>
+                  Шинэчилж байна
+                </>
+              ) : done ? (
+                <>Амжилттай</>
+              ) : (
+                <>
+                  Нууц үг шинэчлэх
+                  <span className="transition-transform duration-300 group-hover:translate-x-1">
+                    →
+                  </span>
+                </>
+              )}
+            </button>
+          </div>
+        </form>
+
+        <div
+          className="mt-12 pt-8 text-center"
+          style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}
+        >
+          <Link
+            to="/login"
+            className="text-[10px] tracking-[0.25em] uppercase text-white/40 hover:text-white transition-colors"
+          >
+            ← Нэвтрэх хуудас руу
+          </Link>
+        </div>
       </div>
     </div>
   );
