@@ -339,7 +339,7 @@ function AddProperty() {
               )}
             </Field>
 
-            <Field label="Хамгийн бага түрээсийн хугацаа (сар)">
+            <Field label="Түрээсийн хугацаа (сар)">
               <NumberInput value={minLeaseMonths} onChange={setMinLeaseMonths} placeholder="6" min="1" />
             </Field>
 
@@ -371,7 +371,7 @@ function AddProperty() {
               <NumberInput value={totalFloors} onChange={setTotalFloors} placeholder="12" />
             </Field>
 
-            <Field label="Барьсан жил">
+            <Field label="Ашиглалтанд орсон он">
               <NumberInput value={builtYear} onChange={setBuiltYear} placeholder="2020" min="1900" />
             </Field>
           </div>
