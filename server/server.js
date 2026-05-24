@@ -1,13 +1,16 @@
+// ⭐ dotenv-ийг БУСАД require-ийн өмнө дуудна
+// (Үүнгүй бол cronJobs.js → emailService.js нь GMAIL_USER/PASS-гүй
+//  үүсэж "Missing credentials for PLAIN" алдаа гарна)
+const dotenv = require("dotenv");
+dotenv.config();
+
 const express        = require("express");
-const dotenv         = require("dotenv");
 const cors           = require("cors");
 const rateLimit      = require("express-rate-limit");
 const mongoSanitize  = require("express-mongo-sanitize");
 const connectDB      = require("./config/db");
 const { protect }    = require("./middleware/authMiddleware");
 const { startSchedulers } = require("./schedulers/cronJobs");
-
-dotenv.config();
 
 const app = express();
 
@@ -18,10 +21,14 @@ const allowedOrigins = [
   process.env.CLIENT_URL,
 ].filter(Boolean);
 
+// Vercel preview deployment-уудыг автомат зөвшөөрөх
+const VERCEL_PATTERN = /^https:\/\/.*-bayar1223s-projects\.vercel\.app$/;
+
 app.use(cors({
   origin: (origin, callback) => {
     if (!origin) return callback(null, true);
     if (allowedOrigins.includes(origin)) return callback(null, true);
+    if (VERCEL_PATTERN.test(origin)) return callback(null, true);
     callback(new Error("CORS: зөвшөөрөгдөөгүй"));
   },
   credentials: true,
@@ -64,12 +71,10 @@ app.use("/api/auth/login",      loginLimiter);
 app.use("/api/auth/register",   registerLimiter);
 app.use("/api/auth/verify-otp", otpLimiter);
 app.use("/api/auth/resend-otp", otpLimiter);
-// ⭐ Password reset endpoint-уудад мөн otpLimiter
 app.use("/api/password-reset",  otpLimiter);
 
 app.use("/api/admin",          require("./routes/adminRoutes"));
 app.use("/api/auth",           require("./routes/authRoutes"));
-// ⭐ ШИНЭ — Phase 2 password reset routes
 app.use("/api/password-reset", require("./routes/passwordResetRoutes"));
 app.use("/api/properties",     require("./routes/propertyRoutes"));
 app.use("/api/applications",   require("./routes/applicationRoutes"));
