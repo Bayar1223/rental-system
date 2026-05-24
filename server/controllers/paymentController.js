@@ -3,9 +3,7 @@ const Application = require("../models/Application");
 const { createNotification } = require("./notificationController");
 
 // ======================================================
-// Төлбөрийн нөхцөлийг задлах utility
-// "6+1" => { months: 6, deposit: 1 }
-// "Барьцаа байхгүй" => { months: 1, deposit: 0 }
+// Төлбөрийн нөхцөлийг задлах
 // ======================================================
 function parsePaymentCondition(conditionText) {
   if (!conditionText || conditionText === "Барьцаа байхгүй") {
@@ -13,24 +11,18 @@ function parsePaymentCondition(conditionText) {
   }
   const match = conditionText.match(/^(\d+)\+(\d+)$/);
   if (match) {
-    return {
-      months:  parseInt(match[1]),
-      deposit: parseInt(match[2]),
-    };
+    return { months: parseInt(match[1]), deposit: parseInt(match[2]) };
   }
   return { months: 1, deposit: 0 };
 }
 
 // ======================================================
-// Гэрээ баталгаажсаны дараа төлбөрүүд автоматаар үүсгэх
+// Гэрээ баталгаажсаны дараа төлбөрүүд автомат үүсгэх
 // ======================================================
 exports.generatePayments = async (applicationId) => {
   try {
     const application = await Application.findById(applicationId)
-      .populate("property")
-      .populate("tenant")
-      .populate("landlord");
-
+      .populate("property").populate("tenant").populate("landlord");
     if (!application) return;
 
     const existing = await Payment.countDocuments({ application: applicationId });
@@ -40,8 +32,7 @@ exports.generatePayments = async (applicationId) => {
     const monthlyRent   = property.monthlyRent;
     const conditionText = property.paymentConditionText || "Барьцаа байхгүй";
 
-    const { months: periodMonths, deposit: depositMonths } =
-      parsePaymentCondition(conditionText);
+    const { months: periodMonths, deposit: depositMonths } = parsePaymentCondition(conditionText);
 
     const payments = [];
     let currentDate     = new Date(startDate);
@@ -51,9 +42,8 @@ exports.generatePayments = async (applicationId) => {
     while (remainingMonths > 0) {
       const isFirst          = paymentNumber === 1;
       const thisPeriodMonths = Math.min(periodMonths, remainingMonths);
-
-      const periodStart = new Date(currentDate);
-      const periodEnd   = new Date(currentDate);
+      const periodStart      = new Date(currentDate);
+      const periodEnd        = new Date(currentDate);
       periodEnd.setMonth(periodEnd.getMonth() + thisPeriodMonths);
 
       const rentAmount    = monthlyRent * thisPeriodMonths;
@@ -66,16 +56,11 @@ exports.generatePayments = async (applicationId) => {
         tenant:          tenant._id,
         landlord:        landlord._id,
         property:        property._id,
-        paymentNumber,
-        periodStart,
-        periodEnd,
-        dueDate,
-        rentAmount,
-        depositAmount,
-        totalAmount,
+        paymentNumber, periodStart, periodEnd, dueDate,
+        rentAmount, depositAmount, totalAmount,
         includesDeposit: isFirst && depositMonths > 0,
         periodMonths:    thisPeriodMonths,
-        status: isFirst ? "urgent" : "pending",
+        status:          isFirst ? "urgent" : "pending",
       });
 
       currentDate     = new Date(periodEnd);
@@ -85,11 +70,8 @@ exports.generatePayments = async (applicationId) => {
 
     await Payment.insertMany(payments);
 
-    await Application.findByIdAndUpdate(applicationId, {
-      contractStatus: "payment_pending",
-    });
+    await Application.findByIdAndUpdate(applicationId, { contractStatus: "payment_pending" });
 
-    // ⭐ ЗАСВАР: link → /payments/${applicationId} (specific app)
     await createNotification({
       user:    tenant._id,
       title:   "Эхний төлбөрөө төлнө үү 💳",
@@ -113,7 +95,7 @@ exports.generatePayments = async (applicationId) => {
 };
 
 // ======================================================
-// GET /api/payments/my — Миний төлбөрүүд (tenant)
+// GET /api/payments/my
 // ======================================================
 exports.getMyPayments = async (req, res) => {
   try {
@@ -130,7 +112,7 @@ exports.getMyPayments = async (req, res) => {
 };
 
 // ======================================================
-// GET /api/payments/landlord — Landlord-ийн орлого
+// GET /api/payments/landlord
 // ======================================================
 exports.getLandlordPayments = async (req, res) => {
   try {
@@ -146,7 +128,7 @@ exports.getLandlordPayments = async (req, res) => {
 };
 
 // ======================================================
-// GET /api/payments/application/:id — Гэрээний төлбөрүүд
+// GET /api/payments/application/:id
 // ======================================================
 exports.getApplicationPayments = async (req, res) => {
   try {
@@ -171,12 +153,58 @@ exports.getApplicationPayments = async (req, res) => {
 };
 
 // ======================================================
-// PUT /api/payments/:id/pay — Төлбөр төлсөн тэмдэглэх
+// ⭐ ШИНЭ: POST /api/payments/:id/qpay/create
+// QPay демо invoice үүсгэх
+// ======================================================
+exports.createQpayInvoice = async (req, res) => {
+  try {
+    const userId = req.user._id || req.user.id;
+    const payment = await Payment.findById(req.params.id);
+
+    if (!payment) return res.status(404).json({ message: "Төлбөр олдсонгүй" });
+    if (payment.tenant.toString() !== userId.toString()) {
+      return res.status(403).json({ message: "Зөвхөн түрээслэгч төлбөр төлж болно" });
+    }
+    if (payment.status === "paid") {
+      return res.status(400).json({ message: "Аль хэдийн төлсөн байна" });
+    }
+
+    // ⭐ Демо invoice ID + QR data үүсгэх
+    const timestamp = Date.now();
+    const random    = Math.random().toString(36).substring(2, 10).toUpperCase();
+    const invoiceId = `QPAY-DEMO-${timestamp}-${random}`;
+    const qrData    = `qpay://payment/${invoiceId}?amount=${payment.totalAmount}&currency=MNT`;
+
+    // ⭐ Өгөгдлийн санд хадгалах
+    payment.qpayInvoiceId = invoiceId;
+    payment.qpayQrCode    = qrData;
+    await payment.save();
+
+    // QR зургийн URL — public QR generator ашиглана
+    const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(qrData)}&size=240x240&color=0A0A0A&bgcolor=FFFFFF`;
+
+    res.json({
+      invoiceId,
+      qrData,
+      qrImageUrl,
+      amount:    payment.totalAmount,
+      expiresIn: 600, // 10 минут
+    });
+  } catch (error) {
+    console.error("createQpayInvoice error:", error);
+    res.status(500).json({ message: "QPay invoice үүсгэж чадсангүй", error: error.message });
+  }
+};
+
+// ======================================================
+// PUT /api/payments/:id/pay
+// Төлбөр төлсөн тэмдэглэх
+// ⭐ ШИНЭ: paymentMethod="qpay" үед qpayInvoiceId шалгана
 // ======================================================
 exports.markAsPaid = async (req, res) => {
   try {
     const userId = req.user._id || req.user.id;
-    const { paymentMethod = "demo" } = req.body;
+    const { paymentMethod = "demo", qpayInvoiceId } = req.body;
 
     const payment = await Payment.findById(req.params.id)
       .populate("property", "title")
@@ -184,13 +212,21 @@ exports.markAsPaid = async (req, res) => {
       .populate("landlord", "firstName _id");
 
     if (!payment) return res.status(404).json({ message: "Төлбөр олдсонгүй" });
-
     if (payment.tenant._id.toString() !== userId.toString()) {
       return res.status(403).json({ message: "Зөвхөн түрээслэгч төлбөр төлж болно" });
     }
-
     if (payment.status === "paid") {
       return res.status(400).json({ message: "Аль хэдийн төлсөн байна" });
+    }
+
+    // ⭐ ШИНЭ: QPay invoice шалгах
+    if (paymentMethod === "qpay") {
+      if (!qpayInvoiceId) {
+        return res.status(400).json({ message: "QPay invoice ID шаардлагатай" });
+      }
+      if (payment.qpayInvoiceId !== qpayInvoiceId) {
+        return res.status(400).json({ message: "Invoice ID таарахгүй байна" });
+      }
     }
 
     payment.status        = "paid";
@@ -199,12 +235,10 @@ exports.markAsPaid = async (req, res) => {
     payment.paymentMethod = paymentMethod;
     await payment.save();
 
+    // Эхний төлбөр төлсөн бол гэрээ active болгоно
     if (payment.paymentNumber === 1) {
-      await Application.findByIdAndUpdate(payment.application, {
-        contractStatus: "active",
-      });
+      await Application.findByIdAndUpdate(payment.application, { contractStatus: "active" });
 
-      // ⭐ ЗАСВАР: link → /my-rentals (tenant-д), /payments/${applicationId} (landlord-д)
       await createNotification({
         user:    payment.tenant._id,
         title:   "Гэрээ идэвхжлээ! 🎉",
@@ -221,7 +255,6 @@ exports.markAsPaid = async (req, res) => {
         link:    `/payments/${payment.application}`,
       });
     } else {
-      // ⭐ ЗАСВАР: specific app link
       await createNotification({
         user:    payment.landlord._id,
         title:   "Төлбөр хийгдлээ ✓",
