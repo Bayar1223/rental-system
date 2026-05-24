@@ -1,3 +1,16 @@
+// ═══════════════════════════════════════════════════════════════════
+//  📁 server/controllers/authController.js
+//  ⭐ EasySendSMS-ийн дараах БҮРЭН зассан хувилбар
+//
+//  Өөрчлөлтүүд:
+//  - Imports-аас verifySmsOtp хасагдсан (Twilio-той хамт алга болсон)
+//  - SMS болон имэйл нэг flow-р явна:
+//      createOtp() → channel-аар явуулах → verifyOtp()
+//  - Phase 2-ийн SMS-д зориулсан тойруу логик (Twilio Verify
+//    үед userData-ыг тусад нь DB-д хадгалж байсан) бүрэн алга болсон
+//  - verifyRegisterOtp 80+ мөр → ~40 мөр болж буурсан
+// ═══════════════════════════════════════════════════════════════════
+
 const User = require("../models/User");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
@@ -5,8 +18,8 @@ const {
   createOtp,
   sendEmailOtp,
   sendSmsOtp,
-  verifySmsOtp,
   verifyOtp,
+  // ⭐ verifySmsOtp устгасан — verifyOtp-аар ерөнхий шалгана
 } = require("../services/otpService");
 
 const generateToken = (id) =>
@@ -14,7 +27,9 @@ const generateToken = (id) =>
 
 const MN_PHONE_REGEX = /^[789]\d{7}$/;
 
-// ── Туслах функцууд ──
+// ─────────────────────────────────────────────────────────────────────
+//  Туслах функцууд
+// ─────────────────────────────────────────────────────────────────────
 
 // "+976" prefix-ийг хасаж 8 оронтой цэвэр дугаар буцаана
 function normalizePhone(raw) {
@@ -30,7 +45,7 @@ function splitName(name) {
   return { firstName: parts[0], lastName: parts.slice(1).join(" ") };
 }
 
-// Client-д буцаах user object — `_id` болон `name` virtual хоёуланг агуулна
+// Client-д буцаах user object — `_id` болон `name` virtual хоюуланг агуулна
 function formatUser(user) {
   return {
     _id:       user._id,
@@ -44,13 +59,15 @@ function formatUser(user) {
   };
 }
 
-// АЛХАМ 1 — Бүртгэлийн мэдээлэл хүлээж OTP илгээх
+// ═══════════════════════════════════════════════════════════════════
+//  АЛХАМ 1 — Бүртгэлийн мэдээлэл хүлээж OTP илгээх
+// ═══════════════════════════════════════════════════════════════════
 exports.registerUser = async (req, res) => {
   try {
     let { firstName, lastName, name, phone, email, password, role, otpMethod } = req.body;
     const method = otpMethod || "email";
 
-    // Client `name` нэрээр явуулсан бол хуваах
+    // Client `name` нэрээр нийтэд явуулсан бол firstName/lastName-руу хуваана
     if (!firstName && name) {
       const split = splitName(name);
       firstName = split.firstName;
@@ -94,8 +111,15 @@ exports.registerUser = async (req, res) => {
       role,
     };
 
+    // ⭐ EasySendSMS-ийн дараах НЭГТГЭЛТ — хоёр сувган дээр ижил flow
     if (method === "phone") {
-      await sendSmsOtp({ phone, purpose: "register" });
+      const otp = await createOtp({
+        identifier: phone,
+        type: "phone",
+        purpose: "register",
+        userData,
+      });
+      await sendSmsOtp({ phone, code: otp.code, purpose: "register" });
     } else {
       const otp = await createOtp({
         identifier: email,
@@ -117,66 +141,58 @@ exports.registerUser = async (req, res) => {
     });
   } catch (error) {
     console.error("registerUser error:", error);
-    res.status(500).json({ message: "Бүртгэл хийх үед алдаа гарлаа", error: error.message });
+    res.status(500).json({
+      message: "Бүртгэл хийх үед алдаа гарлаа",
+      error: error.message,
+    });
   }
 };
 
-// АЛХАМ 2 — OTP баталгаажуулж хэрэглэгч үүсгэх
+// ═══════════════════════════════════════════════════════════════════
+//  АЛХАМ 2 — OTP баталгаажуулж хэрэглэгч үүсгэх
+//  ⭐ SMS болон имэйл салбар нэг flow-р явна
+// ═══════════════════════════════════════════════════════════════════
 exports.verifyRegisterOtp = async (req, res) => {
   try {
     const { email } = req.body;
     let { phone } = req.body;
     // Client `code` эсвэл `otpCode` нэрээр явуулдаг — аль ч нэрийг хүлээж авна
-    const code   = req.body.code   || req.body.otpCode;
+    const code   = req.body.code     || req.body.otpCode;
     const method = req.body.otpMethod || req.body.method || "email";
 
     if (!code) {
       return res.status(400).json({ message: "OTP код шаардлагатай" });
     }
 
-    let userData = null;
-
+    // identifier — имэйл эсвэл утас аль нь ч байсан DB-ийн ижил хэлбэрээр шалгана
+    let identifier;
     if (method === "phone") {
       phone = normalizePhone(phone);
-      if (!phone) {
+      identifier = phone;
+      if (!identifier) {
         return res.status(400).json({ message: "Утасны дугаар шаардлагатай" });
       }
-
-      const approved = await verifySmsOtp({ phone, code });
-      if (!approved) {
-        return res.status(400).json({ message: "OTP код буруу байна" });
-      }
-
-      let { firstName, lastName, name, password, role } = req.body;
-      if (!firstName && name) {
-        const split = splitName(name);
-        firstName = split.firstName;
-        lastName  = lastName || split.lastName;
-      }
-
-      if (!firstName || !email || !password) {
-        return res.status(400).json({
-          message: "Бүртгэлийн мэдээлэл дутуу байна. Дахин бүртгүүлнэ үү.",
-        });
-      }
-      if (!MN_PHONE_REGEX.test(phone)) {
-        return res.status(400).json({ message: "Утасны дугаарын формат буруу байна" });
-      }
-      if (password.length < 8) {
-        return res.status(400).json({ message: "Нууц үг хамгийн багадаа 8 тэмдэгт байх ёстой" });
-      }
-
-      const hashedPassword = await bcrypt.hash(password, 10);
-      userData = { firstName, lastName: lastName || "", phone, email, password: hashedPassword, role };
     } else {
-      if (!email) {
-        return res.status(400).json({ message: "Имэйл болон OTP код шаардлагатай" });
+      identifier = email;
+      if (!identifier) {
+        return res.status(400).json({ message: "Имэйл шаардлагатай" });
       }
-      const result = await verifyOtp({ identifier: email, code, purpose: "register" });
-      if (!result.valid) return res.status(400).json({ message: result.message });
-      userData = result.userData;
     }
 
+    // ⭐ Нэгдсэн verifyOtp — DB-ээс код шалгаж userData-ыг буцаана
+    const result = await verifyOtp({ identifier, code, purpose: "register" });
+    if (!result.valid) {
+      return res.status(400).json({ message: result.message });
+    }
+
+    const userData = result.userData;
+    if (!userData) {
+      return res.status(400).json({
+        message: "Бүртгэлийн мэдээлэл олдсонгүй. Дахин бүртгүүлнэ үү.",
+      });
+    }
+
+    // Давхардал шалгах (verifyOtp-ийн дараа хэн нэгэн бүртгүүлсэн байж магадгүй)
     const existing = await User.findOne({
       $or: [{ email: userData.email }, { phone: userData.phone }],
     });
@@ -195,62 +211,97 @@ exports.verifyRegisterOtp = async (req, res) => {
     });
   } catch (error) {
     console.error("verifyRegisterOtp error:", error);
-    res.status(500).json({ message: "Баталгаажуулахад алдаа гарлаа", error: error.message });
+    res.status(500).json({
+      message: "Баталгаажуулахад алдаа гарлаа",
+      error: error.message,
+    });
   }
 };
 
-// OTP дахин илгээх
+// ═══════════════════════════════════════════════════════════════════
+//  OTP дахин илгээх — имэйл болон утасны сувганд нэгдсэн
+// ═══════════════════════════════════════════════════════════════════
 exports.resendOtp = async (req, res) => {
   try {
     const { email, purpose = "register", otpMethod } = req.body;
     let { phone } = req.body;
     const method = otpMethod || "email";
 
+    let identifier;
     if (method === "phone") {
       phone = normalizePhone(phone);
-      if (!phone) return res.status(400).json({ message: "Утасны дугаар шаардлагатай" });
-      await sendSmsOtp({ phone, purpose });
-      return res.json({ message: "OTP код дахин утас руу илгээгдлээ" });
+      identifier = phone;
+      if (!identifier) {
+        return res.status(400).json({ message: "Утасны дугаар шаардлагатай" });
+      }
+    } else {
+      identifier = email;
+      if (!identifier) {
+        return res.status(400).json({ message: "Имэйл хаяг шаардлагатай" });
+      }
     }
 
-    if (!email) return res.status(400).json({ message: "Имэйл хаяг шаардлагатай" });
-
+    // Хуучин OTP-ийн userData-г олж авна
     const Otp = require("../models/Otp");
-    const oldOtp = await Otp.findOne({ identifier: email, purpose, isUsed: false });
+    const oldOtp = await Otp.findOne({ identifier, purpose, isUsed: false });
     if (!oldOtp) {
-      return res.status(400).json({ message: "Бүртгэлийн мэдээлэл олдсонгүй. Дахин бүртгүүлнэ үү." });
+      return res.status(400).json({
+        message: "Бүртгэлийн мэдээлэл олдсонгүй. Дахин бүртгүүлнэ үү.",
+      });
     }
 
+    // Шинэ код үүсгэх (хуучин userData-тай хадгална)
     const newOtp = await createOtp({
-      identifier: email,
-      type: "email",
+      identifier,
+      type: method === "phone" ? "phone" : "email",
       purpose,
       userData: oldOtp.userData,
     });
 
-    await sendEmailOtp({ email, code: newOtp.code, purpose, firstName: oldOtp.userData?.firstName });
-
-    res.json({ message: "OTP код дахин имэйл рүү илгээгдлээ" });
+    // Сонгосон сувгаар явуулах
+    if (method === "phone") {
+      await sendSmsOtp({ phone: identifier, code: newOtp.code, purpose });
+      return res.json({ message: "OTP код дахин утас руу илгээгдлээ" });
+    } else {
+      await sendEmailOtp({
+        email: identifier,
+        code: newOtp.code,
+        purpose,
+        firstName: oldOtp.userData?.firstName,
+      });
+      return res.json({ message: "OTP код дахин имэйл рүү илгээгдлээ" });
+    }
   } catch (error) {
+    console.error("resendOtp error:", error);
     res.status(500).json({ message: "Алдаа гарлаа", error: error.message });
   }
 };
 
-// Нэвтрэх
+// ═══════════════════════════════════════════════════════════════════
+//  Нэвтрэх
+// ═══════════════════════════════════════════════════════════════════
 exports.loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
 
     if (!email || !password) {
-      return res.status(400).json({ message: "Имэйл болон нууц үг шаардлагатай" });
+      return res.status(400).json({
+        message: "Имэйл болон нууц үг шаардлагатай",
+      });
     }
 
     const user = await User.findOne({ email });
-    if (!user) return res.status(401).json({ message: "Имэйл эсвэл нууц үг буруу байна" });
-    if (user.isBlocked) return res.status(403).json({ message: "Таны эрх хязгаарлагдсан байна" });
+    if (!user) {
+      return res.status(401).json({ message: "Имэйл эсвэл нууц үг буруу байна" });
+    }
+    if (user.isBlocked) {
+      return res.status(403).json({ message: "Таны эрх хязгаарлагдсан байна" });
+    }
 
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.status(401).json({ message: "Имэйл эсвэл нууц үг буруу байна" });
+    if (!isMatch) {
+      return res.status(401).json({ message: "Имэйл эсвэл нууц үг буруу байна" });
+    }
 
     res.json({
       message: "Амжилттай нэвтэрлээ",
@@ -258,6 +309,10 @@ exports.loginUser = async (req, res) => {
       token: generateToken(user._id),
     });
   } catch (error) {
-    res.status(500).json({ message: "Нэвтрэх үед алдаа гарлаа", error: error.message });
+    console.error("loginUser error:", error);
+    res.status(500).json({
+      message: "Нэвтрэх үед алдаа гарлаа",
+      error: error.message,
+    });
   }
 };
