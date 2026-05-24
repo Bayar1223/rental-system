@@ -1,3 +1,8 @@
+// ═══════════════════════════════════════════════════════════════════
+//  📁 server/controllers/userController.js
+//  ✅ ЗАСВАРЛАСАН — changePassword дахь "6/8" зөрүүтэй мессежийг засав
+// ═══════════════════════════════════════════════════════════════════
+
 const User = require("../models/User");
 const bcrypt = require("bcryptjs");
 
@@ -15,7 +20,7 @@ exports.getProfile = async (req, res) => {
 // PUT /api/users/profile — профайл засах
 exports.updateProfile = async (req, res) => {
   try {
-    const { firstName, lastName, phone, email, avatar } = req.body; // ← avatar нэмсэн
+    const { firstName, lastName, phone, email, avatar } = req.body;
     const userId = req.user._id || req.user.id;
 
     // Имэйл давхардаж байгаа эсэх шалгах
@@ -34,7 +39,6 @@ exports.updateProfile = async (req, res) => {
       }
     }
 
-    // ← ӨӨРЧЛӨЛТ: avatar-г тусад нь нэмэх
     const updateFields = { firstName, lastName, phone, email };
     if (avatar) updateFields.avatar = avatar;
 
@@ -60,8 +64,9 @@ exports.changePassword = async (req, res) => {
       return res.status(400).json({ message: "Бүх талбарыг бөглөнө үү" });
     }
 
+    // ✅ ЗАСВАР: уртын шалгалт болон мессеж нэг ижил (8 тэмдэгт)
     if (newPassword.length < 8) {
-      return res.status(400).json({ message: "Нууц үг хамгийн багадаа 6 тэмдэгт байх ёстой" });
+      return res.status(400).json({ message: "Нууц үг хамгийн багадаа 8 тэмдэгт байх ёстой" });
     }
 
     const user = await User.findById(userId);

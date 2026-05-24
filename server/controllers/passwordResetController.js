@@ -1,3 +1,9 @@
+// ═══════════════════════════════════════════════════════════════════
+//  📁 server/controllers/passwordResetController.js
+//  ✅ ЗАСВАРЛАСАН — newPassword.length < 6 → < 8
+//     (User model дээр minlength: 8 байгаатай нэгтгэв)
+// ═══════════════════════════════════════════════════════════════════
+
 const crypto    = require("crypto");
 const bcrypt    = require("bcryptjs");
 const User      = require("../models/User");
@@ -23,9 +29,6 @@ exports.forgotPassword = async (req, res) => {
     user.passwordResetExpires = Date.now() + 60 * 60 * 1000; // 1 цаг
     await user.save();
 
-    // Email илгээх
-    // Resend үнэгүй tier: зөвхөн өөрийн имэйл рүү илгээх боломжтой
-    // Production-д domain нэмсний дараа user.email ашиглана
     await sendPasswordResetEmail({
       to:         process.env.RESEND_TEST_EMAIL || user.email,
       resetToken,
@@ -48,11 +51,11 @@ exports.resetPassword = async (req, res) => {
       return res.status(400).json({ message: "Token болон шинэ нууц үг шаардлагатай" });
     }
 
-    if (newPassword.length < 6) {
-      return res.status(400).json({ message: "Нууц үг хамгийн багадаа 6 тэмдэгт байх ёстой" });
+    // ✅ ЗАСВАР: 6 → 8 (User model-ийн minlength-тай таарч байна)
+    if (newPassword.length < 8) {
+      return res.status(400).json({ message: "Нууц үг хамгийн багадаа 8 тэмдэгт байх ёстой" });
     }
 
-    // Token hash хийж DB-с хайх
     const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
 
     const user = await User.findOne({
@@ -64,7 +67,6 @@ exports.resetPassword = async (req, res) => {
       return res.status(400).json({ message: "Token хүчингүй эсвэл хугацаа дууссан байна" });
     }
 
-    // Нууц үг шинэчлэх
     user.password             = await bcrypt.hash(newPassword, 10);
     user.passwordResetToken   = undefined;
     user.passwordResetExpires = undefined;

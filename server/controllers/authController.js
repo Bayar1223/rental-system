@@ -1,3 +1,9 @@
+// ═══════════════════════════════════════════════════════════════════
+//  📁 server/controllers/authController.js
+//  ✅ ЗАСВАРЛАСАН (бүхэлд нь солих)
+//  Засвар: verifyRegisterOtp (phone branch) дотор дутуу мэдээллийг шалгах
+// ═══════════════════════════════════════════════════════════════════
+
 const User = require("../models/User");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
@@ -13,6 +19,9 @@ const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: "7d" });
 };
 
+// Монгол утасны дугаарын regex (utility-ээр гаргасан)
+const MN_PHONE_REGEX = /^[789]\d{7}$/;
+
 // ============================================================
 // АЛХАМ 1: Бүртгэлийн мэдээлэл хүлээн авах → OTP явуулах
 // POST /api/auth/register
@@ -20,25 +29,26 @@ const generateToken = (id) => {
 exports.registerUser = async (req, res) => {
   try {
     const { firstName, lastName, phone, email, password, role, otpMethod } = req.body;
-    // otpMethod: "email" | "phone"  (frontend-оос ирнэ, default: "email")
     const method = otpMethod || "email";
 
-    // Монгол дугаарын validation
-    const mnPhoneRegex = /^[789]\d{7}$/;
-    if (!mnPhoneRegex.test(phone)) {
+    if (!firstName || !lastName || !phone || !email || !password) {
+      return res.status(400).json({
+        message: "Бүх талбарыг бөглөнө үү (нэр, овог, утас, имэйл, нууц үг)",
+      });
+    }
+
+    if (!MN_PHONE_REGEX.test(phone)) {
       return res.status(400).json({
         message: "Зөвхөн Монгол улсын үүрэн телефоны дугаар оруулна уу (8 оронтой)",
       });
     }
 
-    // Нууц үгийн урт шалгах
     if (password.length < 8) {
       return res.status(400).json({
         message: "Нууц үг хамгийн багадаа 8 тэмдэгт байх ёстой",
       });
     }
 
-    // Давхардал шалгах
     const existing = await User.findOne({ $or: [{ email }, { phone }] });
     if (existing) {
       return res.status(400).json({
@@ -50,10 +60,10 @@ exports.registerUser = async (req, res) => {
     const userData = { firstName, lastName, phone, email, password: hashedPassword, role };
 
     if (method === "phone") {
-      // SMS — Twilio Verify (өөрөө OTP үүсгэж явуулна, DB хэрэггүй)
+      // SMS — Twilio Verify
       await sendSmsOtp({ phone, purpose: "register" });
     } else {
-      // Email — Resend + DB-д хадгалах
+      // Email — Resend + DB
       const otp = await createOtp({
         identifier: email,
         type: "email",
@@ -102,13 +112,36 @@ exports.verifyRegisterOtp = async (req, res) => {
 
     if (method === "phone") {
       // Twilio Verify-аар шалгах
+      if (!phone) {
+        return res.status(400).json({ message: "Утасны дугаар шаардлагатай" });
+      }
+
       const approved = await verifySmsOtp({ phone, code });
       if (!approved) {
         return res.status(400).json({ message: "OTP код буруу байна" });
       }
-      // SMS хувилбарт userData-г req.body-оос авна
-      // (frontend register үедээ localStorage-д хадгалсан)
+
+      // ✅ ЗАСВАР: дутуу талбарыг шалгах
       const { firstName, lastName, password, role } = req.body;
+
+      if (!firstName || !lastName || !email || !password) {
+        return res.status(400).json({
+          message: "Бүртгэлийн мэдээлэл дутуу байна. Дахин бүртгүүлнэ үү.",
+        });
+      }
+
+      if (!MN_PHONE_REGEX.test(phone)) {
+        return res.status(400).json({
+          message: "Утасны дугаарын формат буруу байна",
+        });
+      }
+
+      if (password.length < 8) {
+        return res.status(400).json({
+          message: "Нууц үг хамгийн багадаа 8 тэмдэгт байх ёстой",
+        });
+      }
+
       const hashedPassword = await bcrypt.hash(password, 10);
       userData = { firstName, lastName, phone, email, password: hashedPassword, role };
     } else {
@@ -170,7 +203,6 @@ exports.resendOtp = async (req, res) => {
       return res.json({ message: "OTP код дахин утас руу илгээгдлээ" });
     }
 
-    // Email хувилбар — хуучин userData хадгалах
     if (!email) return res.status(400).json({ message: "Имэйл хаяг шаардлагатай" });
 
     const Otp = require("../models/Otp");
@@ -206,6 +238,10 @@ exports.resendOtp = async (req, res) => {
 exports.loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({ message: "Имэйл болон нууц үг шаардлагатай" });
+    }
 
     const user = await User.findOne({ email });
     if (!user) {

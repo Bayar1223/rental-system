@@ -1,6 +1,10 @@
 // ═══════════════════════════════════════════════════════════════════
 //  📁 server/controllers/applicationController.js
-//  ⬇️ БҮХЭЛДЭЭ СОЛИНО — copy-paste дарж бичих
+//  ✅ ЗАСВАРЛАСАН (бүхэлд нь солих)
+//  Засвар:
+//   1) property.price → property.monthlyRent
+//   2) populate("...", "name ...") → "firstName lastName ..."
+//   3) signContract хоёулаа гарын үсэг зурсан үед generatePayments дуудах
 // ═══════════════════════════════════════════════════════════════════
 
 const Application = require("../models/Application");
@@ -55,24 +59,27 @@ const createApplication = async (req, res) => {
     const months = Number(leaseMonths);
     const endDate = new Date(start);
     endDate.setMonth(endDate.getMonth() + months);
-    const totalRent = (property.price || 0) * months;
+
+    // ✅ ЗАСВАР #1: property.price → property.monthlyRent
+    const totalRent = (property.monthlyRent || 0) * months;
 
     const application = await Application.create({
-      property:   propertyId,
-      tenant:     req.user._id,
-      landlord:   property.owner,
-      startDate:  start,
+      property:    propertyId,
+      tenant:      req.user._id,
+      landlord:    property.owner,
+      startDate:   start,
       leaseMonths: months,
       endDate,
       totalRent,
-      message:    message || "",
-      status:     "pending",
+      message:     message || "",
+      status:      "pending",
     });
 
+    // ✅ ЗАСВАР #2: populate-ийн талбарууд firstName lastName
     const populated = await Application.findById(application._id)
-      .populate("property", "title address district price photos")
-      .populate("tenant",   "name email phone")
-      .populate("landlord", "name email phone");
+      .populate("property", "title location monthlyRent images")
+      .populate("tenant",   "firstName lastName email phone avatar")
+      .populate("landlord", "firstName lastName email phone avatar");
 
     return res.status(201).json(populated);
   } catch (err) {
@@ -84,13 +91,12 @@ const createApplication = async (req, res) => {
 
 // ──────────────────────────────────────────────────────────────────
 //  GET /api/applications/my
-//  Tenant өөрийн гаргасан БҮХ өргөдлүүдийг авах
 // ──────────────────────────────────────────────────────────────────
 const getMyApplications = async (req, res) => {
   try {
     const apps = await Application.find({ tenant: req.user._id })
-      .populate("property", "title address district price photos status")
-      .populate("landlord", "name email phone")
+      .populate("property", "title location monthlyRent images status")
+      .populate("landlord", "firstName lastName email phone avatar")
       .sort({ createdAt: -1 });
 
     return res.json(apps);
@@ -103,13 +109,12 @@ const getMyApplications = async (req, res) => {
 
 // ──────────────────────────────────────────────────────────────────
 //  GET /api/applications/landlord
-//  Landlord-ийн байруудад ирсэн БҮХ өргөдлүүд
 // ──────────────────────────────────────────────────────────────────
 const getLandlordApplications = async (req, res) => {
   try {
     const apps = await Application.find({ landlord: req.user._id })
-      .populate("property", "title address district price photos status")
-      .populate("tenant", "name email phone avatar")
+      .populate("property", "title location monthlyRent images status")
+      .populate("tenant",   "firstName lastName email phone avatar")
       .sort({ createdAt: -1 });
 
     return res.json(apps);
@@ -122,7 +127,6 @@ const getLandlordApplications = async (req, res) => {
 
 // ──────────────────────────────────────────────────────────────────
 //  GET /api/applications/active
-//  Tenant-ийн ИДЭВХТЭЙ түрээслэлүүд (active contract-тай)
 // ──────────────────────────────────────────────────────────────────
 const getActiveRentals = async (req, res) => {
   try {
@@ -132,7 +136,7 @@ const getActiveRentals = async (req, res) => {
       contractStatus: { $in: ["signed", "payment_pending", "active"] },
     })
       .populate("property")
-      .populate("landlord", "name email phone")
+      .populate("landlord", "firstName lastName email phone avatar")
       .sort({ startDate: -1 });
 
     return res.json(rentals);
@@ -161,7 +165,6 @@ const updateApplicationStatus = async (req, res) => {
       return res.status(404).json({ message: "Өргөдөл олдсонгүй" });
     }
 
-    // Зөвхөн landlord-той (эсвэл admin) болон зөвшөөрнө
     const isLandlord =
       application.landlord.toString() === req.user._id.toString();
     const isAdmin = req.user.role === "admin";
@@ -178,10 +181,8 @@ const updateApplicationStatus = async (req, res) => {
     application.status = status;
 
     if (status === "approved") {
-      // Гарын үсэг зурах шатанд оруулна
       application.contractStatus = "pending_signatures";
 
-      // Бусад өргөдлүүдийг автомат татгалзах
       await Application.updateMany(
         {
           property: application.property._id,
@@ -191,7 +192,6 @@ const updateApplicationStatus = async (req, res) => {
         { $set: { status: "rejected" } }
       );
 
-      // Байрны статусыг "түрээслэгдсэн" болгох
       await Property.findByIdAndUpdate(application.property._id, {
         status: "rented",
       });
@@ -201,8 +201,8 @@ const updateApplicationStatus = async (req, res) => {
 
     const populated = await Application.findById(application._id)
       .populate("property")
-      .populate("tenant", "name email phone avatar")
-      .populate("landlord", "name email phone");
+      .populate("tenant",   "firstName lastName email phone avatar")
+      .populate("landlord", "firstName lastName email phone avatar");
 
     return res.json(populated);
   } catch (err) {
@@ -215,6 +215,7 @@ const updateApplicationStatus = async (req, res) => {
 // ──────────────────────────────────────────────────────────────────
 //  PUT /api/applications/:id/sign
 //  Хоёр тал гэрээнд гарын үсэг зурах
+//  ✅ ЗАСВАР #3: Хоёулаа гарын үсэг зурсан үед төлбөрүүдийг автомат үүсгэх
 // ──────────────────────────────────────────────────────────────────
 const signContract = async (req, res) => {
   try {
@@ -254,17 +255,28 @@ const signContract = async (req, res) => {
       application.landlordSignedAt  = new Date();
     }
 
-    // Хоёулаа гарын үсэг зурвал → payment_pending руу шилжих
-    if (application.tenantSigned && application.landlordSigned) {
+    // ✅ Хоёулаа гарын үсэг зурвал → payment_pending руу шилжих
+    const bothSigned =
+      application.tenantSigned && application.landlordSigned;
+
+    if (bothSigned) {
       application.contractStatus = "payment_pending";
     }
 
     await application.save();
 
+    // ⭐ ЗАСВАР #3 — Хоёулаа гарын үсэг зурсан тохиолдолд автомат
+    //               төлбөрүүдийг үүсгэх + мэдэгдэл явуулах
+    if (bothSigned) {
+      // Inline require — circular dependency-аас урьдчилан сэргийлэх
+      const { generatePayments } = require("./paymentController");
+      await generatePayments(application._id);
+    }
+
     const populated = await Application.findById(application._id)
       .populate("property")
-      .populate("tenant", "name email phone avatar")
-      .populate("landlord", "name email phone");
+      .populate("tenant",   "firstName lastName email phone avatar")
+      .populate("landlord", "firstName lastName email phone avatar");
 
     return res.json(populated);
   } catch (err) {
@@ -276,7 +288,6 @@ const signContract = async (req, res) => {
 
 // ──────────────────────────────────────────────────────────────────
 //  PUT /api/applications/:id/cancel
-//  Өргөдөл / Гэрээ цуцлах хүсэлт
 // ──────────────────────────────────────────────────────────────────
 const requestCancellation = async (req, res) => {
   try {
@@ -297,7 +308,6 @@ const requestCancellation = async (req, res) => {
       return res.status(403).json({ message: "Эрх байхгүй" });
     }
 
-    // Аль хэдийн дууссан / цуцлагдсан бол үгүй
     if (["cancelled", "completed"].includes(application.status)) {
       return res
         .status(400)
@@ -312,7 +322,6 @@ const requestCancellation = async (req, res) => {
 
     await application.save();
 
-    // Хэрэв гэрээ хийгдсэн байрны статусыг сэргээх
     if (application.property?.status === "rented") {
       await Property.findByIdAndUpdate(application.property._id, {
         status: "available",
@@ -321,8 +330,8 @@ const requestCancellation = async (req, res) => {
 
     const populated = await Application.findById(application._id)
       .populate("property")
-      .populate("tenant", "name email phone avatar")
-      .populate("landlord", "name email phone");
+      .populate("tenant",   "firstName lastName email phone avatar")
+      .populate("landlord", "firstName lastName email phone avatar");
 
     return res.json(populated);
   } catch (err) {
@@ -333,8 +342,7 @@ const requestCancellation = async (req, res) => {
 
 
 // ──────────────────────────────────────────────────────────────────
-//  ⭐ GET /api/applications/:id
-//  Single application авах — Contract, Payment, Detail хуудаснаас дуудна
+//  GET /api/applications/:id
 // ──────────────────────────────────────────────────────────────────
 const getApplicationById = async (req, res) => {
   try {
@@ -342,14 +350,13 @@ const getApplicationById = async (req, res) => {
 
     const application = await Application.findById(id)
       .populate("property")
-      .populate("tenant",   "name email phone avatar firstName lastName")
-      .populate("landlord", "name email phone avatar firstName lastName");
+      .populate("tenant",   "firstName lastName email phone avatar")
+      .populate("landlord", "firstName lastName email phone avatar");
 
     if (!application) {
       return res.status(404).json({ message: "Өргөдөл олдсонгүй" });
     }
 
-    // Зөвхөн оролцогч талуудад харагдана (tenant, landlord, admin)
     const userId = req.user._id.toString();
     const tenantId = application.tenant?._id?.toString();
     const landlordId = application.landlord?._id?.toString();
@@ -375,8 +382,7 @@ const getApplicationById = async (req, res) => {
 
 
 // ──────────────────────────────────────────────────────────────────
-//  ⭐ GET /api/applications/me/property/:propertyId
-//  Tenant нь тухайн байрд аль хэдийн өргөдөл гаргасан эсэхийг шалгах
+//  GET /api/applications/me/property/:propertyId
 // ──────────────────────────────────────────────────────────────────
 const getMyApplicationForProperty = async (req, res) => {
   try {
@@ -385,13 +391,11 @@ const getMyApplicationForProperty = async (req, res) => {
     const application = await Application.findOne({
       tenant:   req.user._id,
       property: propertyId,
-      // cancelled / rejected бол дахин өргөдөл гаргаж болно
       status:   { $nin: ["cancelled", "rejected"] },
     })
-      .populate("property", "title address district price photos status")
+      .populate("property", "title location monthlyRent images status")
       .sort({ createdAt: -1 });
 
-    // Олдоогүй ч 404 биш — null буцаах нь UX-д сайн
     return res.json(application || null);
   } catch (err) {
     console.error("getMyApplicationForProperty:", err);
@@ -403,9 +407,6 @@ const getMyApplicationForProperty = async (req, res) => {
 };
 
 
-// ──────────────────────────────────────────────────────────────────
-//  EXPORTS
-// ──────────────────────────────────────────────────────────────────
 module.exports = {
   createApplication,
   getMyApplications,
@@ -414,6 +415,6 @@ module.exports = {
   getActiveRentals,
   signContract,
   requestCancellation,
-  getApplicationById,           // ⭐ ШИНЭ
-  getMyApplicationForProperty,  // ⭐ ШИНЭ
+  getApplicationById,
+  getMyApplicationForProperty,
 };
