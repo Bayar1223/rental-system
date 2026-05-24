@@ -247,7 +247,7 @@ export default function Landing() {
             className={`flex flex-wrap items-center justify-center gap-4 transition-all duration-1000 delay-500 ${heroVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
           >
             <button onClick={scrollToFleet} className="btn-outline-gold">
-              Цуглуулга үзэх
+              Байр үзэх
             </button>
             <Link to="/register" className="btn-gold">
               Үнэгүй эхлэх
@@ -345,7 +345,7 @@ export default function Landing() {
               />
             </svg>
             <div className="mt-3 text-center">
-              <p className="text-white text-sm font-light tracking-wide">Б. Индра</p>
+              <p className="text-white text-sm font-light tracking-wide">Ц.Баярхүү</p>
               <p
                 className="text-xs tracking-widest uppercase mt-1"
                 style={{ color: "var(--text-soft)" }}
