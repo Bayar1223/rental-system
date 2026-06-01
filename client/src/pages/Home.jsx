@@ -5,6 +5,7 @@ import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import PropertyCard from "../components/PropertyCard";
+import FavoriteButton from "../components/FavoriteButton"; // ⭐ ШИНЭ
 
 // ── Гол дүүргүүд ──
 const DISTRICTS = [
@@ -50,6 +51,16 @@ function Home() {
     sort: "newest",
   });
 
+  // ⭐ ШИНЭ: нэвтэрсэн хэрэглэгч + хадгалсан байрны id-ууд
+  const user = useMemo(() => {
+    try {
+      return JSON.parse(localStorage.getItem("user") || "null");
+    } catch {
+      return null;
+    }
+  }, []);
+  const [favIds, setFavIds] = useState([]);
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -74,6 +85,21 @@ function Home() {
       cancelled = true;
     };
   }, []);
+
+  // ⭐ ШИНЭ: хадгалсан байрны id-уудыг нэг удаа татах
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    api
+      .get("/api/favorites/ids")
+      .then((r) => {
+        if (!cancelled) setFavIds(r.data || []);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
 
   const filtered = useMemo(() => {
     // Хамгаалалт: properties массив биш бол хоосон жагсаалт буцаах
@@ -153,6 +179,14 @@ function Home() {
     (filters.rooms ? 1 : 0);
 
   const mapped = filtered.filter((p) => p.latitude && p.longitude);
+
+  // ⭐ ШИНЭ: зүрх дарахад favIds-ийг шинэчилж байна (төлөв тогтвортой)
+  const handleFavToggle = (propertyId, favorited) =>
+    setFavIds((prev) =>
+      favorited
+        ? [...new Set([...prev, propertyId])]
+        : prev.filter((x) => x !== propertyId)
+    );
 
   return (
     <div
@@ -503,7 +537,17 @@ function Home() {
           ) : view === "grid" ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-fadeUp">
               {filtered.map((p) => (
-                <PropertyCard key={p._id} property={p} />
+                // ⭐ ШИНЭ: картыг relative wrapper-т ороож зүрхийг дээр нь тавив
+                <div key={p._id} className="relative">
+                  {user && (
+                    <FavoriteButton
+                      propertyId={p._id}
+                      initial={favIds.includes(p._id)}
+                      onToggle={(fav) => handleFavToggle(p._id, fav)}
+                    />
+                  )}
+                  <PropertyCard property={p} />
+                </div>
               ))}
             </div>
           ) : (

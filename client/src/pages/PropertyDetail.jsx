@@ -4,6 +4,7 @@ import api from "../api/axiosInstance";
 import { MapContainer, TileLayer, Marker } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import FavoriteButton from "../components/FavoriteButton"; // ⭐ ШИНЭ
 
 const PLACEHOLDER =
   "https://images.unsplash.com/photo-1494526585095-c41746248156?auto=format&fit=crop&w=1200&q=80";
@@ -36,6 +37,7 @@ function PropertyDetail() {
   const [myApplication, setMyApplication] = useState(null);
   const [loading, setLoading]             = useState(true);
   const [notFound, setNotFound]           = useState(false);
+  const [favIds, setFavIds]               = useState([]); // ⭐ ШИНЭ
 
   const [lightboxIdx, setLightboxIdx] = useState(null);
 
@@ -90,6 +92,19 @@ function PropertyDetail() {
     })();
     return () => { cancelled = true; };
   }, [id, user]);
+
+  // ⭐ ШИНЭ: энэ байр хадгалагдсан эсэхийг тогтоох
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    api
+      .get("/api/favorites/ids")
+      .then((r) => {
+        if (!cancelled) setFavIds(r.data || []);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [user]);
 
   useEffect(() => {
     if (lightboxIdx === null) return;
@@ -194,6 +209,7 @@ function PropertyDetail() {
   const isAdmin    = user?.role === "admin";
   const isTenant   = user?.role === "tenant";
   const isAvailable = property.status === "available";
+  const isFav       = favIds.includes(id); // ⭐ ШИНЭ
 
   const monthlyRent      = property.monthlyRent ?? property.price ?? 0;
   const depositAmount    = property.depositAmount ?? 0;
@@ -272,38 +288,45 @@ function PropertyDetail() {
       {/* ── Gallery ── */}
       <section className="max-w-7xl mx-auto px-6 lg:px-12 mb-12">
         <div className={`grid grid-cols-1 gap-3 h-auto lg:h-[560px] ${photos.length > 1 ? "lg:grid-cols-12" : ""}`}>
-          <button
-            onClick={() => setLightboxIdx(0)}
-            className={`relative overflow-hidden group cursor-zoom-in ${photos.length > 1 ? "lg:col-span-8" : ""}`}
-            style={{ border: "1px solid rgba(201,168,76,0.15)" }}
-          >
-            <img
-              src={photos[0]} alt={property.title}
-              className="w-full h-full object-cover transition-transform duration-[1.2s] group-hover:scale-105"
-              style={{
-                aspectRatio: photos.length > 1 ? "auto" : "16/8",
-                minHeight: photos.length > 1 ? "auto" : 320,
-                filter: "brightness(0.9)",
-              }}
-              onError={(e) => (e.currentTarget.src = PLACEHOLDER)}
-            />
-            <div className="absolute inset-0 pointer-events-none"
-              style={{ background: "linear-gradient(180deg, transparent 60%, rgba(10,10,10,0.5) 100%)" }} />
-            <div
-              className="absolute top-5 left-5 px-3 py-1.5 text-[10px] tracking-[0.25em] uppercase"
-              style={{
-                background: isAvailable ? "rgba(201,168,76,0.95)" : "rgba(10,10,10,0.75)",
-                color: isAvailable ? "#0A0A0A" : "rgba(255,255,255,0.7)",
-                border: isAvailable ? "none" : "1px solid rgba(255,255,255,0.2)",
-              }}
+          {/* ⭐ ШИНЭ: үндсэн зургийг relative div-ээр ороож, зүрхийг дээр нь тавив
+              (button дотор button болохгүй тул) */}
+          <div className={`relative ${photos.length > 1 ? "lg:col-span-8" : ""}`}>
+            {user && (
+              <FavoriteButton propertyId={property._id} initial={isFav} size={42} />
+            )}
+            <button
+              onClick={() => setLightboxIdx(0)}
+              className="relative overflow-hidden group cursor-zoom-in w-full h-full block"
+              style={{ border: "1px solid rgba(201,168,76,0.15)" }}
             >
-              {isAvailable ? "Боломжтой" : "Түрээслэгдсэн"}
-            </div>
-            <div
-              className="absolute bottom-5 right-5 px-3 py-1.5 text-[10px] tracking-[0.25em] uppercase opacity-0 group-hover:opacity-100 transition-opacity"
-              style={{ background: "#C9A84C", color: "#0A0A0A" }}
-            >◇ Бүх зураг үзэх</div>
-          </button>
+              <img
+                src={photos[0]} alt={property.title}
+                className="w-full h-full object-cover transition-transform duration-[1.2s] group-hover:scale-105"
+                style={{
+                  aspectRatio: photos.length > 1 ? "auto" : "16/8",
+                  minHeight: photos.length > 1 ? "auto" : 320,
+                  filter: "brightness(0.9)",
+                }}
+                onError={(e) => (e.currentTarget.src = PLACEHOLDER)}
+              />
+              <div className="absolute inset-0 pointer-events-none"
+                style={{ background: "linear-gradient(180deg, transparent 60%, rgba(10,10,10,0.5) 100%)" }} />
+              <div
+                className="absolute top-5 left-5 px-3 py-1.5 text-[10px] tracking-[0.25em] uppercase"
+                style={{
+                  background: isAvailable ? "rgba(201,168,76,0.95)" : "rgba(10,10,10,0.75)",
+                  color: isAvailable ? "#0A0A0A" : "rgba(255,255,255,0.7)",
+                  border: isAvailable ? "none" : "1px solid rgba(255,255,255,0.2)",
+                }}
+              >
+                {isAvailable ? "Боломжтой" : "Түрээслэгдсэн"}
+              </div>
+              <div
+                className="absolute bottom-5 right-5 px-3 py-1.5 text-[10px] tracking-[0.25em] uppercase opacity-0 group-hover:opacity-100 transition-opacity"
+                style={{ background: "#C9A84C", color: "#0A0A0A" }}
+              >◇ Бүх зураг үзэх</div>
+            </button>
+          </div>
 
           {photos.length > 1 && (
             <div className="lg:col-span-4 grid grid-cols-2 lg:grid-cols-1 gap-3">

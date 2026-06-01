@@ -188,6 +188,7 @@ function Navbar() {
     { to: "/notifications", label: "Мэдэгдэл" },
     ...(user?.role === "tenant"
       ? [
+          { to: "/favorites", label: "Хадгалсан" },
           { to: "/my-rentals", label: "Миний түрээс" },
           { to: "/payments", label: "Миний төлбөр" },
           { to: "/maintenance", label: "Барьцаа суутгал" },
