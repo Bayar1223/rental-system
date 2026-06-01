@@ -270,6 +270,7 @@ function ApplicationCard({ app, onCancel, actioning }) {
         {/* ⭐ ШИНЭ: Зурвас бичих */}
         {canMessage && (
           <Link to={`/messages/${app._id}`}
+            state={{ otherName: app.landlord?.name || property.landlord?.name }}
             className="flex-1 md:flex-initial py-2.5 px-4 text-center text-[10px] tracking-[0.25em] uppercase transition-all duration-300 flex items-center justify-center gap-2"
             style={{ border: "1px solid rgba(201,168,76,0.4)", color: "#C9A84C" }}
             onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(201,168,76,0.08)"; }}

@@ -359,6 +359,7 @@ function LandlordApplicationCard({ app, onApprove, onReject, actioning }) {
           {/* ⭐ ШИНЭ: Зурвас бичих */}
           {canMessage && (
             <Link to={`/messages/${app._id}`}
+              state={{ otherName: tenant.name }}
               className="w-full py-3 text-center text-[10px] tracking-[0.25em] uppercase transition-all duration-300 flex items-center justify-center gap-2"
               style={{ border: "1px solid rgba(201,168,76,0.4)", color: "#C9A84C" }}
               onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(201,168,76,0.08)")}

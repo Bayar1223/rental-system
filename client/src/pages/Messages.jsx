@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import api from "../api/axiosInstance";
 import ChatBox from "../components/ChatBox";
 
@@ -18,6 +18,7 @@ function timeAgo(date) {
 
 function Messages() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { applicationId } = useParams();
 
   const user = useMemo(() => {
@@ -62,7 +63,8 @@ function Messages() {
   const active = threads.find(
     (t) => t.applicationId?.toString() === applicationId
   );
-  const activeName = active?.other?.name || "Хэрэглэгч";
+  const activeName =
+    active?.other?.name || location.state?.otherName || "Хэрэглэгч";
 
   return (
     <div
@@ -104,7 +106,7 @@ function Messages() {
 
         {loading ? (
           <LoadingState />
-        ) : threads.length === 0 ? (
+        ) : threads.length === 0 && !applicationId ? (
           <EmptyState />
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
