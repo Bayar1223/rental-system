@@ -22,7 +22,7 @@ import AdminPanel from "./pages/AdminPanel";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import MaintenanceRequests from "./pages/MaintenanceRequests";
-
+import Messages from "./pages/Messages";
 // ─────────────────────────────────────────────────────────────
 //  Public paths — idle timeout болон Navbar-аас хасах
 // ─────────────────────────────────────────────────────────────
@@ -92,6 +92,8 @@ function App() {
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/maintenance" element={<MaintenanceRequests />} />
+        <Route path="/messages" element={<Messages />} />
+        <Route path="/messages/:applicationId" element={<Messages />} />
       </Routes>
     </BrowserRouter>
   );

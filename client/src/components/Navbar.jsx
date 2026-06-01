@@ -28,6 +28,7 @@ function Navbar() {
     }
   });
   const [unreadCount, setUnreadCount] = useState(0);
+  const [msgUnread, setMsgUnread] = useState(0); // ⭐ ШИНЭ: зурвасны уншаагүй тоо
   const [notifications, setNotifications] = useState([]);
   const [showNotif, setShowNotif] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -68,11 +69,16 @@ function Navbar() {
     if (!token) return;
 
     let cancelled = false;
+    // ⭐ ЗАСВАР: мэдэгдэл + зурвасны тоог нэг poll дотор зэрэг татна
     const load = async () => {
       try {
-        const res = await api.get("/api/notifications/unread-count");
+        const [notifRes, msgRes] = await Promise.all([
+          api.get("/api/notifications/unread-count"),
+          api.get("/api/messages/unread-count"),
+        ]);
         if (cancelled) return;
-        setUnreadCount(res.data?.count || 0);
+        setUnreadCount(notifRes.data?.count || 0);
+        setMsgUnread(msgRes.data?.count || 0);
       } catch {
         /* silent */
       }
@@ -175,8 +181,10 @@ function Navbar() {
             ]
           : [{ to: "/home", label: "Байр" }];
 
+  // ⭐ ШИНЭ: "Зурвас" нь бүх role-д dropdown + mobile цэсэнд гарна
   const userMenuItems = [
     { to: "/profile", label: "Профайл" },
+    { to: "/messages", label: "Зурвас" },
     { to: "/notifications", label: "Мэдэгдэл" },
     ...(user?.role === "tenant"
       ? [
@@ -266,6 +274,52 @@ function Navbar() {
           <div className="flex items-center gap-3">
             {user ? (
               <>
+                {/* ⭐ ШИНЭ: Зурвасны икон + уншаагүй badge */}
+                <Link
+                  to="/messages"
+                  className="relative w-10 h-10 flex items-center justify-center transition-colors"
+                  style={{
+                    color: isActive("/messages")
+                      ? "var(--gold)"
+                      : "rgba(255,255,255,0.55)",
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = "var(--gold)")}
+                  onMouseLeave={(e) =>
+                    (e.currentTarget.style.color = isActive("/messages")
+                      ? "var(--gold)"
+                      : "rgba(255,255,255,0.55)")
+                  }
+                  aria-label="Зурвас"
+                >
+                  <svg
+                    width="18"
+                    height="18"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.2"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M4 5h16a1 1 0 011 1v9a1 1 0 01-1 1H9l-4 4v-4H4a1 1 0 01-1-1V6a1 1 0 011-1z"
+                    />
+                  </svg>
+                  {msgUnread > 0 && (
+                    <span
+                      className="absolute top-1 right-1 min-w-[16px] h-[16px] px-1 flex items-center justify-center rounded-full text-[10px] font-semibold leading-none"
+                      style={{
+                        background: "var(--gold)",
+                        color: "#0A0A0A",
+                        fontFamily: "'DM Sans', sans-serif",
+                        animation: "pulseGold 2s infinite",
+                      }}
+                    >
+                      {msgUnread > 9 ? "9+" : msgUnread}
+                    </span>
+                  )}
+                </Link>
+
                 <div className="relative" ref={notifRef}>
                   <button
                     onClick={handleBellClick}
@@ -500,7 +554,7 @@ function Navbar() {
                             key={to}
                             to={to}
                             onClick={() => setShowUserMenu(false)}
-                            className="flex items-center px-5 py-2.5 text-xs tracking-wide transition-colors"
+                            className="flex items-center justify-between px-5 py-2.5 text-xs tracking-wide transition-colors"
                             style={{ color: "var(--text-secondary)" }}
                             onMouseEnter={(e) => {
                               e.currentTarget.style.color = "var(--gold)";
@@ -511,7 +565,16 @@ function Navbar() {
                               e.currentTarget.style.background = "transparent";
                             }}
                           >
-                            {label}
+                            <span>{label}</span>
+                            {/* ⭐ ШИНЭ: "Зурвас" мөрөнд уншаагүй тоо */}
+                            {to === "/messages" && msgUnread > 0 && (
+                              <span
+                                className="min-w-[16px] h-[16px] px-1 flex items-center justify-center rounded-full text-[10px] font-semibold leading-none"
+                                style={{ background: "var(--gold)", color: "#0A0A0A" }}
+                              >
+                                {msgUnread > 9 ? "9+" : msgUnread}
+                              </span>
+                            )}
                           </Link>
                         ))}
                       </div>
@@ -622,13 +685,22 @@ function Navbar() {
                   key={to}
                   to={to}
                   onClick={() => setMobileOpen(false)}
-                  className="block py-3 text-sm tracking-wide"
+                  className="flex items-center justify-between py-3 text-sm tracking-wide"
                   style={{
                     color: "var(--text-secondary)",
                     borderBottom: "1px solid var(--border-subtle)",
                   }}
                 >
-                  {label}
+                  <span>{label}</span>
+                  {/* ⭐ ШИНЭ: mobile цэсэн дэх "Зурвас" badge */}
+                  {to === "/messages" && msgUnread > 0 && (
+                    <span
+                      className="min-w-[18px] h-[18px] px-1 flex items-center justify-center rounded-full text-[10px] font-semibold leading-none"
+                      style={{ background: "var(--gold)", color: "#0A0A0A" }}
+                    >
+                      {msgUnread > 9 ? "9+" : msgUnread}
+                    </span>
+                  )}
                 </Link>
               ))}
             </div>
