@@ -10,10 +10,16 @@ const {
   rejectRequest,
 } = require("../controllers/maintenanceController");
 
-router.post("/",                protect, upload.array("images", 5), createRequest);
-router.get("/landlord",         protect, getLandlordRequests);
-router.get("/tenant",           protect, getTenantRequests);
-router.put("/:id/approve",      protect, approveRequest);
-router.put("/:id/reject",       protect, rejectRequest);
+// ⭐ ЗАСВАР: "images" → "photos" (frontend болон model-тэй нийцүүлэв)
+router.post("/", protect, upload.array("photos", 5), createRequest);
+
+router.get("/landlord", protect, getLandlordRequests);
+
+// ⭐ ЗАСВАР: frontend "/me" дууддаг тул /me нэмэв. /tenant-г alias болгон үлдээв.
+router.get("/me",      protect, getTenantRequests);
+router.get("/tenant",  protect, getTenantRequests);
+
+router.put("/:id/approve", protect, approveRequest);
+router.put("/:id/reject",  protect, rejectRequest);
 
 module.exports = router;

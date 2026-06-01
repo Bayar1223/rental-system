@@ -261,7 +261,8 @@ function MaintenanceItem({ item, isLandlord }) {
   const property = item.property || item.application?.property || {};
   const tenant = item.tenant || item.application?.tenant || {};
   const landlord = item.landlord || item.application?.landlord || {};
-  const cover = property.photos?.[0] || PLACEHOLDER;
+  // ⭐ ЗАСВАР: Property model-ийн талбар нь `images` (photos биш)
+  const cover = property.images?.[0] || PLACEHOLDER;
 
   return (
     <article
@@ -290,13 +291,14 @@ function MaintenanceItem({ item, isLandlord }) {
           alt=""
           className="w-full h-full object-cover"
           style={{ filter: "brightness(0.88)" }}
+          onError={(e) => (e.currentTarget.src = PLACEHOLDER)}
         />
       </Link>
 
       <div className="md:col-span-7">
         <div className="text-[10px] tracking-[0.25em] uppercase mb-2">
           <span style={{ color: "#C9A84C" }}>
-            {property.district || "—"}
+            {property.location?.district || property.district || "—"}
           </span>
           <span className="text-white/30 mx-2">·</span>
           <span className="text-white/40">{formatDate(item.createdAt)}</span>
@@ -418,7 +420,8 @@ function CreateModal({ rentals, onClose, onCreated }) {
 
   const selected = rentals.find((r) => r._id === rentalId);
   const remainingDeposit = selected?.remainingDeposit;
-  const monthlyRent = selected?.property?.price || 0;
+  // ⭐ ЗАСВАР: Property model-д `price` биш `monthlyRent`
+  const monthlyRent = selected?.property?.monthlyRent || 0;
   const depositTotal =
     selected?.depositPaid || selected?.depositAmount || monthlyRent;
 

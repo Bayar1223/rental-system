@@ -22,16 +22,28 @@ const maintenanceRequestSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
-    title: { type: String, required: true },       // Гэмтлийн нэр
-    description: { type: String, required: true }, // Дэлгэрэнгүй тайлбар
-    amount: { type: Number, required: true },       // Суутгах дүн
-    images: [{ type: String }],                    // Гэмтлийн зурагнууд
+
+    // ⭐ ЗАСВАР: frontend `reason` илгээдэг тул title/description → reason болгов.
+    // (Хуучин required title/description нь validation алдаа өгч байсан.)
+    reason: { type: String, required: true },
+
+    amount: { type: Number, required: true }, // Суутгах дүн
+
+    // ⭐ ЗАСВАР: multer + frontend `photos` гэдэг нэрээр илгээдэг тул images → photos.
+    // Controller-т multer field-ийн нэрийг ЗААВАЛ `photos` болгоно уу:
+    //   upload.array("photos")
+    photos: [{ type: String }],
+
+    // ⭐ ШИНЭ: суутгасны дараах үлдэгдэл барьцаа (snapshot).
+    // Controller үүсгэх үед: remainingDeposit = (барьцааны нийт) − (өмнөх бүх суутгал + энэ дүн)
+    remainingDeposit: { type: Number },
+
     status: {
       type: String,
-      enum: ["pending", "approved", "rejected"],   // Хүлээгдэж/Зөвшөөрсөн/Татгалзсан
+      enum: ["pending", "approved", "rejected"],
       default: "pending",
     },
-    deductedFromDeposit: { type: Boolean, default: false }, // Барьцаанаас суутгасан эсэх
+    deductedFromDeposit: { type: Boolean, default: true }, // Барьцаанаас суутгасан эсэх
     tenantResponse: { type: String, default: "" },          // Tenant-ийн хариу
   },
   { timestamps: true }

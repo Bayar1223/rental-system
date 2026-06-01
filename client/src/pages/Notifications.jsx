@@ -2,13 +2,22 @@ import { useState, useEffect, useMemo } from "react";
 import api from "../api/axiosInstance";
 import { Link, useNavigate } from "react-router-dom";
 
+// ⭐ ЗАСВАР: серверийн Notification model-ийн жинхэнэ enum-уудыг нэмсэн.
+// Model.type = application_received | application_approved | application_rejected | general
+// Хуучин түлхүүрүүдийг (info/success/...) мөн үлдээв — хаа нэг газар хэрэглэвэл ажиллана.
 const TYPE_META = {
-  info: { color: "#C9A84C", icon: "◇" },
-  success: { color: "#10B981", icon: "◆" },
-  warning: { color: "#F59E0B", icon: "▲" },
-  error: { color: "#EF4444", icon: "✕" },
-  payment: { color: "#C9A84C", icon: "◇" },
-  contract: { color: "#C9A84C", icon: "◇" },
+  // Серверийн enum
+  application_received: { color: "#C9A84C", icon: "◇" },
+  application_approved: { color: "#10B981", icon: "◆" },
+  application_rejected: { color: "#EF4444", icon: "✕" },
+  general:              { color: "#C9A84C", icon: "◇" },
+  // Generic
+  info:        { color: "#C9A84C", icon: "◇" },
+  success:     { color: "#10B981", icon: "◆" },
+  warning:     { color: "#F59E0B", icon: "▲" },
+  error:       { color: "#EF4444", icon: "✕" },
+  payment:     { color: "#C9A84C", icon: "◇" },
+  contract:    { color: "#C9A84C", icon: "◇" },
   application: { color: "#C9A84C", icon: "◇" },
 };
 
@@ -55,14 +64,12 @@ function Notifications() {
     (async () => {
       try {
         // Navbar-тай ижил endpoint ашиглах (/api/notifications)
-        // /api/notifications/me нь сервэрт байхгүй учир 404 буцаах
         const res = await api.get("/api/notifications");
         if (cancelled) return;
         const raw = res.data?.notifications || res.data || [];
         setNotifs(Array.isArray(raw) ? raw : []);
       } catch (err) {
         if (cancelled) return;
-        // Сервэрт endpoint байхгүй бол хоосон жагсаалт харуулна
         const status = err.response?.status;
         if (status === 404) {
           setNotifs([]);
@@ -80,8 +87,9 @@ function Notifications() {
   }, [navigate]);
 
   const handleMarkRead = async (id) => {
+    // ⭐ ЗАСВАР: read → isRead (model-ийн талбартай нийцүүлэв)
     setNotifs((prev) =>
-      prev.map((n) => (n._id === id ? { ...n, read: true } : n))
+      prev.map((n) => (n._id === id ? { ...n, isRead: true } : n))
     );
     try {
       await api.patch(`/api/notifications/${id}/read`);
@@ -93,7 +101,8 @@ function Notifications() {
   const handleMarkAllRead = async () => {
     if (!confirm("Бүх мэдэгдлийг уншсан гэж тэмдэглэх үү?")) return;
     setActioning(true);
-    setNotifs((prev) => prev.map((n) => ({ ...n, read: true })));
+    // ⭐ ЗАСВАР: read → isRead
+    setNotifs((prev) => prev.map((n) => ({ ...n, isRead: true })));
     try {
       await api.put("/api/notifications/mark-all-read", {});
     } catch (err) {
@@ -117,15 +126,20 @@ function Notifications() {
 
   const filtered = useMemo(() => {
     if (filter === "all") return notifs;
-    if (filter === "unread") return notifs.filter((n) => !n.read);
-    return notifs.filter((n) => n.read);
+    // ⭐ ЗАСВАР: n.read → n.isRead
+    if (filter === "unread") return notifs.filter((n) => !n.isRead);
+    return notifs.filter((n) => n.isRead);
   }, [notifs, filter]);
 
-  const counts = useMemo(() => ({
-    all: notifs.length,
-    unread: notifs.filter((n) => !n.read).length,
-    read: notifs.filter((n) => n.read).length,
-  }), [notifs]);
+  const counts = useMemo(
+    () => ({
+      all: notifs.length,
+      // ⭐ ЗАСВАР: n.read → n.isRead
+      unread: notifs.filter((n) => !n.isRead).length,
+      read: notifs.filter((n) => n.isRead).length,
+    }),
+    [notifs]
+  );
 
   return (
     <div
@@ -249,7 +263,8 @@ function Notifications() {
 function NotificationItem({ notif, onRead, onDelete }) {
   const meta = TYPE_META[notif.type] || TYPE_META.info;
   const handleClick = () => {
-    if (!notif.read) onRead(notif._id);
+    // ⭐ ЗАСВАР: notif.read → notif.isRead
+    if (!notif.isRead) onRead(notif._id);
   };
 
   const content = (
@@ -257,22 +272,22 @@ function NotificationItem({ notif, onRead, onDelete }) {
       onClick={handleClick}
       className="grid grid-cols-12 gap-4 p-5 transition-all duration-300 cursor-pointer group"
       style={{
-        background: notif.read ? "transparent" : "#141414",
-        borderLeft: notif.read
+        // ⭐ ЗАСВАР: бүх notif.read → notif.isRead
+        background: notif.isRead ? "transparent" : "#141414",
+        borderLeft: notif.isRead
           ? "2px solid transparent"
           : `2px solid ${meta.color}`,
-        border: notif.read
+        border: notif.isRead
           ? "1px solid rgba(255,255,255,0.04)"
           : `1px solid rgba(201,168,76,0.15)`,
-        borderLeftWidth: notif.read ? "1px" : "2px",
-        borderLeftColor: notif.read ? "rgba(255,255,255,0.04)" : meta.color,
+        borderLeftWidth: notif.isRead ? "1px" : "2px",
+        borderLeftColor: notif.isRead ? "rgba(255,255,255,0.04)" : meta.color,
       }}
       onMouseEnter={(e) =>
-        (e.currentTarget.style.borderColor =
-          "rgba(201,168,76,0.35)")
+        (e.currentTarget.style.borderColor = "rgba(201,168,76,0.35)")
       }
       onMouseLeave={(e) =>
-        (e.currentTarget.style.borderColor = notif.read
+        (e.currentTarget.style.borderColor = notif.isRead
           ? "rgba(255,255,255,0.04)"
           : "rgba(201,168,76,0.15)")
       }
@@ -294,7 +309,7 @@ function NotificationItem({ notif, onRead, onDelete }) {
       {/* Body */}
       <div className="col-span-9">
         <div className="flex items-start gap-2 mb-1">
-          {!notif.read && (
+          {!notif.isRead && (
             <span
               className="inline-block w-1.5 h-1.5 rounded-full mt-2 flex-shrink-0"
               style={{ background: "#C9A84C" }}
@@ -302,12 +317,12 @@ function NotificationItem({ notif, onRead, onDelete }) {
           )}
           <h4
             className={`leading-snug ${
-              notif.read ? "text-white/70" : "text-white"
+              notif.isRead ? "text-white/70" : "text-white"
             }`}
             style={{
               fontFamily: "'Cormorant Garamond', serif",
               fontSize: 20,
-              fontWeight: notif.read ? 300 : 400,
+              fontWeight: notif.isRead ? 300 : 400,
             }}
           >
             {notif.title || "Мэдэгдэл"}

@@ -1,15 +1,44 @@
 // ═══════════════════════════════════════════════════════════════════
 //  📁 server/controllers/applicationController.js
-//  ✅ ЗАСВАРЛАСАН — Phase 4
+//  ✅ ЗАСВАРЛАСАН
 //
-//  ШИНЭ ЗАСВАРУУД:
-//   1) createApplication: client `propertyId` эсвэл `property` аль алийг хүлээж авна
-//   2) signContract: generatePayments-ийг try-catch-ээр боож, paymentController
-//      байхгүй / алдаатай тохиолдолд гарын үсэг зурах процесс crash болохгүй
+//  ШИНЭ ЗАСВАР:
+//   • getLandlordApplications: application бүрт `remainingDeposit` ба
+//     `depositAmount` (барьцааны нийт) тооцоолж нэмж буцаана.
+//     Maintenance модал (`/api/maintenance` үүсгэх) эдгээрийг ашигладаг.
 // ═══════════════════════════════════════════════════════════════════
 
-const Application = require("../models/Application");
-const Property    = require("../models/Property");
+const Application        = require("../models/Application");
+const Property           = require("../models/Property");
+const Payment            = require("../models/Payment");
+const MaintenanceRequest = require("../models/MaintenanceRequest");
+
+
+// ──────────────────────────────────────────────────────────────────
+//  Helper: гэрээний барьцааны нийт + үлдэгдэл
+// ──────────────────────────────────────────────────────────────────
+async function computeDeposit(applicationId, property) {
+  const depositPayment = await Payment.findOne({
+    application: applicationId,
+    includesDeposit: true,
+  });
+
+  const depositTotal =
+    (depositPayment?.depositAmount > 0
+      ? depositPayment.depositAmount
+      : property?.depositAmount) || 0;
+
+  const agg = await MaintenanceRequest.aggregate([
+    { $match: { application: applicationId, status: { $ne: "rejected" } } },
+    { $group: { _id: null, total: { $sum: "$amount" } } },
+  ]);
+  const deducted = agg[0]?.total || 0;
+
+  return {
+    depositAmount: depositTotal,
+    remainingDeposit: Math.max(depositTotal - deducted, 0),
+  };
+}
 
 
 // ──────────────────────────────────────────────────────────────────
@@ -17,7 +46,6 @@ const Property    = require("../models/Property");
 // ──────────────────────────────────────────────────────────────────
 const createApplication = async (req, res) => {
   try {
-    // ⭐ ЗАСВАР: client `propertyId` эсвэл `property` явуулна
     const propertyId  = req.body.property || req.body.propertyId;
     const { startDate, leaseMonths, message } = req.body;
 
@@ -47,7 +75,6 @@ const createApplication = async (req, res) => {
       return res.status(400).json({ message: "Та энэ байрд аль хэдийн өргөдөл гаргасан" });
     }
 
-    // ⭐ minLeaseMonths шалгах
     const months = Number(leaseMonths);
     if (property.minLeaseMonths && months < property.minLeaseMonths) {
       return res.status(400).json({
@@ -105,14 +132,31 @@ const getMyApplications = async (req, res) => {
 
 // ──────────────────────────────────────────────────────────────────
 //  GET /api/applications/landlord
+//  ⭐ ЗАСВАР: app бүрт remainingDeposit + depositAmount нэмж буцаана
 // ──────────────────────────────────────────────────────────────────
 const getLandlordApplications = async (req, res) => {
   try {
     const apps = await Application.find({ landlord: req.user._id })
-      .populate("property", "title location monthlyRent images status")
+      // property-д depositAmount нэмж populate хийв
+      .populate("property", "title location monthlyRent depositAmount images status")
       .populate("tenant",   "firstName lastName email phone avatar")
       .sort({ createdAt: -1 });
-    return res.json(apps);
+
+    // toJSON() нь populated User-ийн `name` virtual-ийг хадгална.
+    const enriched = await Promise.all(
+      apps.map(async (app) => {
+        const obj = app.toJSON();
+        // Зөвхөн идэвхтэй гэрээнд барьцаа тооцоолох нь утга учиртай
+        if (["signed", "payment_pending", "active"].includes(app.contractStatus)) {
+          const info = await computeDeposit(app._id, app.property);
+          obj.depositAmount    = info.depositAmount;
+          obj.remainingDeposit = info.remainingDeposit;
+        }
+        return obj;
+      })
+    );
+
+    return res.json(enriched);
   } catch (err) {
     console.error("getLandlordApplications:", err);
     return res.status(500).json({ message: "Алдаа гарлаа" });
@@ -240,8 +284,6 @@ const signContract = async (req, res) => {
 
     await application.save();
 
-    // ⭐ ЗАСВАР #6: try-catch-ээр боож, paymentController байхгүй / алдаатай үед
-    //              гарын үсэг зурах процессыг УНАГАХГҮЙ
     if (bothSigned) {
       try {
         const { generatePayments } = require("./paymentController");
@@ -252,7 +294,6 @@ const signContract = async (req, res) => {
         }
       } catch (paymentErr) {
         console.error("generatePayments алдаа (алгассан):", paymentErr.message);
-        // ⚠️ Хэрэв payment автомат үүсэхгүй бол админ гараар үүсгэх боломжтой
       }
     }
 

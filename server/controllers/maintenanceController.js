@@ -3,16 +3,47 @@ const Application        = require("../models/Application");
 const Payment            = require("../models/Payment");
 const { createNotification } = require("./notificationController");
 
+// ───────────────────────────────────────────────────────────────────
+//  Helper: тухайн гэрээний барьцааны нийт дүн + одоогийн нийт суутгал
+//  depositTotal = paid deposit payment-ийн depositAmount, эс бол property.depositAmount
+//  deductedTotal = татгалзаагүй (pending/approved) бүх суутгалын нийлбэр
+// ───────────────────────────────────────────────────────────────────
+async function getDepositInfo(applicationId, property) {
+  const depositPayment = await Payment.findOne({
+    application: applicationId,
+    includesDeposit: true,
+  });
+
+  const depositTotal =
+    (depositPayment?.depositAmount > 0
+      ? depositPayment.depositAmount
+      : property?.depositAmount) || 0;
+
+  const agg = await MaintenanceRequest.aggregate([
+    { $match: { application: applicationId, status: { $ne: "rejected" } } },
+    { $group: { _id: null, total: { $sum: "$amount" } } },
+  ]);
+  const deductedTotal = agg[0]?.total || 0;
+
+  return {
+    depositTotal,
+    deductedTotal,
+    remaining: Math.max(depositTotal - deductedTotal, 0),
+  };
+}
+
 // POST /api/maintenance — Гэмтлийн суутгах хүсэлт үүсгэх (landlord)
 exports.createRequest = async (req, res) => {
   try {
-    const { applicationId, title, description, amount } = req.body;
+    // ⭐ ЗАСВАР: frontend `reason`, `photos` илгээдэг (title/description/images биш)
+    const { applicationId, reason, amount } = req.body;
     const landlordId = req.user._id || req.user.id;
-    const imageUrls  = req.files ? req.files.map((f) => f.path) : [];
+    const photoUrls  = req.files ? req.files.map((f) => f.path) : [];
+    const amt        = Number(amount); // ⭐ FormData-аас string ирдэг тул хөрвүүлэв
 
-    // Application шалгах
+    // Application шалгах — property-д depositAmount, monthlyRent нэмж populate хийв
     const application = await Application.findById(applicationId)
-      .populate("property", "title")
+      .populate("property", "title depositAmount monthlyRent")
       .populate("tenant", "firstName _id");
 
     if (!application) {
@@ -24,31 +55,55 @@ exports.createRequest = async (req, res) => {
     if (!["signed", "payment_pending", "active"].includes(application.contractStatus)) {
       return res.status(400).json({ message: "Идэвхтэй гэрээ байхгүй байна" });
     }
-    if (amount <= 0) {
+    if (!reason || !reason.trim()) {
+      return res.status(400).json({ message: "Шалтгаан оруулна уу" });
+    }
+    if (!amt || amt <= 0) {
       return res.status(400).json({ message: "Суутгах дүн 0-ээс их байх ёстой" });
     }
 
-    const request = await MaintenanceRequest.create({
+    // ⭐ ШИНЭ: барьцааны үлдэгдэл тооцоолох
+    const { depositTotal, deductedTotal } = await getDepositInfo(
+      application._id,
+      application.property
+    );
+    const available = Math.max(depositTotal - deductedTotal, 0);
+
+    if (depositTotal > 0 && amt > available) {
+      return res.status(400).json({
+        message: `Суутгах дүн үлдэгдэл барьцаанаас (${available.toLocaleString()}₮) хэтэрсэн байна`,
+      });
+    }
+
+    const remainingDeposit = Math.max(available - amt, 0);
+
+    const created = await MaintenanceRequest.create({
       application: applicationId,
       property:    application.property._id,
       landlord:    landlordId,
       tenant:      application.tenant._id,
-      title,
-      description,
-      amount,
-      images:      imageUrls,
+      reason:      reason.trim(),
+      amount:      amt,
+      photos:      photoUrls,
+      remainingDeposit,
     });
 
-    // Tenant-д мэдэгдэл явуулах
+    // ⭐ Frontend жагсаалтад шууд нэмэгддэг тул populate хийж буцаана
+    const request = await MaintenanceRequest.findById(created._id)
+      .populate("property", "title location images")
+      .populate("tenant", "firstName lastName phone")
+      .populate("landlord", "firstName lastName phone");
+
+    // Tenant-д мэдэгдэл
     await createNotification({
       user:    application.tenant._id,
       title:   "Гэмтлийн суутгалын хүсэлт ирлээ ⚠️",
-      message: `"${application.property.title}" байранд ${amount.toLocaleString()}₮ суутгах хүсэлт ирлээ. Шалтгаан: ${title}`,
+      message: `"${application.property.title}" байранд ${amt.toLocaleString()}₮ суутгах хүсэлт ирлээ. Шалтгаан: ${reason.trim()}`,
       type:    "general",
-      link:    "/my-rentals",
+      link:    "/maintenance",
     });
 
-    res.status(201).json({ message: "Хүсэлт амжилттай илгээгдлээ", request });
+    res.status(201).json(request);
   } catch (error) {
     res.status(500).json({ message: "Алдаа гарлаа", error: error.message });
   }
@@ -68,7 +123,7 @@ exports.getLandlordRequests = async (req, res) => {
   }
 };
 
-// GET /api/maintenance/tenant — Tenant-д ирсэн хүсэлтүүд
+// GET /api/maintenance/me (болон /tenant) — Tenant-д ирсэн хүсэлтүүд
 exports.getTenantRequests = async (req, res) => {
   try {
     const tenantId = req.user._id || req.user.id;
@@ -100,22 +155,22 @@ exports.approveRequest = async (req, res) => {
 
     // Барьцаа мөнгөний төлбөр олох (1-р төлбөр — depositAmount агуулсан)
     const depositPayment = await Payment.findOne({
-      application:    request.application,
+      application:     request.application,
       includesDeposit: true,
-      status:         "paid",
+      status:          "paid",
     });
 
     request.status              = "approved";
     request.deductedFromDeposit = !!depositPayment;
     await request.save();
 
-    // Tenant-д мэдэгдэл
+    // Tenant-д мэдэгдэл — ⭐ ЗАСВАР: request.title → request.reason
     await createNotification({
       user:    request.tenant._id,
       title:   "Гэмтлийн суутгал баталгаажлаа",
-      message: `"${request.property.title}" байраас ${request.amount.toLocaleString()}₮ барьцаа мөнгөнөөс суутгагдлаа. Шалтгаан: ${request.title}`,
+      message: `"${request.property.title}" байраас ${request.amount.toLocaleString()}₮ барьцаа мөнгөнөөс суутгагдлаа. Шалтгаан: ${request.reason}`,
       type:    "general",
-      link:    "/my-rentals",
+      link:    "/maintenance",
     });
 
     res.json({
@@ -132,7 +187,7 @@ exports.approveRequest = async (req, res) => {
 exports.rejectRequest = async (req, res) => {
   try {
     const landlordId = req.user._id || req.user.id;
-    const { reason } = req.body;
+    const { reason } = req.body; // landlord-ийн татгалзах тайлбар (request.reason биш)
     const request    = await MaintenanceRequest.findById(req.params.id)
       .populate("tenant", "firstName _id")
       .populate("property", "title");
@@ -151,7 +206,7 @@ exports.rejectRequest = async (req, res) => {
       title:   "Гэмтлийн суутгалын хүсэлт татгалзагдлаа",
       message: `"${request.property.title}" байрны суутгалын хүсэлт татгалзагдлаа.`,
       type:    "general",
-      link:    "/my-rentals",
+      link:    "/maintenance",
     });
 
     res.json({ message: "Хүсэлт татгалзагдлаа", request });
