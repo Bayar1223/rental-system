@@ -197,11 +197,17 @@ function Navbar() {
     ...(user?.role === "landlord"
       ? [
           { to: "/add-property", label: "Байр нэмэх" },
+          { to: "/analytics", label: "Аналитик" }, // ⭐ ШИНЭ
           { to: "/payments", label: "Орлого" },
           { to: "/maintenance", label: "Барьцаа суутгал" },
         ]
       : []),
-    ...(user?.role === "admin" ? [{ to: "/admin", label: "Админ самбар" }] : []),
+    ...(user?.role === "admin"
+      ? [
+          { to: "/analytics", label: "Аналитик" }, // ⭐ ШИНЭ
+          { to: "/admin", label: "Админ самбар" },
+        ]
+      : []),
   ];
 
   const navStyle = scrolled

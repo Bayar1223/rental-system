@@ -85,6 +85,7 @@ app.use("/api/reviews",        require("./routes/reviewRoutes"));
 app.use("/api/maintenance",    require("./routes/maintenanceRoutes"));
 app.use("/api/favorites", require("./routes/favorites"));
 app.use("/api/messages", require("./routes/messages"));
+app.use("/api/analytics", require("./routes/analytics"));
 app.get("/api/test", protect, (req, res) => {
   res.json({ message: "Token амжилттай шалгагдлаа", user: req.user });
 });

@@ -24,6 +24,7 @@ import ResetPassword from "./pages/ResetPassword";
 import MaintenanceRequests from "./pages/MaintenanceRequests";
 import Messages from "./pages/Messages";
 import Favorites from "./pages/Favorites";
+import Analytics from "./pages/Analytics";
 // ─────────────────────────────────────────────────────────────
 //  Public paths — idle timeout болон Navbar-аас хасах
 // ─────────────────────────────────────────────────────────────
@@ -96,6 +97,7 @@ function App() {
         <Route path="/messages" element={<Messages />} />
         <Route path="/messages/:applicationId" element={<Messages />} />
         <Route path="/favorites" element={<Favorites />} />
+        <Route path="/analytics" element={<Analytics />} />
       </Routes>
     </BrowserRouter>
   );
