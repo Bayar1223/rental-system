@@ -173,6 +173,7 @@ function ApplicationCard({ app, onCancel, actioning }) {
   const canCancel       = app.status === "pending";
   const canViewContract = app.status === "approved" && app.contractStatus !== "cancelled";
   const canViewPayment  = app.contractStatus === "active" || app.contractStatus === "payment_pending";
+  const canMessage      = app.status !== "cancelled"; // ⭐ ШИНЭ: чат орц
 
   return (
     <article
@@ -265,6 +266,17 @@ function ApplicationCard({ app, onCancel, actioning }) {
             onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(201,168,76,0.1)"; }}
             onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
           >Төлбөр</Link>
+        )}
+        {/* ⭐ ШИНЭ: Зурвас бичих */}
+        {canMessage && (
+          <Link to={`/messages/${app._id}`}
+            className="flex-1 md:flex-initial py-2.5 px-4 text-center text-[10px] tracking-[0.25em] uppercase transition-all duration-300 flex items-center justify-center gap-2"
+            style={{ border: "1px solid rgba(201,168,76,0.4)", color: "#C9A84C" }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(201,168,76,0.08)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+          >
+            <span>◇</span> Зурвас
+          </Link>
         )}
         {canCancel && (
           <button onClick={() => onCancel(app._id)} disabled={actioning}

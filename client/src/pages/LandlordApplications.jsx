@@ -237,6 +237,7 @@ function LandlordApplicationCard({ app, onApprove, onReject, actioning }) {
   const canApprove = app.status === "pending";
   const canReject  = app.status === "pending";
   const canViewContract = app.status === "approved" && app.contractStatus !== "cancelled";
+  const canMessage = app.status !== "cancelled"; // ⭐ ШИНЭ: чат орц
 
   const borderColor = app.status === "pending" ? "rgba(245,158,11,0.2)" : "rgba(201,168,76,0.1)";
   const hoverBorder = app.status === "pending" ? "rgba(245,158,11,0.5)" : "rgba(201,168,76,0.3)";
@@ -354,6 +355,17 @@ function LandlordApplicationCard({ app, onApprove, onReject, actioning }) {
               onMouseEnter={(e) => (e.currentTarget.style.background = "#E8D49E")}
               onMouseLeave={(e) => (e.currentTarget.style.background = "#C9A84C")}
             >Гэрээ үзэх →</Link>
+          )}
+          {/* ⭐ ШИНЭ: Зурвас бичих */}
+          {canMessage && (
+            <Link to={`/messages/${app._id}`}
+              className="w-full py-3 text-center text-[10px] tracking-[0.25em] uppercase transition-all duration-300 flex items-center justify-center gap-2"
+              style={{ border: "1px solid rgba(201,168,76,0.4)", color: "#C9A84C" }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(201,168,76,0.08)")}
+              onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+            >
+              <span>◇</span> Зурвас
+            </Link>
           )}
           {property._id && (
             <Link to={`/properties/${property._id}`}
