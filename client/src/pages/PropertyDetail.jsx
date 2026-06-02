@@ -261,17 +261,17 @@ function PropertyDetail() {
     ["signed", "payment_pending", "active", "cancelled"].includes(myApplication.contractStatus);
 
   return (
-    <div className="min-h-screen pt-20" style={{ background: "#FFFFFF", fontFamily: "'DM Sans', sans-serif" }}>
+    <div className="min-h-screen pt-20" style={{ background: "#0A0A0A", fontFamily: "'DM Sans', sans-serif" }}>
       <style>{`
-        .leaflet-container { background: #FFFFFF; font-family: 'DM Sans', sans-serif; }
+        .leaflet-container { background: #0A0A0A; font-family: 'DM Sans', sans-serif; }
         .leaflet-control-zoom a {
-          background: #FFFFFF !important;
+          background: #141414 !important;
           color: #C9A84C !important;
           border: 1px solid rgba(201,168,76,0.3) !important;
         }
         .leaflet-control-attribution {
-          background: rgba(0,0,0,0.82) !important;
-          color: rgba(0,0,0,0.50) !important;
+          background: rgba(10,10,10,0.7) !important;
+          color: rgba(255,255,255,0.4) !important;
           font-size: 9px !important;
         }
         .leaflet-control-attribution a { color: #C9A84C !important; }
@@ -281,7 +281,7 @@ function PropertyDetail() {
       <div className="max-w-7xl mx-auto px-6 lg:px-12 py-6">
         <button
           onClick={() => navigate(-1)}
-          className="text-[10px] tracking-[0.3em] uppercase text-black/50 hover:text-neutral-900 transition-colors"
+          className="text-[10px] tracking-[0.3em] uppercase text-white/40 hover:text-white transition-colors"
         >← Буцах</button>
       </div>
 
@@ -305,18 +305,18 @@ function PropertyDetail() {
                 style={{
                   aspectRatio: photos.length > 1 ? "auto" : "16/8",
                   minHeight: photos.length > 1 ? "auto" : 320,
-                  filter: "brightness(1)",
+                  filter: "brightness(0.9)",
                 }}
                 onError={(e) => (e.currentTarget.src = PLACEHOLDER)}
               />
               <div className="absolute inset-0 pointer-events-none"
-                style={{ background: "linear-gradient(180deg, transparent 60%, rgba(255,255,255,0.55) 100%)" }} />
+                style={{ background: "linear-gradient(180deg, transparent 60%, rgba(10,10,10,0.5) 100%)" }} />
               <div
                 className="absolute top-5 left-5 px-3 py-1.5 text-[10px] tracking-[0.25em] uppercase"
                 style={{
-                  background: isAvailable ? "rgba(201,168,76,0.95)" : "rgba(255,255,255,0.82)",
-                  color: isAvailable ? "#0A0A0A" : "rgba(0,0,0,0.72)",
-                  border: isAvailable ? "none" : "1px solid rgba(0,0,0,0.22)",
+                  background: isAvailable ? "rgba(201,168,76,0.95)" : "rgba(10,10,10,0.75)",
+                  color: isAvailable ? "#0A0A0A" : "rgba(255,255,255,0.7)",
+                  border: isAvailable ? "none" : "1px solid rgba(255,255,255,0.2)",
                 }}
               >
                 {isAvailable ? "Боломжтой" : "Түрээслэгдсэн"}
@@ -342,14 +342,14 @@ function PropertyDetail() {
                   >
                     <img src={photo} alt=""
                       className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                      style={{ filter: "brightness(1)" }}
+                      style={{ filter: "brightness(0.85)" }}
                       onError={(e) => (e.currentTarget.src = PLACEHOLDER)}
                     />
                     {isLast && remaining > 0 && (
-                      <div className="absolute inset-0 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.82)" }}>
+                      <div className="absolute inset-0 flex items-center justify-center" style={{ background: "rgba(10,10,10,0.7)" }}>
                         <div className="text-center" style={{ fontFamily: "'Cormorant Garamond', serif" }}>
                           <div className="text-4xl font-light" style={{ color: "#C9A84C" }}>+{remaining}</div>
-                          <div className="text-[9px] tracking-[0.3em] uppercase text-black/60 mt-1">Зураг</div>
+                          <div className="text-[9px] tracking-[0.3em] uppercase text-white/60 mt-1">Зураг</div>
                         </div>
                       </div>
                     )}
@@ -373,13 +373,13 @@ function PropertyDetail() {
             </div>
 
             <h1
-              className="font-light text-neutral-900 leading-[1.05] mb-6"
+              className="font-light text-white leading-[1.05] mb-6"
               style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "clamp(36px, 4vw, 56px)" }}
             >
               {property.title}
             </h1>
 
-            <div className="text-sm text-black/60 mb-2 flex items-center gap-2">
+            <div className="text-sm text-white/50 mb-2 flex items-center gap-2">
               <span style={{ color: "#C9A84C" }}>◇</span>
               {addressValue || "—"}{cityValue && `, ${cityValue}`}
             </div>
@@ -387,14 +387,14 @@ function PropertyDetail() {
             {reviews.length > 0 && (
               <div className="flex items-center gap-3 mb-8">
                 <RatingDiamonds value={avgRating} />
-                <span className="text-xs text-black/60 tracking-wider">
+                <span className="text-xs text-white/50 tracking-wider">
                   {avgRating.toFixed(1)} · {reviews.length} сэтгэгдэл
                 </span>
               </div>
             )}
 
             {(isOwner || isAdmin) && (
-              <div className="flex gap-3 mb-8 pb-8" style={{ borderBottom: "1px solid rgba(0,0,0,0.08)" }}>
+              <div className="flex gap-3 mb-8 pb-8" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
                 {isOwner && (
                   <Link
                     to={`/edit-property/${id}`}
@@ -413,7 +413,7 @@ function PropertyDetail() {
                 {(isOwner || isAdmin) && (
                   <button
                     onClick={handleDelete}
-                    className="px-5 py-2.5 text-[10px] tracking-[0.25em] uppercase text-red-400 hover:text-red-600 transition-colors"
+                    className="px-5 py-2.5 text-[10px] tracking-[0.25em] uppercase text-red-400 hover:text-red-300 transition-colors"
                     style={{ border: "1px solid rgba(239,68,68,0.4)" }}
                   >Устгах</button>
                 )}
@@ -422,7 +422,7 @@ function PropertyDetail() {
 
             {/* Description */}
             <DetailSection title="Тайлбар">
-              <p className="text-black/70 leading-relaxed whitespace-pre-line" style={{ fontSize: 15, lineHeight: 1.8 }}>
+              <p className="text-white/70 leading-relaxed whitespace-pre-line" style={{ fontSize: 15, lineHeight: 1.8 }}>
                 {property.description || "Тайлбар оруулаагүй байна."}
               </p>
             </DetailSection>
@@ -512,7 +512,7 @@ function PropertyDetail() {
                     style={{ height: "100%", width: "100%" }} scrollWheelZoom={false}
                   >
                     <TileLayer
-                      url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+                      url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
                       attribution='&copy; OpenStreetMap &copy; CARTO'
                     />
                     <Marker position={[property.latitude, property.longitude]} icon={goldDiamondIcon} />
@@ -525,8 +525,8 @@ function PropertyDetail() {
           {/* RIGHT — Sticky CTA */}
           <div className="lg:col-span-5">
             <div className="lg:sticky lg:top-28">
-              <div className="p-8" style={{ background: "#F4F2EC", border: "1px solid rgba(201,168,76,0.2)" }}>
-                <div className="text-[10px] tracking-[0.3em] uppercase text-black/50 mb-3">Сарын түрээс</div>
+              <div className="p-8" style={{ background: "#141414", border: "1px solid rgba(201,168,76,0.2)" }}>
+                <div className="text-[10px] tracking-[0.3em] uppercase text-white/40 mb-3">Сарын түрээс</div>
                 <div className="flex items-baseline gap-2 mb-1">
                   <div
                     className="font-light leading-none"
@@ -535,10 +535,10 @@ function PropertyDetail() {
                     {formattedRent}₮
                   </div>
                 </div>
-                <div className="text-[10px] tracking-[0.25em] uppercase text-black/40 mb-8">/ сар</div>
+                <div className="text-[10px] tracking-[0.25em] uppercase text-white/30 mb-8">/ сар</div>
 
                 {(depositAmount > 0 || minLeaseMonths) && (
-                  <div className="space-y-3 mb-8 pb-8" style={{ borderBottom: "1px solid rgba(0,0,0,0.10)" }}>
+                  <div className="space-y-3 mb-8 pb-8" style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
                     {depositAmount > 0 && (
                       <SideRow label="Барьцаа" value={`${formattedDeposit}₮`} highlight />
                     )}
@@ -555,7 +555,7 @@ function PropertyDetail() {
                 />
 
                 {property.owner?.name && (
-                  <div className="mt-8 pt-6 flex items-center gap-4" style={{ borderTop: "1px solid rgba(0,0,0,0.10)" }}>
+                  <div className="mt-8 pt-6 flex items-center gap-4" style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}>
                     <div
                       className="w-10 h-10 flex items-center justify-center"
                       style={{
@@ -566,8 +566,8 @@ function PropertyDetail() {
                       {property.owner.name.charAt(0).toUpperCase()}
                     </div>
                     <div>
-                      <div className="text-[10px] tracking-[0.25em] uppercase text-black/50">Эзэмшигч</div>
-                      <div className="text-sm text-black/80">{property.owner.name}</div>
+                      <div className="text-[10px] tracking-[0.25em] uppercase text-white/40">Эзэмшигч</div>
+                      <div className="text-sm text-white/80">{property.owner.name}</div>
                     </div>
                   </div>
                 )}
@@ -577,14 +577,14 @@ function PropertyDetail() {
         </div>
 
         {/* ── Reviews ── */}
-        <div className="mt-20 pt-12" style={{ borderTop: "1px solid rgba(0,0,0,0.08)" }}>
+        <div className="mt-20 pt-12" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
           <div className="flex items-end justify-between mb-10">
             <div>
               <div className="flex items-center gap-3 mb-3">
                 <div className="h-px w-8" style={{ background: "#C9A84C" }} />
                 <span className="text-[10px] tracking-[0.3em] uppercase" style={{ color: "#C9A84C" }}>Сэтгэгдэл</span>
               </div>
-              <h2 className="font-light text-neutral-900" style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 44 }}>
+              <h2 className="font-light text-white" style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 44 }}>
                 Туршлага<br />
                 <em style={{ color: "#C9A84C", fontStyle: "italic" }}>түрээслэгчдээс</em>
               </h2>
@@ -596,7 +596,7 @@ function PropertyDetail() {
                   style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 48, color: "#C9A84C" }}
                 >{avgRating.toFixed(1)}</div>
                 <RatingDiamonds value={avgRating} />
-                <div className="text-[10px] tracking-[0.25em] uppercase text-black/50 mt-2">
+                <div className="text-[10px] tracking-[0.25em] uppercase text-white/40 mt-2">
                   {reviews.length} сэтгэгдэл
                 </div>
               </div>
@@ -606,7 +606,7 @@ function PropertyDetail() {
           {reviewEligible && !alreadyReviewed && (
             <form
               onSubmit={handleReviewSubmit} className="p-8 mb-10"
-              style={{ background: "#F4F2EC", border: "1px solid rgba(201,168,76,0.2)" }}
+              style={{ background: "#141414", border: "1px solid rgba(201,168,76,0.2)" }}
             >
               <h3 className="text-[10px] tracking-[0.3em] uppercase mb-6" style={{ color: "#C9A84C" }}>
                 Сэтгэгдэл бичих
@@ -614,31 +614,31 @@ function PropertyDetail() {
 
               {reviewError && (
                 <div
-                  className="mb-5 p-3 text-xs text-red-600"
+                  className="mb-5 p-3 text-xs text-red-300"
                   style={{ background: "rgba(239,68,68,0.08)", borderLeft: "2px solid #EF4444" }}
                 >{reviewError}</div>
               )}
               {reviewSuccess && (
                 <div
-                  className="mb-5 p-3 text-xs text-emerald-700"
+                  className="mb-5 p-3 text-xs text-emerald-300"
                   style={{ background: "rgba(16,185,129,0.08)", borderLeft: "2px solid #10B981" }}
                 >{reviewSuccess}</div>
               )}
 
               <div className="mb-6">
-                <label className="block text-[10px] tracking-[0.25em] uppercase text-black/50 mb-3">Үнэлгээ</label>
+                <label className="block text-[10px] tracking-[0.25em] uppercase text-white/40 mb-3">Үнэлгээ</label>
                 <RatingInput value={reviewRating} onChange={setReviewRating} />
               </div>
 
               <div className="mb-6">
-                <label className="block text-[10px] tracking-[0.25em] uppercase text-black/50 mb-3">Сэтгэгдэл</label>
+                <label className="block text-[10px] tracking-[0.25em] uppercase text-white/40 mb-3">Сэтгэгдэл</label>
                 <textarea
                   value={reviewComment} onChange={(e) => setReviewComment(e.target.value)}
                   placeholder="Энэ байрны талаар та юу хэлэх вэ?" rows={4}
-                  className="w-full bg-transparent text-neutral-900 text-sm py-3 px-4 outline-none resize-none transition-colors"
-                  style={{ border: "1px solid rgba(0,0,0,0.18)" }}
+                  className="w-full bg-transparent text-white text-sm py-3 px-4 outline-none resize-none transition-colors"
+                  style={{ border: "1px solid rgba(255,255,255,0.15)" }}
                   onFocus={(e) => (e.target.style.borderColor = "#C9A84C")}
-                  onBlur={(e) => (e.target.style.borderColor = "rgba(0,0,0,0.18)")}
+                  onBlur={(e) => (e.target.style.borderColor = "rgba(255,255,255,0.15)")}
                 />
               </div>
 
@@ -662,7 +662,7 @@ function PropertyDetail() {
               >
                 <div style={{ width: 16, height: 16, background: "rgba(201,168,76,0.4)", transform: "rotate(45deg)" }} />
               </div>
-              <p className="font-light text-black/60" style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 22 }}>
+              <p className="font-light text-white/60" style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 22 }}>
                 Одоогоор сэтгэгдэл байхгүй
               </p>
             </div>
@@ -675,7 +675,7 @@ function PropertyDetail() {
 
         {/* ── Ижил төстэй байр ── */}
         {similar.length > 0 && (
-          <div className="mt-20 pt-12" style={{ borderTop: "1px solid rgba(0,0,0,0.08)" }}>
+          <div className="mt-20 pt-12" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
             <div className="flex items-center gap-3 mb-3">
               <div className="h-px w-8" style={{ background: "#C9A84C" }} />
               <span className="text-[10px] tracking-[0.3em] uppercase" style={{ color: "#C9A84C" }}>
@@ -683,7 +683,7 @@ function PropertyDetail() {
               </span>
             </div>
             <h2
-              className="font-light text-neutral-900 mb-12 leading-tight"
+              className="font-light text-white mb-12 leading-tight"
               style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 44 }}
             >
               Танд таалагдаж<br />
@@ -730,9 +730,9 @@ function DetailSection({ title, children }) {
 
 function SpecCard({ label, value }) {
   return (
-    <div className="p-5" style={{ background: "#FFFFFF", border: "1px solid rgba(201,168,76,0.15)" }}>
-      <div className="text-[10px] tracking-[0.25em] uppercase text-black/50 mb-2">{label}</div>
-      <div className="font-light" style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 22, color: "#0A0A0A" }}>
+    <div className="p-5" style={{ background: "#0A0A0A", border: "1px solid rgba(201,168,76,0.15)" }}>
+      <div className="text-[10px] tracking-[0.25em] uppercase text-white/40 mb-2">{label}</div>
+      <div className="font-light" style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 22, color: "#fff" }}>
         {value}
       </div>
     </div>
@@ -750,16 +750,16 @@ function SimilarCard({ property }) {
     <Link
       to={`/properties/${property._id}`}
       className="block group transition-all duration-300"
-      style={{ border: "1px solid rgba(201,168,76,0.15)", background: "#FAF8F3" }}
+      style={{ border: "1px solid rgba(201,168,76,0.15)", background: "#0F0F0F" }}
       onMouseEnter={(e) => (e.currentTarget.style.borderColor = "rgba(201,168,76,0.5)")}
       onMouseLeave={(e) => (e.currentTarget.style.borderColor = "rgba(201,168,76,0.15)")}
     >
-      <div className="aspect-[4/3] overflow-hidden" style={{ background: "#F4F2EC" }}>
+      <div className="aspect-[4/3] overflow-hidden" style={{ background: "#141414" }}>
         <img
           src={img}
           alt={property.title}
           className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-          style={{ filter: "brightness(1)" }}
+          style={{ filter: "brightness(0.85)" }}
           onError={(e) => (e.currentTarget.src = PLACEHOLDER)}
         />
       </div>
@@ -768,7 +768,7 @@ function SimilarCard({ property }) {
           {district || "—"}
         </div>
         <h3
-          className="font-light text-neutral-900 mb-4 leading-tight"
+          className="font-light text-white mb-4 leading-tight"
           style={{
             fontFamily: "'Cormorant Garamond', serif",
             fontSize: 22,
@@ -780,8 +780,8 @@ function SimilarCard({ property }) {
         >
           {property.title}
         </h3>
-        <div className="flex items-center justify-between pt-3" style={{ borderTop: "1px solid rgba(0,0,0,0.08)" }}>
-          <span className="text-black/60 text-xs">
+        <div className="flex items-center justify-between pt-3" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+          <span className="text-white/60 text-xs">
             {rooms ? `${rooms} өрөө` : ""}
             {area ? ` · ${area}м²` : ""}
           </span>
@@ -801,7 +801,7 @@ function FeatureBadge({ icon, label }) {
       style={{
         background: "rgba(201,168,76,0.08)",
         border: "1px solid rgba(201,168,76,0.3)",
-        color: "rgba(0,0,0,0.82)",
+        color: "rgba(255,255,255,0.85)",
       }}
     >
       <span style={{ color: "#C9A84C" }}>{icon}</span>
@@ -820,11 +820,11 @@ function InfoRow({ label, value, multiline, href }) {
       {value}
     </a>
   ) : (
-    <span className={`text-sm text-black/80 ${multiline ? "whitespace-pre-line" : ""}`}>{value}</span>
+    <span className={`text-sm text-white/85 ${multiline ? "whitespace-pre-line" : ""}`}>{value}</span>
   );
   return (
     <div className={`flex ${multiline ? "flex-col gap-1" : "items-center justify-between"}`}>
-      <span className="text-[10px] tracking-[0.25em] uppercase text-black/50">{label}</span>
+      <span className="text-[10px] tracking-[0.25em] uppercase text-white/40">{label}</span>
       {valueEl}
     </div>
   );
@@ -833,8 +833,8 @@ function InfoRow({ label, value, multiline, href }) {
 function SideRow({ label, value, highlight }) {
   return (
     <div className="flex items-center justify-between">
-      <span className="text-[10px] tracking-[0.25em] uppercase text-black/50">{label}</span>
-      <span className="text-sm" style={{ color: highlight ? "#C9A84C" : "rgba(0,0,0,0.82)" }}>
+      <span className="text-[10px] tracking-[0.25em] uppercase text-white/40">{label}</span>
+      <span className="text-sm" style={{ color: highlight ? "#C9A84C" : "rgba(255,255,255,0.85)" }}>
         {value}
       </span>
     </div>
@@ -856,7 +856,7 @@ function ApplyCTA({ user, isOwner, isTenant, isAvailable, myApplication, onApply
 
   if (isOwner) {
     return (
-      <div className="p-4 text-center text-xs text-black/60"
+      <div className="p-4 text-center text-xs text-white/50"
         style={{ background: "rgba(201,168,76,0.05)", border: "1px dashed rgba(201,168,76,0.3)" }}
       >Энэ нь таны байр</div>
     );
@@ -864,7 +864,7 @@ function ApplyCTA({ user, isOwner, isTenant, isAvailable, myApplication, onApply
 
   if (!isTenant) {
     return (
-      <div className="p-4 text-center text-xs text-black/60"
+      <div className="p-4 text-center text-xs text-white/50"
         style={{ background: "rgba(201,168,76,0.05)", border: "1px dashed rgba(201,168,76,0.3)" }}
       >Зөвхөн түрээслэгч өргөдөл гаргах боломжтой</div>
     );
@@ -883,7 +883,7 @@ function ApplyCTA({ user, isOwner, isTenant, isAvailable, myApplication, onApply
         <div className="p-4 text-center"
           style={{ background: "rgba(201,168,76,0.06)", borderLeft: `2px solid ${s.color}` }}
         >
-          <div className="text-[10px] tracking-[0.25em] uppercase text-black/50 mb-1">Таны өргөдөл</div>
+          <div className="text-[10px] tracking-[0.25em] uppercase text-white/40 mb-1">Таны өргөдөл</div>
           <div className="text-sm tracking-wider" style={{ color: s.color }}>{s.label}</div>
         </div>
         <Link to="/my-applications"
@@ -896,8 +896,8 @@ function ApplyCTA({ user, isOwner, isTenant, isAvailable, myApplication, onApply
 
   if (!isAvailable) {
     return (
-      <div className="p-4 text-center text-xs text-black/60"
-        style={{ background: "rgba(0,0,0,0.04)", border: "1px solid rgba(0,0,0,0.10)" }}
+      <div className="p-4 text-center text-xs text-white/50"
+        style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}
       >Байр түрээслэгдсэн</div>
     );
   }
@@ -965,7 +965,7 @@ function ReviewItem({ review }) {
     : "";
 
   return (
-    <div className="p-6" style={{ background: "#F4F2EC", border: "1px solid rgba(201,168,76,0.1)" }}>
+    <div className="p-6" style={{ background: "#141414", border: "1px solid rgba(201,168,76,0.1)" }}>
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center gap-4">
           <div className="w-10 h-10 flex items-center justify-center"
@@ -975,13 +975,13 @@ function ReviewItem({ review }) {
             }}
           >{tenantName.charAt(0).toUpperCase()}</div>
           <div>
-            <div className="text-sm text-black/80">{tenantName}</div>
-            <div className="text-[10px] tracking-[0.2em] uppercase text-black/50 mt-1">{date}</div>
+            <div className="text-sm text-white/80">{tenantName}</div>
+            <div className="text-[10px] tracking-[0.2em] uppercase text-white/40 mt-1">{date}</div>
           </div>
         </div>
         <RatingDiamonds value={review.rating || 0} />
       </div>
-      <p className="text-black/70 leading-relaxed text-sm whitespace-pre-line" style={{ lineHeight: 1.7 }}>
+      <p className="text-white/65 leading-relaxed text-sm whitespace-pre-line" style={{ lineHeight: 1.7 }}>
         {review.comment}
       </p>
     </div>
@@ -1001,24 +1001,24 @@ function Lightbox({ photos, index, onChange, onClose }) {
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-6 animate-fadeIn"
-      style={{ background: "rgba(250,250,250,0.97)", backdropFilter: "blur(8px)" }}
+      style={{ background: "rgba(5,5,5,0.95)", backdropFilter: "blur(8px)" }}
       onClick={onClose}
     >
       <button
         onClick={onClose}
-        className="absolute top-6 right-6 w-12 h-12 flex items-center justify-center text-black/60 hover:text-neutral-900 transition-colors text-2xl"
-        style={{ border: "1px solid rgba(0,0,0,0.18)" }} aria-label="Close"
+        className="absolute top-6 right-6 w-12 h-12 flex items-center justify-center text-white/60 hover:text-white transition-colors text-2xl"
+        style={{ border: "1px solid rgba(255,255,255,0.15)" }} aria-label="Close"
       >✕</button>
 
-      <div className="absolute top-8 left-1/2 -translate-x-1/2 text-[10px] tracking-[0.3em] uppercase text-black/60">
+      <div className="absolute top-8 left-1/2 -translate-x-1/2 text-[10px] tracking-[0.3em] uppercase text-white/50">
         <span style={{ color: "#C9A84C" }}>{index + 1}</span> / {photos.length}
       </div>
 
       {index > 0 && (
         <button
           onClick={goPrev}
-          className="absolute left-6 w-14 h-14 flex items-center justify-center text-black/60 hover:text-neutral-900 transition-colors text-2xl"
-          style={{ border: "1px solid rgba(0,0,0,0.18)" }} aria-label="Previous"
+          className="absolute left-6 w-14 h-14 flex items-center justify-center text-white/60 hover:text-white transition-colors text-2xl"
+          style={{ border: "1px solid rgba(255,255,255,0.15)" }} aria-label="Previous"
         >←</button>
       )}
 
@@ -1031,8 +1031,8 @@ function Lightbox({ photos, index, onChange, onClose }) {
       {index < photos.length - 1 && (
         <button
           onClick={goNext}
-          className="absolute right-6 w-14 h-14 flex items-center justify-center text-black/60 hover:text-neutral-900 transition-colors text-2xl"
-          style={{ border: "1px solid rgba(0,0,0,0.18)" }} aria-label="Next"
+          className="absolute right-6 w-14 h-14 flex items-center justify-center text-white/60 hover:text-white transition-colors text-2xl"
+          style={{ border: "1px solid rgba(255,255,255,0.15)" }} aria-label="Next"
         >→</button>
       )}
     </div>
@@ -1050,17 +1050,17 @@ function ApplyModal({
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-6 animate-fadeIn"
-      style={{ background: "rgba(250,250,250,0.95)", backdropFilter: "blur(8px)" }}
+      style={{ background: "rgba(5,5,5,0.9)", backdropFilter: "blur(8px)" }}
       onClick={onClose}
     >
       <div
         className="w-full max-w-lg relative animate-fadeUp"
-        style={{ background: "#F4F2EC", border: "1px solid rgba(201,168,76,0.3)" }}
+        style={{ background: "#141414", border: "1px solid rgba(201,168,76,0.3)" }}
         onClick={(e) => e.stopPropagation()}
       >
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 w-9 h-9 flex items-center justify-center text-black/60 hover:text-neutral-900 transition-colors"
+          className="absolute top-4 right-4 w-9 h-9 flex items-center justify-center text-white/60 hover:text-white transition-colors"
           aria-label="Close"
         >✕</button>
 
@@ -1069,16 +1069,16 @@ function ApplyModal({
             <div className="h-px w-8" style={{ background: "#C9A84C" }} />
             <span className="text-[10px] tracking-[0.3em] uppercase" style={{ color: "#C9A84C" }}>Application</span>
           </div>
-          <h2 className="font-light text-neutral-900 mb-3 leading-tight"
+          <h2 className="font-light text-white mb-3 leading-tight"
             style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 36 }}
           >
             Өргөдөл<br />
             <em style={{ color: "#C9A84C", fontStyle: "italic" }}>гаргах</em>
           </h2>
-          <p className="text-sm text-black/60 mb-8">"{propertyTitle}" байранд түрээслэх хүсэлт илгээх</p>
+          <p className="text-sm text-white/50 mb-8">"{propertyTitle}" байранд түрээслэх хүсэлт илгээх</p>
 
           {error && (
-            <div className="mb-6 p-3 text-xs text-red-600"
+            <div className="mb-6 p-3 text-xs text-red-300"
               style={{ background: "rgba(239,68,68,0.08)", borderLeft: "2px solid #EF4444" }}
             >{error}</div>
           )}
@@ -1086,7 +1086,7 @@ function ApplyModal({
           <form onSubmit={onSubmit}>
             {/* Эхлэх огноо */}
             <div className="mb-5">
-              <label className="block text-[10px] tracking-[0.25em] uppercase text-black/50 mb-3">
+              <label className="block text-[10px] tracking-[0.25em] uppercase text-white/40 mb-3">
                 Эхлэх огноо
               </label>
               <input
@@ -1095,16 +1095,16 @@ function ApplyModal({
                 onChange={(e) => setStartDate(e.target.value)}
                 min={today}
                 required
-                className="w-full bg-transparent text-neutral-900 text-sm py-3 px-4 outline-none transition-colors"
-                style={{ border: "1px solid rgba(0,0,0,0.18)", colorScheme: "light" }}
+                className="w-full bg-transparent text-white text-sm py-3 px-4 outline-none transition-colors"
+                style={{ border: "1px solid rgba(255,255,255,0.15)", colorScheme: "dark" }}
                 onFocus={(e) => (e.target.style.borderColor = "#C9A84C")}
-                onBlur={(e) => (e.target.style.borderColor = "rgba(0,0,0,0.18)")}
+                onBlur={(e) => (e.target.style.borderColor = "rgba(255,255,255,0.15)")}
               />
             </div>
 
             {/* Хугацаа */}
             <div className="mb-5">
-              <label className="block text-[10px] tracking-[0.25em] uppercase text-black/50 mb-3">
+              <label className="block text-[10px] tracking-[0.25em] uppercase text-white/40 mb-3">
                 Түрээслэх хугацаа (сар)
               </label>
               <input
@@ -1115,13 +1115,13 @@ function ApplyModal({
                 step={1}
                 placeholder={`${minMonths}+`}
                 required
-                className="w-full bg-transparent text-neutral-900 text-sm py-3 px-4 outline-none transition-colors"
-                style={{ border: "1px solid rgba(0,0,0,0.18)" }}
+                className="w-full bg-transparent text-white text-sm py-3 px-4 outline-none transition-colors"
+                style={{ border: "1px solid rgba(255,255,255,0.15)" }}
                 onFocus={(e) => (e.target.style.borderColor = "#C9A84C")}
-                onBlur={(e) => (e.target.style.borderColor = "rgba(0,0,0,0.18)")}
+                onBlur={(e) => (e.target.style.borderColor = "rgba(255,255,255,0.15)")}
               />
               {minLeaseMonths > 1 && (
-                <p className="text-[10px] tracking-[0.2em] uppercase text-black/50 mt-2">
+                <p className="text-[10px] tracking-[0.2em] uppercase text-white/40 mt-2">
                   Хамгийн бага: {minLeaseMonths} сар
                 </p>
               )}
@@ -1129,23 +1129,23 @@ function ApplyModal({
 
             {/* Захидал */}
             <div className="mb-6">
-              <label className="block text-[10px] tracking-[0.25em] uppercase text-black/50 mb-3">
+              <label className="block text-[10px] tracking-[0.25em] uppercase text-white/40 mb-3">
                 Захидал (заавал биш)
               </label>
               <textarea
                 value={message} onChange={(e) => setMessage(e.target.value)}
                 placeholder="Өөрийгөө танилцуулж, түрээслэх шалтгаанаа бичээрэй..." rows={4}
-                className="w-full bg-transparent text-neutral-900 text-sm py-3 px-4 outline-none resize-none transition-colors"
-                style={{ border: "1px solid rgba(0,0,0,0.18)" }}
+                className="w-full bg-transparent text-white text-sm py-3 px-4 outline-none resize-none transition-colors"
+                style={{ border: "1px solid rgba(255,255,255,0.15)" }}
                 onFocus={(e) => (e.target.style.borderColor = "#C9A84C")}
-                onBlur={(e) => (e.target.style.borderColor = "rgba(0,0,0,0.18)")}
+                onBlur={(e) => (e.target.style.borderColor = "rgba(255,255,255,0.15)")}
               />
             </div>
 
             <div className="flex gap-3">
               <button type="button" onClick={onClose}
-                className="flex-1 py-3 text-[10px] tracking-[0.25em] uppercase text-black/60 hover:text-neutral-900 transition-colors"
-                style={{ border: "1px solid rgba(0,0,0,0.15)" }}
+                className="flex-1 py-3 text-[10px] tracking-[0.25em] uppercase text-white/60 hover:text-white transition-colors"
+                style={{ border: "1px solid rgba(255,255,255,0.12)" }}
               >Болих</button>
               <button type="submit" disabled={submitting}
                 className="flex-1 py-3 text-[10px] tracking-[0.25em] uppercase transition-all duration-300 disabled:opacity-50"
@@ -1163,11 +1163,11 @@ function ApplyModal({
 
 function LoadingState() {
   return (
-    <div className="min-h-screen pt-20 flex items-center justify-center" style={{ background: "#FFFFFF" }}>
+    <div className="min-h-screen pt-20 flex items-center justify-center" style={{ background: "#0A0A0A" }}>
       <div className="text-center">
         <div className="w-12 h-12 mx-auto mb-6 animate-spin"
           style={{ border: "2px solid rgba(201,168,76,0.2)", borderTopColor: "#C9A84C", borderRadius: "50%" }} />
-        <p className="text-[10px] tracking-[0.3em] uppercase text-black/50">Уншиж байна</p>
+        <p className="text-[10px] tracking-[0.3em] uppercase text-white/40">Уншиж байна</p>
       </div>
     </div>
   );
@@ -1175,16 +1175,16 @@ function LoadingState() {
 
 function NotFoundState() {
   return (
-    <div className="min-h-screen pt-20 flex items-center justify-center px-6" style={{ background: "#FFFFFF" }}>
+    <div className="min-h-screen pt-20 flex items-center justify-center px-6" style={{ background: "#0A0A0A" }}>
       <div className="text-center max-w-md">
         <div className="w-16 h-16 mx-auto mb-8 flex items-center justify-center" style={{ border: "1px solid #C9A84C" }}>
           <div style={{ width: 24, height: 24, background: "#C9A84C", transform: "rotate(45deg)" }} />
         </div>
-        <h2 className="font-light text-neutral-900 mb-4" style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 40 }}>
+        <h2 className="font-light text-white mb-4" style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 40 }}>
           Байр<br />
           <em style={{ color: "#C9A84C", fontStyle: "italic" }}>олдсонгүй</em>
         </h2>
-        <p className="text-sm text-black/60 mb-8">
+        <p className="text-sm text-white/50 mb-8">
           Энэ хаягт хамаарах байр байхгүй эсвэл устгагдсан байна.
         </p>
         <Link to="/home"

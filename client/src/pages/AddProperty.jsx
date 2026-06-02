@@ -215,18 +215,18 @@ function AddProperty() {
   return (
     <div
       className="min-h-screen pt-20"
-      style={{ background: "#FFFFFF", fontFamily: "'DM Sans', sans-serif" }}
+      style={{ background: "#0A0A0A", fontFamily: "'DM Sans', sans-serif" }}
     >
       <style>{`
-        .leaflet-container { background: #FFFFFF; font-family: 'DM Sans', sans-serif; cursor: crosshair; }
+        .leaflet-container { background: #0A0A0A; font-family: 'DM Sans', sans-serif; cursor: crosshair; }
         .leaflet-control-zoom a {
-          background: #FFFFFF !important;
+          background: #141414 !important;
           color: #C9A84C !important;
           border: 1px solid rgba(201,168,76,0.3) !important;
         }
         .leaflet-control-attribution {
-          background: rgba(0,0,0,0.82) !important;
-          color: rgba(0,0,0,0.50) !important;
+          background: rgba(10,10,10,0.7) !important;
+          color: rgba(255,255,255,0.4) !important;
           font-size: 9px !important;
         }
         .leaflet-control-attribution a { color: #C9A84C !important; }
@@ -236,7 +236,7 @@ function AddProperty() {
       <div className="max-w-5xl mx-auto px-6 lg:px-12 py-8">
         <Link
           to="/my-properties"
-          className="text-[10px] tracking-[0.3em] uppercase text-black/50 hover:text-neutral-900 transition-colors"
+          className="text-[10px] tracking-[0.3em] uppercase text-white/40 hover:text-white transition-colors"
         >
           ← Миний байрууд руу
         </Link>
@@ -251,7 +251,7 @@ function AddProperty() {
           </span>
         </div>
         <h1
-          className="font-light text-neutral-900 leading-[1] tracking-tight"
+          className="font-light text-white leading-[1] tracking-tight"
           style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "clamp(40px, 5vw, 64px)" }}
         >
           Шинэ байр<br />
@@ -266,7 +266,7 @@ function AddProperty() {
             style={{ background: "rgba(239,68,68,0.08)", borderLeft: "2px solid #EF4444" }}
           >
             <span style={{ color: "#EF4444" }}>✕</span>
-            <p className="text-sm text-red-600">{error}</p>
+            <p className="text-sm text-red-300">{error}</p>
           </div>
         )}
 
@@ -286,7 +286,7 @@ function AddProperty() {
           <Field label="Байрны төрөл" required>
             <Select value={propertyType} onChange={setPropertyType}>
               {PROPERTY_TYPES.map((t) => (
-                <option key={t.value} value={t.value} style={{ background: "#F4F2EC" }}>
+                <option key={t.value} value={t.value} style={{ background: "#141414" }}>
                   {t.label}
                 </option>
               ))}
@@ -303,9 +303,9 @@ function AddProperty() {
 
             <Field label="Дүүрэг" required>
               <Select value={district} onChange={setDistrict} required>
-                <option value="" style={{ background: "#F4F2EC" }}>Сонгоно уу</option>
+                <option value="" style={{ background: "#141414" }}>Сонгоно уу</option>
                 {DISTRICTS.map((d) => (
-                  <option key={d} value={d} style={{ background: "#F4F2EC" }}>{d}</option>
+                  <option key={d} value={d} style={{ background: "#141414" }}>{d}</option>
                 ))}
               </Select>
             </Field>
@@ -459,7 +459,7 @@ function AddProperty() {
                 <div
                   key={i}
                   className="relative aspect-square group"
-                  style={{ border: i === 0 ? "1px solid #C9A84C" : "1px solid rgba(0,0,0,0.12)" }}
+                  style={{ border: i === 0 ? "1px solid #C9A84C" : "1px solid rgba(255,255,255,0.1)" }}
                 >
                   <img src={p.preview} alt="" className="w-full h-full object-cover" />
                   {i === 0 && (
@@ -472,8 +472,8 @@ function AddProperty() {
                   )}
                   <button
                     type="button" onClick={() => removePhoto(i)}
-                    className="absolute top-2 right-2 w-7 h-7 flex items-center justify-center text-neutral-900 opacity-0 group-hover:opacity-100 transition-opacity"
-                    style={{ background: "rgba(0,0,0,0.82)", border: "1px solid rgba(239,68,68,0.5)" }}
+                    className="absolute top-2 right-2 w-7 h-7 flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                    style={{ background: "rgba(10,10,10,0.8)", border: "1px solid rgba(239,68,68,0.5)" }}
                     aria-label="Зураг устгах"
                   >✕</button>
                 </div>
@@ -515,7 +515,7 @@ function AddProperty() {
               >
                 Зураг оруулах
               </div>
-              <p className="text-xs text-black/50">JPG, PNG · хэдэн ч зураг</p>
+              <p className="text-xs text-white/40">JPG, PNG · хэдэн ч зураг</p>
             </button>
           )}
         </FormSection>
@@ -528,7 +528,7 @@ function AddProperty() {
               style={{ height: "100%", width: "100%" }} scrollWheelZoom
             >
               <TileLayer
-                url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+                url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
                 attribution='&copy; OpenStreetMap &copy; CARTO'
               />
               <MapClickHandler onPick={(lat, lng) => setPosition([lat, lng])} />
@@ -554,30 +554,30 @@ function AddProperty() {
               <div className="flex items-center gap-4">
                 <span style={{ color: "#C9A84C" }}>◇</span>
                 <div>
-                  <div className="text-[10px] tracking-[0.25em] uppercase text-black/50 mb-1">Сонгосон байршил</div>
-                  <div className="text-xs text-black/80 font-mono">
+                  <div className="text-[10px] tracking-[0.25em] uppercase text-white/40 mb-1">Сонгосон байршил</div>
+                  <div className="text-xs text-white/80 font-mono">
                     {position[0].toFixed(5)}, {position[1].toFixed(5)}
                   </div>
                 </div>
               </div>
               <button
                 type="button" onClick={() => setPosition(null)}
-                className="text-[10px] tracking-[0.2em] uppercase text-black/50 hover:text-red-400 transition-colors"
+                className="text-[10px] tracking-[0.2em] uppercase text-white/40 hover:text-red-400 transition-colors"
               >Цэвэрлэх</button>
             </div>
           ) : (
-            <p className="mt-4 text-xs text-black/50 text-center">
+            <p className="mt-4 text-xs text-white/40 text-center">
               Газрын зурган дээр дарж байршлаа сонгоно уу
             </p>
           )}
         </FormSection>
 
         {/* ── Submit ── */}
-        <div className="flex flex-col-reverse sm:flex-row gap-4 pt-10" style={{ borderTop: "1px solid rgba(0,0,0,0.08)" }}>
+        <div className="flex flex-col-reverse sm:flex-row gap-4 pt-10" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
           <Link
             to="/my-properties"
-            className="flex-1 sm:flex-initial sm:px-8 py-4 text-center text-[10px] tracking-[0.25em] uppercase text-black/60 hover:text-neutral-900 transition-colors"
-            style={{ border: "1px solid rgba(0,0,0,0.15)" }}
+            className="flex-1 sm:flex-initial sm:px-8 py-4 text-center text-[10px] tracking-[0.25em] uppercase text-white/60 hover:text-white transition-colors"
+            style={{ border: "1px solid rgba(255,255,255,0.12)" }}
           >Болих</Link>
           <button
             type="submit" disabled={submitting}
@@ -613,16 +613,16 @@ function AddProperty() {
 
 function FormSection({ number, label, hint, children }) {
   return (
-    <section className="mb-12 pb-12" style={{ borderBottom: "1px solid rgba(0,0,0,0.08)" }}>
+    <section className="mb-12 pb-12" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
       <div className="flex items-baseline gap-6 mb-8">
         <span className="font-light" style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 32, color: "#C9A84C" }}>
           {number}
         </span>
         <div className="flex-1">
-          <h3 className="font-light text-neutral-900" style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 28 }}>
+          <h3 className="font-light text-white" style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 28 }}>
             {label}
           </h3>
-          {hint && <p className="text-xs text-black/50 mt-1">{hint}</p>}
+          {hint && <p className="text-xs text-white/40 mt-1">{hint}</p>}
         </div>
       </div>
       <div className="space-y-6">{children}</div>
@@ -633,7 +633,7 @@ function FormSection({ number, label, hint, children }) {
 function Field({ label, required, children }) {
   return (
     <div>
-      <label className="block text-[10px] tracking-[0.3em] uppercase text-black/50 mb-3">
+      <label className="block text-[10px] tracking-[0.3em] uppercase text-white/40 mb-3">
         {label}
         {required && <span style={{ color: "#C9A84C" }}> *</span>}
       </label>
@@ -650,10 +650,10 @@ function TextInput({ value, onChange, placeholder, required, type = "text" }) {
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
       required={required}
-      className="w-full bg-transparent text-neutral-900 text-sm py-3 outline-none transition-colors"
-      style={{ borderBottom: "1px solid rgba(0,0,0,0.18)" }}
+      className="w-full bg-transparent text-white text-sm py-3 outline-none transition-colors"
+      style={{ borderBottom: "1px solid rgba(255,255,255,0.15)" }}
       onFocus={(e) => (e.target.style.borderBottomColor = "#C9A84C")}
-      onBlur={(e) => (e.target.style.borderBottomColor = "rgba(0,0,0,0.18)")}
+      onBlur={(e) => (e.target.style.borderBottomColor = "rgba(255,255,255,0.15)")}
     />
   );
 }
@@ -667,10 +667,10 @@ function NumberInput({ value, onChange, placeholder, required, min = "0" }) {
       placeholder={placeholder}
       required={required}
       min={min}
-      className="w-full bg-transparent text-neutral-900 text-sm py-3 outline-none transition-colors"
-      style={{ borderBottom: "1px solid rgba(0,0,0,0.18)" }}
+      className="w-full bg-transparent text-white text-sm py-3 outline-none transition-colors"
+      style={{ borderBottom: "1px solid rgba(255,255,255,0.15)" }}
       onFocus={(e) => (e.target.style.borderBottomColor = "#C9A84C")}
-      onBlur={(e) => (e.target.style.borderBottomColor = "rgba(0,0,0,0.18)")}
+      onBlur={(e) => (e.target.style.borderBottomColor = "rgba(255,255,255,0.15)")}
     />
   );
 }
@@ -683,10 +683,10 @@ function TextArea({ value, onChange, placeholder, required, rows = 5 }) {
       placeholder={placeholder}
       required={required}
       rows={rows}
-      className="w-full bg-transparent text-neutral-900 text-sm py-3 px-4 outline-none resize-none transition-colors"
-      style={{ border: "1px solid rgba(0,0,0,0.18)" }}
+      className="w-full bg-transparent text-white text-sm py-3 px-4 outline-none resize-none transition-colors"
+      style={{ border: "1px solid rgba(255,255,255,0.15)" }}
       onFocus={(e) => (e.target.style.borderColor = "#C9A84C")}
-      onBlur={(e) => (e.target.style.borderColor = "rgba(0,0,0,0.18)")}
+      onBlur={(e) => (e.target.style.borderColor = "rgba(255,255,255,0.15)")}
     />
   );
 }
@@ -697,8 +697,8 @@ function Select({ value, onChange, required, children }) {
       value={value}
       onChange={(e) => onChange(e.target.value)}
       required={required}
-      className="w-full bg-transparent text-neutral-900 text-sm py-3 outline-none"
-      style={{ borderBottom: "1px solid rgba(0,0,0,0.18)", colorScheme: "light" }}
+      className="w-full bg-transparent text-white text-sm py-3 outline-none"
+      style={{ borderBottom: "1px solid rgba(255,255,255,0.15)", colorScheme: "dark" }}
     >
       {children}
     </select>
@@ -714,8 +714,8 @@ function Toggle({ value, onChange }) {
         className="px-6 py-2.5 text-[10px] tracking-[0.25em] uppercase transition-all"
         style={{
           background: value ? "#C9A84C" : "transparent",
-          color: value ? "#0A0A0A" : "rgba(0,0,0,0.65)",
-          border: value ? "1px solid #C9A84C" : "1px solid rgba(0,0,0,0.18)",
+          color: value ? "#0A0A0A" : "rgba(255,255,255,0.6)",
+          border: value ? "1px solid #C9A84C" : "1px solid rgba(255,255,255,0.15)",
         }}
       >Тийм</button>
       <button
@@ -724,8 +724,8 @@ function Toggle({ value, onChange }) {
         className="px-6 py-2.5 text-[10px] tracking-[0.25em] uppercase transition-all"
         style={{
           background: !value ? "#C9A84C" : "transparent",
-          color: !value ? "#0A0A0A" : "rgba(0,0,0,0.65)",
-          border: !value ? "1px solid #C9A84C" : "1px solid rgba(0,0,0,0.18)",
+          color: !value ? "#0A0A0A" : "rgba(255,255,255,0.6)",
+          border: !value ? "1px solid #C9A84C" : "1px solid rgba(255,255,255,0.15)",
         }}
       >Үгүй</button>
     </div>
