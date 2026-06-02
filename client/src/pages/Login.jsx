@@ -31,7 +31,7 @@ function Login() {
   return (
     <div
       className="min-h-screen flex"
-      style={{ background: "#0A0A0A", fontFamily: "'DM Sans', sans-serif" }}
+      style={{ background: "#FFFFFF", fontFamily: "'DM Sans', sans-serif" }}
     >
       {/* ── LEFT: Hero panel ── */}
       <div
@@ -49,7 +49,7 @@ function Login() {
             className="absolute inset-0"
             style={{
               background:
-                "linear-gradient(135deg, rgba(10,10,10,0.85) 0%, rgba(10,10,10,0.65) 50%, rgba(10,10,10,0.92) 100%)",
+                "linear-gradient(135deg, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0.65) 50%, rgba(255,255,255,0.92) 100%)",
             }}
           />
         </div>
@@ -71,7 +71,7 @@ function Login() {
               <div className="absolute inset-2 bg-[#C9A84C] rotate-45" />
             </div>
             <span
-              className="text-2xl font-light tracking-[0.2em] text-white"
+              className="text-2xl font-light tracking-[0.2em] text-neutral-900"
               style={{ fontFamily: "'Cormorant Garamond', serif" }}
             >
               RENTAL<span style={{ color: "#C9A84C" }}>SY</span>
@@ -92,7 +92,7 @@ function Login() {
           </div>
 
           <h1
-            className="font-light text-white leading-[1.05] mb-8"
+            className="font-light text-neutral-900 leading-[1.05] mb-8"
             style={{
               fontFamily: "'Cormorant Garamond', serif",
               fontSize: "clamp(48px, 5vw, 76px)",
@@ -106,7 +106,7 @@ function Login() {
           </h1>
 
           <p
-            className="text-white/50 text-sm leading-relaxed font-light mb-10"
+            className="text-neutral-600 text-sm leading-relaxed font-light mb-10"
             style={{ maxWidth: 420 }}
           >
             Улаанбаатар хотын 9 дүүрэг даяар хувийн үйлчилгээг 24/7
@@ -117,7 +117,7 @@ function Login() {
           {/* Signature */}
           <div
             className="flex items-center gap-4 pt-6"
-            style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}
+            style={{ borderTop: "1px solid rgba(0,0,0,0.08)" }}
           >
             <div
               style={{
@@ -130,7 +130,7 @@ function Login() {
             >
               
             </div>
-            <div className="text-[10px] tracking-[0.25em] uppercase text-white/40">
+            <div className="text-[10px] tracking-[0.25em] uppercase text-neutral-500">
               Founder · RentalSy
             </div>
           </div>
@@ -158,7 +158,7 @@ function Login() {
                 >
                   {num}
                 </div>
-                <div className="text-[10px] tracking-[0.25em] uppercase text-white/40">
+                <div className="text-[10px] tracking-[0.25em] uppercase text-neutral-500">
                   {label}
                 </div>
               </div>
@@ -189,7 +189,7 @@ function Login() {
               <div className="absolute inset-1.5 bg-[#C9A84C] rotate-45" />
             </div>
             <span
-              className="font-light tracking-[0.2em] text-white text-lg"
+              className="font-light tracking-[0.2em] text-neutral-900 text-lg"
               style={{ fontFamily: "'Cormorant Garamond', serif" }}
             >
               RENTAL<span style={{ color: "#C9A84C" }}>SY</span>
@@ -208,7 +208,7 @@ function Login() {
               </span>
             </div>
             <h2
-              className="font-light text-white leading-tight"
+              className="font-light text-neutral-900 leading-tight"
               style={{
                 fontFamily: "'Cormorant Garamond', serif",
                 fontSize: 52,
@@ -230,7 +230,7 @@ function Login() {
               }}
             >
               <span style={{ color: "#C9A84C" }}>◇</span>
-              <p className="text-xs text-white/60 leading-relaxed">
+              <p className="text-xs text-neutral-700 leading-relaxed">
                 30 минут идэвхгүй байсан тул автоматаар гарлаа
               </p>
             </div>
@@ -245,13 +245,13 @@ function Login() {
               }}
             >
               <span style={{ color: "#EF4444" }}>✕</span>
-              <p className="text-xs text-red-300">{error}</p>
+              <p className="text-xs text-red-600">{error}</p>
             </div>
           )}
 
           <form onSubmit={handleLogin} className="space-y-7">
             <div>
-              <label className="block text-[10px] tracking-[0.3em] uppercase text-white/40 mb-3">
+              <label className="block text-[10px] tracking-[0.3em] uppercase text-neutral-500 mb-3">
                 Имэйл хаяг
               </label>
               <input
@@ -260,9 +260,9 @@ function Login() {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="example@gmail.com"
                 required
-                className="w-full bg-transparent text-white text-sm py-3 outline-none transition-colors"
+                className="w-full bg-transparent text-neutral-900 text-sm py-3 outline-none transition-colors"
                 style={{
-                  borderBottom: "1px solid rgba(255,255,255,0.15)",
+                  borderBottom: "1px solid rgba(0,0,0,0.15)",
                   fontFamily: "'DM Sans', sans-serif",
                 }}
                 onFocus={(e) =>
@@ -270,14 +270,14 @@ function Login() {
                 }
                 onBlur={(e) =>
                   (e.target.style.borderBottomColor =
-                    "rgba(255,255,255,0.15)")
+                    "rgba(0,0,0,0.15)")
                 }
               />
             </div>
 
             <div>
               <div className="flex items-center justify-between mb-3">
-                <label className="text-[10px] tracking-[0.3em] uppercase text-white/40">
+                <label className="text-[10px] tracking-[0.3em] uppercase text-neutral-500">
                   Нууц үг
                 </label>
                 <Link
@@ -295,9 +295,9 @@ function Login() {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
                   required
-                  className="w-full bg-transparent text-white text-sm py-3 outline-none pr-16 transition-colors"
+                  className="w-full bg-transparent text-neutral-900 text-sm py-3 outline-none pr-16 transition-colors"
                   style={{
-                    borderBottom: "1px solid rgba(255,255,255,0.15)",
+                    borderBottom: "1px solid rgba(0,0,0,0.15)",
                     fontFamily: "'DM Sans', sans-serif",
                   }}
                   onFocus={(e) =>
@@ -305,13 +305,13 @@ function Login() {
                   }
                   onBlur={(e) =>
                     (e.target.style.borderBottomColor =
-                      "rgba(255,255,255,0.15)")
+                      "rgba(0,0,0,0.15)")
                   }
                 />
                 <button
                   type="button"
                   onClick={() => setShowPw((p) => !p)}
-                  className="absolute right-0 top-1/2 -translate-y-1/2 text-[10px] tracking-widest uppercase text-white/40 hover:text-white transition-colors"
+                  className="absolute right-0 top-1/2 -translate-y-1/2 text-[10px] tracking-widest uppercase text-neutral-500 hover:text-neutral-900 transition-colors"
                 >
                   {showPw ? "Нуух" : "Харах"}
                 </button>
@@ -379,7 +379,7 @@ function Login() {
                     "linear-gradient(90deg, transparent, rgba(201,168,76,0.3))",
                 }}
               />
-              <span className="text-[10px] tracking-[0.3em] uppercase text-white/30">
+              <span className="text-[10px] tracking-[0.3em] uppercase text-neutral-400">
                 or
               </span>
               <div
@@ -390,7 +390,7 @@ function Login() {
                 }}
               />
             </div>
-            <p className="text-xs text-white/40 tracking-wide">
+            <p className="text-xs text-neutral-500 tracking-wide">
               Бүртгэлгүй юу?
               <Link
                 to="/register"
