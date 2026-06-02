@@ -83,7 +83,7 @@ function Register() {
   return (
     <div
       className="min-h-screen flex"
-      style={{ background: "#FFFFFF", fontFamily: "'DM Sans', sans-serif" }}
+      style={{ background: "#0A0A0A", fontFamily: "'DM Sans', sans-serif" }}
     >
       {/* ── LEFT: Hero ── */}
       <div
@@ -101,7 +101,7 @@ function Register() {
             className="absolute inset-0"
             style={{
               background:
-                "linear-gradient(135deg, rgba(255,255,255,0.92) 0%, rgba(255,255,255,0.7) 50%, rgba(255,255,255,0.95) 100%)",
+                "linear-gradient(135deg, rgba(10,10,10,0.92) 0%, rgba(10,10,10,0.7) 50%, rgba(10,10,10,0.95) 100%)",
             }}
           />
         </div>
@@ -122,7 +122,7 @@ function Register() {
               <div className="absolute inset-2 bg-[#C9A84C] rotate-45" />
             </div>
             <span
-              className="text-2xl font-light tracking-[0.2em] text-neutral-900"
+              className="text-2xl font-light tracking-[0.2em] text-white"
               style={{ fontFamily: "'Cormorant Garamond', serif" }}
             >
               RENTAL<span style={{ color: "#C9A84C" }}>SY</span>
@@ -142,7 +142,7 @@ function Register() {
           </div>
 
           <h1
-            className="font-light text-neutral-900 leading-[1.05] mb-8"
+            className="font-light text-white leading-[1.05] mb-8"
             style={{
               fontFamily: "'Cormorant Garamond', serif",
               fontSize: "clamp(48px, 5vw, 76px)",
@@ -156,7 +156,7 @@ function Register() {
           </h1>
 
           <p
-            className="text-neutral-600 text-sm leading-relaxed font-light mb-10"
+            className="text-white/50 text-sm leading-relaxed font-light mb-10"
             style={{ maxWidth: 420 }}
           >
             Түрээслэгч ба байрны эзний хоорондын итгэлцэлд тулгуурласан
@@ -167,7 +167,7 @@ function Register() {
 
           <div
             className="flex items-center gap-4 pt-6"
-            style={{ borderTop: "1px solid rgba(0,0,0,0.08)" }}
+            style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}
           >
             <div
               style={{
@@ -180,7 +180,7 @@ function Register() {
             >
               Indra
             </div>
-            <div className="text-[10px] tracking-[0.25em] uppercase text-neutral-500">
+            <div className="text-[10px] tracking-[0.25em] uppercase text-white/40">
               Founder · RentalSy
             </div>
           </div>
@@ -207,7 +207,7 @@ function Register() {
                 >
                   {num}
                 </div>
-                <div className="text-[10px] tracking-[0.25em] uppercase text-neutral-500">
+                <div className="text-[10px] tracking-[0.25em] uppercase text-white/40">
                   {label}
                 </div>
               </div>
@@ -235,7 +235,7 @@ function Register() {
               <div className="absolute inset-1.5 bg-[#C9A84C] rotate-45" />
             </div>
             <span
-              className="font-light tracking-[0.2em] text-neutral-900 text-lg"
+              className="font-light tracking-[0.2em] text-white text-lg"
               style={{ fontFamily: "'Cormorant Garamond', serif" }}
             >
               RENTAL<span style={{ color: "#C9A84C" }}>SY</span>
@@ -253,7 +253,7 @@ function Register() {
               </span>
             </div>
             <h2
-              className="font-light text-neutral-900 leading-tight"
+              className="font-light text-white leading-tight"
               style={{
                 fontFamily: "'Cormorant Garamond', serif",
                 fontSize: 48,
@@ -275,14 +275,14 @@ function Register() {
               }}
             >
               <span style={{ color: "#EF4444" }}>✕</span>
-              <p className="text-xs text-red-600">{error}</p>
+              <p className="text-xs text-red-300">{error}</p>
             </div>
           )}
 
           <form onSubmit={handleRegister} className="space-y-6">
             {/* Role selector */}
             <div>
-              <label className="block text-[10px] tracking-[0.3em] uppercase text-neutral-500 mb-3">
+              <label className="block text-[10px] tracking-[0.3em] uppercase text-white/40 mb-3">
                 Та хэн бэ?
               </label>
               <div className="grid grid-cols-2 gap-3">
@@ -303,8 +303,8 @@ function Register() {
                       border:
                         role === r.v
                           ? "1px solid #C9A84C"
-                          : "1px solid rgba(0,0,0,0.12)",
-                      color: role === r.v ? "#C9A84C" : "rgba(0,0,0,0.55)",
+                          : "1px solid rgba(255,255,255,0.12)",
+                      color: role === r.v ? "#C9A84C" : "rgba(255,255,255,0.55)",
                     }}
                   >
                     {r.label}
@@ -315,7 +315,7 @@ function Register() {
 
             {/* Name */}
             <div>
-              <label className="block text-[10px] tracking-[0.3em] uppercase text-neutral-500 mb-3">
+              <label className="block text-[10px] tracking-[0.3em] uppercase text-white/40 mb-3">
                 Овог нэр
               </label>
               <input
@@ -324,23 +324,23 @@ function Register() {
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Бат-Эрдэнэ"
                 required
-                className="w-full bg-transparent text-neutral-900 text-sm py-3 outline-none transition-colors"
+                className="w-full bg-transparent text-white text-sm py-3 outline-none transition-colors"
                 style={{
-                  borderBottom: "1px solid rgba(0,0,0,0.15)",
+                  borderBottom: "1px solid rgba(255,255,255,0.15)",
                 }}
                 onFocus={(e) =>
                   (e.target.style.borderBottomColor = "#C9A84C")
                 }
                 onBlur={(e) =>
                   (e.target.style.borderBottomColor =
-                    "rgba(0,0,0,0.15)")
+                    "rgba(255,255,255,0.15)")
                 }
               />
             </div>
 
             {/* Email */}
             <div>
-              <label className="block text-[10px] tracking-[0.3em] uppercase text-neutral-500 mb-3">
+              <label className="block text-[10px] tracking-[0.3em] uppercase text-white/40 mb-3">
                 Имэйл хаяг
               </label>
               <input
@@ -349,30 +349,30 @@ function Register() {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="example@gmail.com"
                 required
-                className="w-full bg-transparent text-neutral-900 text-sm py-3 outline-none transition-colors"
+                className="w-full bg-transparent text-white text-sm py-3 outline-none transition-colors"
                 style={{
-                  borderBottom: "1px solid rgba(0,0,0,0.15)",
+                  borderBottom: "1px solid rgba(255,255,255,0.15)",
                 }}
                 onFocus={(e) =>
                   (e.target.style.borderBottomColor = "#C9A84C")
                 }
                 onBlur={(e) =>
                   (e.target.style.borderBottomColor =
-                    "rgba(0,0,0,0.15)")
+                    "rgba(255,255,255,0.15)")
                 }
               />
             </div>
 
             {/* Phone */}
             <div>
-              <label className="block text-[10px] tracking-[0.3em] uppercase text-neutral-500 mb-3">
+              <label className="block text-[10px] tracking-[0.3em] uppercase text-white/40 mb-3">
                 Утасны дугаар
               </label>
               <div className="flex items-center gap-3">
                 <span
-                  className="text-sm text-neutral-600 py-3"
+                  className="text-sm text-white/50 py-3"
                   style={{
-                    borderBottom: "1px solid rgba(0,0,0,0.15)",
+                    borderBottom: "1px solid rgba(255,255,255,0.15)",
                   }}
                 >
                   +976
@@ -385,16 +385,16 @@ function Register() {
                   }
                   placeholder="99112233"
                   required
-                  className="flex-1 bg-transparent text-neutral-900 text-sm py-3 outline-none transition-colors"
+                  className="flex-1 bg-transparent text-white text-sm py-3 outline-none transition-colors"
                   style={{
-                    borderBottom: "1px solid rgba(0,0,0,0.15)",
+                    borderBottom: "1px solid rgba(255,255,255,0.15)",
                   }}
                   onFocus={(e) =>
                     (e.target.style.borderBottomColor = "#C9A84C")
                   }
                   onBlur={(e) =>
                     (e.target.style.borderBottomColor =
-                      "rgba(0,0,0,0.15)")
+                      "rgba(255,255,255,0.15)")
                   }
                 />
               </div>
@@ -402,7 +402,7 @@ function Register() {
 
             {/* Password */}
             <div>
-              <label className="block text-[10px] tracking-[0.3em] uppercase text-neutral-500 mb-3">
+              <label className="block text-[10px] tracking-[0.3em] uppercase text-white/40 mb-3">
                 Нууц үг
               </label>
               <div className="relative">
@@ -412,22 +412,22 @@ function Register() {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
                   required
-                  className="w-full bg-transparent text-neutral-900 text-sm py-3 outline-none pr-16 transition-colors"
+                  className="w-full bg-transparent text-white text-sm py-3 outline-none pr-16 transition-colors"
                   style={{
-                    borderBottom: "1px solid rgba(0,0,0,0.15)",
+                    borderBottom: "1px solid rgba(255,255,255,0.15)",
                   }}
                   onFocus={(e) =>
                     (e.target.style.borderBottomColor = "#C9A84C")
                   }
                   onBlur={(e) =>
                     (e.target.style.borderBottomColor =
-                      "rgba(0,0,0,0.15)")
+                      "rgba(255,255,255,0.15)")
                   }
                 />
                 <button
                   type="button"
                   onClick={() => setShowPw((p) => !p)}
-                  className="absolute right-0 top-1/2 -translate-y-1/2 text-[10px] tracking-widest uppercase text-neutral-500 hover:text-neutral-900 transition-colors"
+                  className="absolute right-0 top-1/2 -translate-y-1/2 text-[10px] tracking-widest uppercase text-white/40 hover:text-white transition-colors"
                 >
                   {showPw ? "Нуух" : "Харах"}
                 </button>
@@ -445,13 +445,13 @@ function Register() {
                           background:
                             i <= strength
                               ? strengthColor
-                              : "rgba(0,0,0,0.08)",
+                              : "rgba(255,255,255,0.08)",
                         }}
                       />
                     ))}
                   </div>
                   <div className="flex items-center justify-between text-[10px] tracking-widest uppercase">
-                    <span className="text-neutral-500">Хүч</span>
+                    <span className="text-white/40">Хүч</span>
                     <span style={{ color: strengthColor }}>
                       {strengthLabel}
                     </span>
@@ -462,7 +462,7 @@ function Register() {
 
             {/* Confirm Password */}
             <div>
-              <label className="block text-[10px] tracking-[0.3em] uppercase text-neutral-500 mb-3">
+              <label className="block text-[10px] tracking-[0.3em] uppercase text-white/40 mb-3">
                 Нууц үг давтах
               </label>
               <input
@@ -471,23 +471,23 @@ function Register() {
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="••••••••"
                 required
-                className="w-full bg-transparent text-neutral-900 text-sm py-3 outline-none transition-colors"
+                className="w-full bg-transparent text-white text-sm py-3 outline-none transition-colors"
                 style={{
-                  borderBottom: "1px solid rgba(0,0,0,0.15)",
+                  borderBottom: "1px solid rgba(255,255,255,0.15)",
                 }}
                 onFocus={(e) =>
                   (e.target.style.borderBottomColor = "#C9A84C")
                 }
                 onBlur={(e) =>
                   (e.target.style.borderBottomColor =
-                    "rgba(0,0,0,0.15)")
+                    "rgba(255,255,255,0.15)")
                 }
               />
             </div>
 
             {/* OTP Method */}
             <div>
-              <label className="block text-[10px] tracking-[0.3em] uppercase text-neutral-500 mb-3">
+              <label className="block text-[10px] tracking-[0.3em] uppercase text-white/40 mb-3">
                 Баталгаажуулах арга
               </label>
               <div className="grid grid-cols-2 gap-3">
@@ -508,11 +508,11 @@ function Register() {
                       border:
                         otpMethod === m.v
                           ? "1px solid #C9A84C"
-                          : "1px solid rgba(0,0,0,0.12)",
+                          : "1px solid rgba(255,255,255,0.12)",
                       color:
                         otpMethod === m.v
                           ? "#C9A84C"
-                          : "rgba(0,0,0,0.55)",
+                          : "rgba(255,255,255,0.55)",
                     }}
                   >
                     {m.label}
@@ -582,7 +582,7 @@ function Register() {
                     "linear-gradient(90deg, transparent, rgba(201,168,76,0.3))",
                 }}
               />
-              <span className="text-[10px] tracking-[0.3em] uppercase text-neutral-400">
+              <span className="text-[10px] tracking-[0.3em] uppercase text-white/30">
                 or
               </span>
               <div
@@ -593,7 +593,7 @@ function Register() {
                 }}
               />
             </div>
-            <p className="text-xs text-neutral-500 tracking-wide">
+            <p className="text-xs text-white/40 tracking-wide">
               Бүртгэлтэй юу?
               <Link
                 to="/login"
